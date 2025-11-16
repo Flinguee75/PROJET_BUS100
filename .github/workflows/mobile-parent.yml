@@ -1,0 +1,52 @@
+name: Mobile Parent - Flutter CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'mobile-parent/**'
+      - '.github/workflows/mobile-parent.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'mobile-parent/**'
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: 📦 Install dependencies
+        working-directory: mobile-parent
+        run: flutter pub get
+
+      - name: 🔍 Analyze code
+        working-directory: mobile-parent
+        run: flutter analyze
+
+      - name: 🧪 Run tests
+        working-directory: mobile-parent
+        run: flutter test
+
+      - name: 🏗️ Build APK (debug)
+        working-directory: mobile-parent
+        run: flutter build apk --debug
+
+      - name: 📤 Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-parent-debug-apk
+          path: mobile-parent/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+      - name: ✅ Build success
+        run: echo "✅ Mobile Parent APK built successfully"

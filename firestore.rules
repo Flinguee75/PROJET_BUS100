@@ -1,0 +1,147 @@
+rules_version = '2';
+
+/**
+ * Règles de sécurité Firestore - Production
+ * Système de Transport Scolaire
+ *
+ * Règle générale: Backend décide, Firestore stocke
+ * Accès basé sur les rôles (RBAC): admin, driver, parent
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // FONCTIONS HELPER
+    // ========================================
+
+    // Vérifie si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Récupère les données utilisateur
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Vérifie si l'utilisateur est admin
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    // Vérifie si l'utilisateur est chauffeur
+    function isDriver() {
+      return isAuthenticated() && getUserData().role == 'driver';
+    }
+
+    // Vérifie si l'utilisateur est parent
+    function isParent() {
+      return isAuthenticated() && getUserData().role == 'parent';
+    }
+
+    // Vérifie si le chauffeur est assigné à ce bus
+    function isAssignedDriver(busId) {
+      return isDriver() && getUserData().busId == busId;
+    }
+
+    // ========================================
+    // COLLECTION: buses
+    // ========================================
+    match /buses/{busId} {
+      // Admin: lecture/écriture complète
+      // Chauffeur: lecture uniquement son bus
+      // Parent: lecture bus assigné à son enfant
+      allow read: if isAdmin() || isAssignedDriver(busId);
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: gps_live (positions temps réel)
+    // ========================================
+    match /gps_live/{busId} {
+      // Admin: lecture toutes positions
+      // Chauffeur: écriture pour son bus uniquement
+      // Parent: lecture bus de son enfant
+      allow read: if isAdmin() || isAuthenticated();
+      allow write: if isAssignedDriver(busId);
+    }
+
+    // ========================================
+    // COLLECTION: gps_history (historique GPS)
+    // ========================================
+    match /gps_history/{busId}/{day}/{positionId} {
+      // Admin: lecture tout l'historique
+      // Chauffeur: lecture historique de son bus
+      // Parent: lecture historique du bus de son enfant
+      allow read: if isAdmin();
+      allow write: if false; // Écriture uniquement via backend
+    }
+
+    // ========================================
+    // COLLECTION: students (élèves)
+    // ========================================
+    match /students/{studentId} {
+      // Admin: lecture/écriture complète
+      // Parent: lecture uniquement ses enfants
+      // Chauffeur: lecture élèves de son bus
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: users (drivers, parents, admins)
+    // ========================================
+    match /users/{userId} {
+      // Chaque utilisateur peut lire son propre profil
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      // Admin peut tout lire/écrire
+      allow read, write: if isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: notifications
+    // ========================================
+    match /notifications/{notificationId} {
+      // Lecture si l'utilisateur est dans recipientIds
+      allow read: if isAuthenticated() &&
+        request.auth.uid in resource.data.recipientIds;
+      // Écriture uniquement par admin ou backend
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: routes (parcours)
+    // ========================================
+    match /routes/{routeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: attendance (présences)
+    // ========================================
+    match /attendance/{attendanceId} {
+      // Chauffeur peut écrire les présences
+      // Admin peut tout voir
+      allow read: if isAdmin();
+      allow write: if isDriver() || isAdmin();
+    }
+
+    // ========================================
+    // COLLECTION: fcm_tokens (tokens push notifications)
+    // ========================================
+    match /fcm_tokens/{tokenId} {
+      // Utilisateur peut gérer ses propres tokens
+      allow read, write: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // ========================================
+    // DEFAULT: Bloquer tout le reste
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

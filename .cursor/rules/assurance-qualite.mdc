@@ -1,0 +1,278 @@
+---
+alwaysApply: true
+---
+# **1. Philosophie Fondamentale : La Qualité Itérative**
+
+La qualité ne se vérifie pas à la fin : elle s’intègre **à chaque étape** du développement.
+
+### **Principe Agile : « Une itération = une fonctionnalité stable, utilisable et testée. »**
+
+* On n’avance pas tant qu’une fonctionnalité n’est pas **reliée de bout en bout** :
+  Backend → API → Web/Mobile → Tests.
+* On ne commence pas une fonctionnalité P2 (ex : carnet d’entretien)
+  tant qu’une fonctionnalité P1 (ex : tracking + notifications) n’est pas **testée et stable**.
+
+---
+
+# **2. Ordre d’Implémentation : Les « Vertical Slices »**
+
+On n’implémente pas :
+
+* “tout le backend”, puis “tout le frontend”.
+
+On implémente **fonction par fonction**, du backend au mobile, complètement.
+
+---
+
+### **Exemple : Fonctionnalité “Tracking Temps Réel du Bus” (MVP)**
+
+1. **Base de Données (Firestore)**
+
+   * Créer la collection `/gps_live/{busId}` et `/gps_history/{busId}/{jour}`.
+
+2. **Backend (WebSocket / Cloud Function)**
+
+   * Recevoir la position GPS.
+   * La valider.
+   * La stocker dans Firestore.
+
+3. **Tests Unitaires Backend**
+
+   * Vérifier que le backend valide le schéma GPS.
+   * Vérifier la bonne insertion.
+
+4. **API Web (Admin)**
+
+   * GET `/buses/{id}/position`
+
+5. **Tests d’Intégration API**
+
+   * Vérifier que l’API retourne bien le JSON attendu.
+
+6. **Frontend Web (Admin)**
+
+   * Afficher la position sur la carte.
+
+7. **Frontend Mobile (Parents)**
+
+   * Afficher uniquement le bus de l’enfant.
+
+8. **Tests Fonctionnels (Mobile Réel)**
+
+   * Vérifier que la position se met à jour toutes les 3–5 secondes.
+
+### Résultat
+
+→ Une fonctionnalité complète, testée, utilisable.
+→ On passe à la suivante.
+
+---
+
+# **3. Stratégie de Qualité – Backend (Node.js / Python)**
+
+C’est le moteur du temps réel : GPS, notifications, maintenance, incidents.
+
+---
+
+## **a. Logique Métier (Services Backend)**
+
+### **Tests Unitaires – OBLIGATOIRE**
+
+Chaque service critique doit avoir des tests :
+
+* traitement GPS
+* calcul distance / ETA
+* contrôle de conformité (déviance du parcours)
+* déclenchement des notifications
+* règles d’absence et montée/descente
+
+**Règle : Pas de logique métier dans les endpoints.**
+Tout doit être dans `/services/...`.
+
+---
+
+## **b. API (REST + WebSocket)**
+
+### **Validation stricte (Pydantic ou Zod/TypeScript)**
+
+Chaque endpoint doit valider toutes les entrées.
+
+Exemple schéma GPS :
+
+```
+{
+  lat: number;
+  lng: number;
+  speed: number;
+  timestamp: number;
+}
+```
+
+### **Tests d’Intégration API – OBLIGATOIRE**
+
+Avec FastAPI → TestClient
+Avec Node.js → SuperTest
+
+Cas à tester :
+
+* normal
+* paramètres invalides (422)
+* bus introuvable (404)
+
+---
+
+## **c. Firestore & Sécurité**
+
+### **Règles Firestore strictes**
+
+* Un parent → accès uniquement à son enfant + bus assigné.
+* Chauffeur → accès uniquement à son bus.
+* Admin → accès complet (lecture/écriture).
+
+### **Pas de logique dans Firestore**
+
+→ Le backend décide, Firestore stocke.
+
+### **Pas de lecture inutile**
+
+→ Optimisations Firestore:
+
+* collections petites pour le temps réel
+* historiques séparés
+
+---
+
+# **4. Stratégie de Qualité – Frontend Web / Mobile**
+
+---
+
+## **a. Web Admin (React / Next.js)**
+
+### **TypeScript – FORTEMENT RECOMMANDÉ**
+
+Réduit 80 % des erreurs de logique.
+
+### **Découpage en Composants**
+
+* `BusCard`
+* `MapView`
+* `NotificationTable`
+* `MaintenanceCard`
+
+### **Tests (Jest + RTL)**
+
+Tester le comportement réel :
+
+* bouton déclenche une API
+* carte affiche bonne position
+* info maintenance apparaît correctement
+
+---
+
+## **b. Mobile (Parents & Chauffeurs – Flutter/React Native)**
+
+### **UX “Mobile First”**
+
+* écrans simples
+* CTA évidents
+* carte fluide (maj 3–5 secondes)
+
+### **Gestion d’État**
+
+* Provider / Redux Toolkit / Context
+* État clair : `en_route`, `arrivé`, `retard`, etc.
+
+### **Tests Fonctionnels**
+
+Sur appareil réel :
+
+* tracking fluide
+* push notifications reçues
+* validation QR/NFC instantanée
+
+---
+
+# **5. Infrastructure & Processus (Le Gardien de la Qualité)**
+
+---
+
+## **a. Git – OBLIGATOIRE**
+
+### **Règles :**
+
+* `main` = production
+* `develop` = version stable en développement
+* `feature/...` = 1 fonctionnalité = 1 branche
+
+### **Pull Requests (PR) – OBLIGATOIRE**
+
+Une PR doit contenir :
+
+* description courte
+* ce que ça ajoute
+* comment tester
+* captures si UI
+
+---
+
+## **b. CI/CD – (GitHub Actions / GitLab CI)**
+
+Chaque PR doit automatiquement :
+
+1. Lancer les tests backend
+2. Lancer les tests frontend
+3. Vérifier le typage (TS/Python)
+4. Vérifier le lint
+5. Construire l’image Docker (si applicable)
+
+**Règle absolue :**
+Si un test échoue → PR bloquée → pas de merge.
+
+---
+
+## **c. Monitoring & Logs**
+
+Utiliser :
+
+* Google Cloud Logging
+* Firebase Crashlytics (mobile)
+* UptimeRobot / GCP Monitoring
+
+Cas surveillés :
+
+* flux GPS cassé
+* latence > 200ms
+* notifications non envoyées
+* crash mobile
+
+---
+
+# **6. Résumé des 5 Piliers de Qualité**
+
+1. **Tests Automatisés** (unitaires, intégration, mobile réel)
+2. **Typage Strict** (TypeScript / Python)
+3. **Validation stricte** (Zod/Pydantic)
+4. **Processus Git Flow + PR**
+5. **CI/CD obligatoire** (tests + lint + build)
+
+---
+
+# **Conclusion**
+
+En appliquant ce cadre :
+
+* le produit restera maintenable,
+* chaque fonctionnalité sera stable,
+* les bugs seront détectés avant les utilisateurs,
+* et l’application pourra évoluer (V1, V2, V3…) sans dette technique.
+
+---
+
+Si tu veux, je peux maintenant te générer :
+**→ un PDF mis en page**
+**→ une version courte (1 page)**
+**→ une version "processus interne équipe"**
+**→ ou une version "présentation aux investisseurs".**
+---
+alwaysApply: true
+---
