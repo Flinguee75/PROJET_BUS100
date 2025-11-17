@@ -9,6 +9,7 @@ import cors from 'cors';
 
 // Import routes
 import gpsRoutes from './routes/gps.routes';
+import busRoutes from './routes/bus.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -33,6 +34,7 @@ app.get('/health', (_req, res) => {
 
 // API Routes
 app.use('/api/gps', gpsRoutes);
+app.use('/api/buses', busRoutes);
 
 // Route 404
 app.use((req, res) => {

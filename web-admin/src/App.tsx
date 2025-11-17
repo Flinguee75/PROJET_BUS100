@@ -19,6 +19,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { RealtimeMapPage } from '@/pages/RealtimeMapPage';
 import { BusDetailsPage } from '@/pages/BusDetailsPage';
+import { BusesManagementPage } from '@/pages/BusesManagementPage';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 // Configuration du client React Query
@@ -64,7 +65,7 @@ function AppRoutes() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="map" element={<RealtimeMapPage />} />
-          <Route path="buses" element={<RealtimeMapPage />} />
+          <Route path="buses" element={<BusesManagementPage />} />
           <Route path="buses/:busId" element={<BusDetailsPage />} />
           <Route path="drivers" element={<div className="p-8"><h1 className="text-2xl font-bold">Conducteurs (À venir)</h1></div>} />
           <Route path="students" element={<div className="p-8"><h1 className="text-2xl font-bold">Élèves (À venir)</h1></div>} />
