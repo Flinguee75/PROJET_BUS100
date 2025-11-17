@@ -10,6 +10,7 @@ import cors from 'cors';
 // Import routes
 import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -33,8 +34,11 @@ app.get('/health', (_req, res) => {
 });
 
 // API Routes
+// Note: Firebase Functions mappe /projet-bus-60a3f/europe-west4/api/... vers /... dans Express
+// Exemple: /projet-bus-60a3f/europe-west4/api/dashboard/stats -> /dashboard/stats
 app.use('/api/gps', gpsRoutes);
 app.use('/api/buses', busRoutes);
+app.use('/dashboard', dashboardRoutes); // Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
 
 // Route 404
 app.use((req, res) => {
@@ -85,3 +89,6 @@ if (process.env.FUNCTIONS_EMULATOR === 'true') {
 
 // Export fonction de test
 export { helloWorld } from './test-function';
+
+// Export trigger de création d'utilisateur
+export { onUserCreated } from './triggers/user-created.trigger';

@@ -52,10 +52,10 @@ export const DashboardPage = () => {
                       Nombre de bus actifs
                     </p>
                     <p className="text-4xl font-bold text-blue-600 mb-1">
-                      {stats.busActifs}
+                      {stats.busActifs ?? 0}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      En ligne / {stats.busTotaux} Total
+                      En ligne / {stats.busTotaux ?? 0} Total
                     </p>
                   </div>
                 </div>
@@ -72,7 +72,7 @@ export const DashboardPage = () => {
                       Nombre d'élèves transportés
                     </p>
                     <p className="text-4xl font-bold text-yellow-600 mb-1">
-                      {stats.elevesTransportes.toLocaleString()}
+                      {(stats.elevesTransportes ?? 0).toLocaleString()}
                     </p>
                     <p className="text-gray-500 text-sm">Aujourd'hui</p>
                   </div>
@@ -90,10 +90,10 @@ export const DashboardPage = () => {
                       Bus en retard
                     </p>
                     <p className="text-4xl font-bold text-blue-600 mb-1">
-                      {stats.busEnRetard}
+                      {stats.busEnRetard ?? 0}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      Bus sur {stats.totalTrajets} trajets
+                      Bus sur {stats.totalTrajets ?? 0} trajets
                     </p>
                   </div>
                 </div>
@@ -110,7 +110,7 @@ export const DashboardPage = () => {
                       Alertes maintenance
                     </p>
                     <p className="text-4xl font-bold text-yellow-600 mb-1">
-                      {stats.alertesMaintenance}
+                      {stats.alertesMaintenance ?? 0}
                     </p>
                     <p className="text-gray-500 text-sm">
                       À traiter urgemment

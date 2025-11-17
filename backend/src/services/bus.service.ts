@@ -3,12 +3,14 @@
  * Gère les opérations CRUD sur la collection Firestore /buses
  */
 
-import { db } from '../config/firebase.config';
+import { getDb } from '../config/firebase.config';
 import { Bus, BusCreateInput, BusUpdateInput, BusStatus, MaintenanceStatus } from '../types/bus.types';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export class BusService {
-  private readonly collection = db.collection('buses');
+  private getCollection() {
+    return getDb().collection('buses');
+  }
 
   /**
    * Crée un nouveau bus dans Firestore
@@ -27,7 +29,7 @@ export class BusService {
       updatedAt: now,
     };
 
-    const docRef = await this.collection.add(busData);
+    const docRef = await this.getCollection().add(busData);
     const doc = await docRef.get();
     
     return {
@@ -43,7 +45,7 @@ export class BusService {
    * @returns Liste de tous les bus
    */
   async getAllBuses(): Promise<Bus[]> {
-    const snapshot = await this.collection.get();
+    const snapshot = await this.getCollection().get();
     return snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -61,7 +63,7 @@ export class BusService {
    * @returns Le bus trouvé ou null
    */
   async getBusById(busId: string): Promise<Bus | null> {
-    const doc = await this.collection.doc(busId).get();
+    const doc = await this.getCollection().doc(busId).get();
     if (!doc.exists) {
       return null;
     }
@@ -82,7 +84,7 @@ export class BusService {
    * @returns Le bus mis à jour
    */
   async updateBus(busId: string, input: BusUpdateInput): Promise<Bus> {
-    const docRef = this.collection.doc(busId);
+    const docRef = this.getCollection().doc(busId);
     
     // Vérifier que le bus existe
     const doc = await docRef.get();
@@ -111,12 +113,12 @@ export class BusService {
    * @param busId - ID du bus à supprimer
    */
   async deleteBus(busId: string): Promise<void> {
-    const doc = await this.collection.doc(busId).get();
+    const doc = await this.getCollection().doc(busId).get();
     if (!doc.exists) {
       throw new Error(`Bus with ID ${busId} not found`);
     }
     
-    await this.collection.doc(busId).delete();
+    await this.getCollection().doc(busId).delete();
   }
 
   /**
@@ -125,7 +127,7 @@ export class BusService {
    */
   async getBusesWithLivePosition(): Promise<Bus[]> {
     const buses = await this.getAllBuses();
-    const gpsSnapshot = await db.collection('gps_live').get();
+    const gpsSnapshot = await getDb().collection('gps_live').get();
     const gpsMap = new Map(
       gpsSnapshot.docs.map((doc) => [doc.id, doc.data()])
     );

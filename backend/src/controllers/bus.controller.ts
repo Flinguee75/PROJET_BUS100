@@ -74,6 +74,14 @@ export class BusController {
     try {
       const { busId } = req.params;
       
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+      
       const bus = await busService.getBusById(busId);
       
       if (!bus) {
@@ -106,6 +114,14 @@ export class BusController {
       const { busId } = req.params;
       const input: BusUpdateInput = req.body;
       
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+      
       const bus = await busService.updateBus(busId, input);
       
       res.json({
@@ -136,6 +152,14 @@ export class BusController {
   async deleteBus(req: Request, res: Response): Promise<void> {
     try {
       const { busId } = req.params;
+      
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
       
       await busService.deleteBus(busId);
       

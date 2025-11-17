@@ -9,7 +9,7 @@ import { auth } from './firebase';
 
 // Instance Axios configurée
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/projet-bus-60a3f/europe-west4',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -87,8 +87,13 @@ export const getBusPosition = async (busId: string): Promise<GPSPosition> => {
  */
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   try {
-    const response = await api.get<DashboardStats>('/api/dashboard/stats');
-    return response.data;
+    const response = await api.get<{ success: boolean; data: DashboardStats }>('/api/dashboard/stats');
+    // L'API retourne { success: true, data: { ... } }, on extrait data
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    // Fallback si la structure est différente
+    return response.data as unknown as DashboardStats;
   } catch (error) {
     console.error('Erreur lors de la récupération des statistiques:', error);
     throw new Error('Impossible de récupérer les statistiques');

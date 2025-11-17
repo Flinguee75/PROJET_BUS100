@@ -45,12 +45,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initializedRef.current = true;
 
+    // Timeout de sécurité : arrêter le loading après 3 secondes max
+    const loadingTimeout = setTimeout(() => {
+      console.warn('⚠️ Timeout de chargement - arrêt forcé du loading');
+      setLoading(false);
+    }, 3000);
+
     const unsubscribe = authService.observeAuthState((currentUser) => {
+      clearTimeout(loadingTimeout);
       setUser(currentUser);
       setLoading(false);
     });
 
     return () => {
+      clearTimeout(loadingTimeout);
       unsubscribe();
     };
   }, []);

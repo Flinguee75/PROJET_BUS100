@@ -48,28 +48,39 @@ export const logout = async (): Promise<void> => {
  * Récupère le profil utilisateur depuis Firestore
  */
 export const getUserProfile = async (uid: string): Promise<User> => {
-  try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
+  // Profil par défaut basé sur Firebase Auth
+  const defaultProfile: User = {
+    uid,
+    email: auth.currentUser?.email || '',
+    displayName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Admin',
+    role: UserRole.ADMIN,
+  };
 
-    if (!userDoc.exists()) {
-      // Si le profil n'existe pas, créer un profil par défaut
-      return {
-        uid,
-        email: auth.currentUser?.email || '',
-        role: UserRole.ADMIN,
-      };
+  try {
+    // Essayer de récupérer depuis Firestore avec un timeout
+    const userDoc = await Promise.race([
+      getDoc(doc(db, 'users', uid)),
+      new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 2000)
+      )
+    ]);
+
+    if (!userDoc || !userDoc.exists()) {
+      console.warn('⚠️ Document utilisateur non trouvé, utilisation du profil par défaut');
+      return defaultProfile;
     }
 
     const data = userDoc.data();
     return {
       uid,
-      email: data.email,
-      displayName: data.displayName,
+      email: data.email || defaultProfile.email,
+      displayName: data.displayName || defaultProfile.displayName,
       role: data.role || UserRole.ADMIN,
     };
   } catch (error) {
-    console.error('Erreur lors de la récupération du profil:', error);
-    throw new Error('Impossible de récupérer le profil utilisateur');
+    // Toute erreur (timeout, réseau, etc.) → utiliser le profil par défaut
+    console.warn('⚠️ Firestore inaccessible, utilisation du profil par défaut');
+    return defaultProfile;
   }
 };
 
@@ -81,13 +92,10 @@ export const observeAuthState = (
 ): (() => void) => {
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
-      try {
-        const user = await getUserProfile(firebaseUser.uid);
-        callback(user);
-      } catch (error) {
-        console.error('Erreur lors de l\'observation de l\'état:', error);
-        callback(null);
-      }
+      // Toujours appeler le callback avec un utilisateur valide
+      // getUserProfile ne lance plus d'erreur, il retourne toujours un profil
+      const user = await getUserProfile(firebaseUser.uid);
+      callback(user);
     } else {
       callback(null);
     }

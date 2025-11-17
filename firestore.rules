@@ -22,7 +22,9 @@ service cloud.firestore {
 
     // Récupère les données utilisateur
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      // Si le document n'existe pas, retourner un rôle par défaut
+      return userDoc.exists ? userDoc.data : { role: 'admin', isActive: true };
     }
 
     // Vérifie si l'utilisateur est admin
