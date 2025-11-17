@@ -1,14 +1,35 @@
 # 🚀 Démarrage du Backend
 
+## ⚡ Démarrage rapide
+
+**Depuis la racine du projet** (recommandé) :
+
+```bash
+npm run start
+```
+
+Cette commande démarre automatiquement :
+- ✅ Émulateur Auth (port 9099)
+- ✅ Émulateur Firestore (port 8080)
+- ✅ Émulateur Functions (port 5001)
+- ✅ Interface UI (port 4000)
+
+**Ou depuis le dossier backend** :
+
+```bash
+cd backend
+npm run serve
+```
+
 ## ✅ État actuel
 
 - ✅ Connexion au dashboard fonctionne
 - ✅ Frontend tourne sur http://localhost:5173
-- ⏳ Backend en cours de démarrage
+- ✅ Backend configuré avec Auth, Firestore et Functions
 
 ## 🔧 Backend Firebase Functions
 
-Les émulateurs Firebase sont en cours de démarrage. Voici comment vérifier :
+Les émulateurs Firebase incluent maintenant Auth, Firestore et Functions. Voici comment vérifier :
 
 ### 1. Interface des émulateurs
 
@@ -59,13 +80,19 @@ tail -f firebase-debug.log
 # Arrêter
 pkill -f firebase
 
-# Recompiler
+# Recompiler et démarrer (avec Auth, Firestore et Functions)
 cd backend
-npm run build
+npm run serve
+```
 
-# Démarrer
-cd ..
-firebase emulators:start --only functions
+Ou depuis la racine du projet:
+
+```bash
+# Arrêter
+pkill -f firebase
+
+# Démarrer tout (Auth + Firestore + Functions)
+firebase emulators:start --only functions,firestore,auth --project projet-bus-60a3f
 ```
 
 ## ⚡ Une fois le backend démarré

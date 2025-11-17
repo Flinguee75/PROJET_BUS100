@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import busController from '../controllers/bus.controller';
+import gpsController from '../controllers/gps.controller';
 
 const router = Router();
 
@@ -20,6 +21,23 @@ router.post('/', (req, res) => busController.createBus(req, res));
  * Query params: ?live=true pour inclure les positions GPS
  */
 router.get('/', (req, res) => busController.getAllBuses(req, res));
+
+/**
+ * GET /api/buses/:busId/position
+ * Alias pour /api/gps/live/:busId - Récupère la position GPS actuelle d'un bus
+ * Cette route permet la compatibilité avec le frontend
+ * IMPORTANT: Doit venir AVANT la route /:busId générique
+ */
+router.get('/:busId/position', (req, res) => gpsController.getLivePosition(req, res));
+
+/**
+ * GET /api/buses/:busId/history
+ * Alias pour /api/gps/history/:busId - Récupère l'historique GPS d'un bus
+ * Query params: ?date=YYYY-MM-DD (optionnel, par défaut aujourd'hui)
+ * Cette route permet la compatibilité avec le frontend
+ * IMPORTANT: Doit venir AVANT la route /:busId générique
+ */
+router.get('/:busId/history', (req, res) => gpsController.getHistory(req, res));
 
 /**
  * GET /api/buses/:busId
