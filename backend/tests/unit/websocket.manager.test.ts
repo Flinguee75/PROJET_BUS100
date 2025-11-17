@@ -174,6 +174,54 @@ describe('WebSocketManager', () => {
 
       consoleSpy.mockRestore();
     });
+
+    it('should handle server error', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      let serverErrorCallback: any;
+
+      // Setup mock to capture server error handler
+      mockWss.on = jest.fn((event, callback) => {
+        if (event === 'connection') {
+          connectionCallback = callback;
+        } else if (event === 'error') {
+          serverErrorCallback = callback;
+        }
+      });
+
+      WebSocketManager.initialize(8080);
+
+      // Simulate server error
+      const serverError = new Error('EADDRINUSE: address already in use');
+      serverErrorCallback(serverError);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '❌ Erreur serveur WebSocket sur port 8080:',
+        serverError.message
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle initialization failure', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // Mock WebSocketServer to throw error
+      (WebSocketServer as any).mockImplementation(() => {
+        throw new Error('Failed to initialize');
+      });
+
+      WebSocketManager.initialize(9999);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '❌ Impossible de démarrer WebSocket sur port 9999:',
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+
+      // Restore normal mock for other tests
+      (WebSocketServer as any).mockImplementation(() => mockWss);
+    });
   });
 
   describe('broadcastGPSUpdate', () => {
