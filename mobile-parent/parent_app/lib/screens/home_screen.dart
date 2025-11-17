@@ -7,6 +7,7 @@ import '../widgets/enfant_card.dart';
 import 'map_screen.dart';
 import 'login_screen.dart';
 import 'enfant_settings_screen.dart';
+import 'profile_screen.dart';
 
 /// Écran d'accueil - Liste des enfants
 class HomeScreen extends StatefulWidget {
@@ -49,6 +50,15 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Mes Enfants'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+            tooltip: 'Profil',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _handleLogout,
