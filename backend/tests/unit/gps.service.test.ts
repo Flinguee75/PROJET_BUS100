@@ -4,15 +4,34 @@
  */
 
 import { GPSService } from '../../src/services/gps.service';
-import { db, collections } from '../../src/config/firebase.config';
+import { collections } from '../../src/config/firebase.config';
 import { BusLiveStatus, GPSUpdateInput } from '../../src/types';
 
 // Mock Firebase
-jest.mock('../../src/config/firebase.config');
+jest.mock('../../src/config/firebase.config', () => ({
+  collections: {
+    buses: 'buses',
+    students: 'students',
+    drivers: 'drivers',
+    parents: 'parents',
+    admins: 'admins',
+    gpsLive: 'gps_live',
+    gpsHistory: 'gps_history',
+    notifications: 'notifications',
+    routes: 'routes',
+    attendance: 'attendance',
+    fcmTokens: 'fcm_tokens',
+  },
+  getDb: jest.fn(),
+  getAuth: jest.fn(),
+  getMessaging: jest.fn(),
+  getStorage: jest.fn(),
+}));
 
 describe('GPSService', () => {
   let gpsService: GPSService;
   let mockDb: any;
+  const { getDb } = require('../../src/config/firebase.config');
 
   beforeEach(() => {
     gpsService = new GPSService();
@@ -28,7 +47,8 @@ describe('GPSService', () => {
       })),
     };
 
-    (db as any) = mockDb;
+    // Mock getDb to return our mockDb
+    getDb.mockReturnValue(mockDb);
   });
 
   describe('calculateDistance', () => {
@@ -158,7 +178,7 @@ describe('GPSService', () => {
         return { doc: mockDoc };
       });
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const gpsData: GPSUpdateInput = {
         busId: 'bus-001',
@@ -222,7 +242,7 @@ describe('GPSService', () => {
         return { doc: mockDoc };
       });
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const gpsData: GPSUpdateInput = {
         busId: 'bus-001',
@@ -281,7 +301,7 @@ describe('GPSService', () => {
         return { doc: mockDoc };
       });
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const gpsData: GPSUpdateInput = {
         busId: 'bus-001',
@@ -312,7 +332,7 @@ describe('GPSService', () => {
         doc: mockDoc,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const gpsData: GPSUpdateInput = {
         busId: 'non-existent-bus',
@@ -342,7 +362,7 @@ describe('GPSService', () => {
         doc: mockDoc,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const gpsData: GPSUpdateInput = {
         busId: 'bus-no-data',
@@ -389,7 +409,7 @@ describe('GPSService', () => {
         doc: mockDocRef,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const result = await gpsService.getLivePosition('bus-001');
 
@@ -412,7 +432,7 @@ describe('GPSService', () => {
         doc: mockDocRef,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const result = await gpsService.getLivePosition('non-existent');
 
@@ -456,7 +476,7 @@ describe('GPSService', () => {
         get: mockGet,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const result = await gpsService.getAllLivePositions();
 
@@ -475,7 +495,7 @@ describe('GPSService', () => {
         get: mockGet,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const result = await gpsService.getAllLivePositions();
 
@@ -524,7 +544,7 @@ describe('GPSService', () => {
         doc: mockDoc,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const targetDate = new Date('2024-01-15');
       const result = await gpsService.getHistoryForDay('bus-001', targetDate);
@@ -557,7 +577,7 @@ describe('GPSService', () => {
         doc: mockDoc,
       }));
 
-      (db as any).collection = mockCollection;
+      mockDb.collection = mockCollection;
 
       const targetDate = new Date('2024-01-15');
       const result = await gpsService.getHistoryForDay('bus-001', targetDate);
