@@ -25,12 +25,15 @@ export class DashboardService {
       let buses: Bus[] = [];
       try {
         const busesPromise = busService.getAllBuses();
-        const timeoutPromise = new Promise<Bus[]>((_, reject) => 
+        const timeoutPromise = new Promise<Bus[]>((_, reject) =>
           setTimeout(() => reject(new Error('Timeout')), 5000)
         );
         buses = await Promise.race([busesPromise, timeoutPromise]);
       } catch (error) {
-        console.warn('⚠️ Impossible de récupérer les bus, utilisation de valeurs par défaut:', error);
+        console.warn(
+          '⚠️ Impossible de récupérer les bus, utilisation de valeurs par défaut:',
+          error
+        );
       }
 
       const busTotaux = buses.length;
@@ -43,7 +46,7 @@ export class DashboardService {
       let elevesTransportes = 0;
       try {
         const studentsPromise = getDb().collection('students').get();
-        const timeoutPromise = new Promise<never>((_, reject) => 
+        const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Timeout')), 5000)
         );
         const studentsSnapshot = await Promise.race([studentsPromise, timeoutPromise]);
@@ -54,8 +57,9 @@ export class DashboardService {
 
       const totalTrajets = 0;
       const alertesMaintenance = buses.filter(
-        (bus) => bus.maintenanceStatus === MaintenanceStatus.CRITICAL || 
-                 bus.maintenanceStatus === MaintenanceStatus.WARNING
+        (bus) =>
+          bus.maintenanceStatus === MaintenanceStatus.CRITICAL ||
+          bus.maintenanceStatus === MaintenanceStatus.WARNING
       ).length;
 
       return {
@@ -82,4 +86,3 @@ export class DashboardService {
 }
 
 export default new DashboardService();
-

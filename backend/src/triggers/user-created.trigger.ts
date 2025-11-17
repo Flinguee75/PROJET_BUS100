@@ -38,4 +38,3 @@ export const onUserCreated = functions
       // Ne pas lancer d'erreur pour ne pas bloquer la création du compte Auth
     }
   });
-

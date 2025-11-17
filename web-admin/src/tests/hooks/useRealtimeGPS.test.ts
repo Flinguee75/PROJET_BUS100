@@ -12,9 +12,9 @@ const mockQuery = vi.fn();
 const mockCollection = vi.fn();
 
 vi.mock('firebase/firestore', () => ({
-  collection: (...args: any[]) => mockCollection(...args),
-  onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
-  query: (...args: any[]) => mockQuery(...args),
+  collection: (...args: unknown[]) => mockCollection(...args),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  query: (...args: unknown[]) => mockQuery(...args),
 }));
 
 vi.mock('@/services/firebase', () => ({
@@ -54,7 +54,7 @@ describe('useRealtimeGPS', () => {
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       const snapshot = {
-        forEach: (callback: any) => {
+        forEach: (callback: (doc: unknown) => void) => {
           callback({
             id: 'bus-1',
             data: () => mockBusData,
@@ -88,7 +88,7 @@ describe('useRealtimeGPS', () => {
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       const snapshot = {
-        forEach: (callback: any) => {
+        forEach: (callback: (doc: unknown) => void) => {
           callback({
             id: 'bus-1',
             data: () => mockBusData,
@@ -119,7 +119,7 @@ describe('useRealtimeGPS', () => {
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       const snapshot = {
-        forEach: (callback: any) => {
+        forEach: (callback: (doc: unknown) => void) => {
           callback({
             id: 'bus-1',
             data: () => mockBusData,
@@ -151,7 +151,7 @@ describe('useRealtimeGPS', () => {
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       const snapshot = {
-        forEach: (callback: any) => {
+        forEach: (callback: (doc: unknown) => void) => {
           callback({
             id: 'bus-1',
             data: () => mockBusData,
@@ -186,7 +186,7 @@ describe('useRealtimeGPS', () => {
   });
 
   it('met à jour les bus en temps réel', async () => {
-    let snapshotCallback: any;
+    let snapshotCallback: ((snapshot: unknown) => void) | null = null;
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       snapshotCallback = onNext;
@@ -197,7 +197,7 @@ describe('useRealtimeGPS', () => {
 
     // Premier snapshot
     const snapshot1 = {
-      forEach: (callback: any) => {
+      forEach: (callback: (doc: unknown) => void) => {
         callback({
           id: 'bus-1',
           data: () => ({
@@ -216,7 +216,7 @@ describe('useRealtimeGPS', () => {
 
     // Deuxième snapshot avec un bus de plus
     const snapshot2 = {
-      forEach: (callback: any) => {
+      forEach: (callback: (doc: unknown) => void) => {
         callback({
           id: 'bus-1',
           data: () => ({
@@ -341,7 +341,7 @@ describe('useRealtimeBusPosition', () => {
   });
 
   it('met à jour la position en temps réel', async () => {
-    let snapshotCallback: any;
+    let snapshotCallback: ((snapshot: unknown) => void) | null = null;
 
     mockOnSnapshot.mockImplementation((query, onNext) => {
       snapshotCallback = onNext;

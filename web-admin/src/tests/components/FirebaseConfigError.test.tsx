@@ -125,7 +125,7 @@ describe('FirebaseConfigError', () => {
   });
 
   it('utilise les bonnes couleurs pour les différentes sections', () => {
-    const { container } = render(<FirebaseConfigError />);
+    render(<FirebaseConfigError />);
 
     // Section étapes (jaune)
     const stepsSection = screen.getByText('📝 Étapes pour résoudre :').closest('div');

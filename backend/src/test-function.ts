@@ -12,4 +12,3 @@ export const helloWorld = onRequest(
     res.json({ message: 'Hello from Firebase!' });
   }
 );
-

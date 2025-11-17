@@ -15,7 +15,7 @@ export class BusController {
   async createBus(req: Request, res: Response): Promise<void> {
     try {
       const input: BusCreateInput = req.body;
-      
+
       // Validation basique
       if (!input.plateNumber || !input.capacity || !input.model || !input.year) {
         res.status(400).json({
@@ -48,11 +48,11 @@ export class BusController {
   async getAllBuses(req: Request, res: Response): Promise<void> {
     try {
       const includeLive = req.query.live === 'true';
-      
+
       const buses = includeLive
         ? await busService.getBusesWithLivePosition()
         : await busService.getAllBuses();
-      
+
       res.json({
         success: true,
         data: buses,
@@ -73,7 +73,7 @@ export class BusController {
   async getBusById(req: Request, res: Response): Promise<void> {
     try {
       const { busId } = req.params;
-      
+
       if (!busId) {
         res.status(400).json({
           success: false,
@@ -81,9 +81,9 @@ export class BusController {
         });
         return;
       }
-      
+
       const bus = await busService.getBusById(busId);
-      
+
       if (!bus) {
         res.status(404).json({
           success: false,
@@ -91,7 +91,7 @@ export class BusController {
         });
         return;
       }
-      
+
       res.json({
         success: true,
         data: bus,
@@ -113,7 +113,7 @@ export class BusController {
     try {
       const { busId } = req.params;
       const input: BusUpdateInput = req.body;
-      
+
       if (!busId) {
         res.status(400).json({
           success: false,
@@ -121,16 +121,16 @@ export class BusController {
         });
         return;
       }
-      
+
       const bus = await busService.updateBus(busId, input);
-      
+
       res.json({
         success: true,
         data: bus,
       });
     } catch (error: any) {
       console.error('Error updating bus:', error);
-      
+
       if (error.message.includes('not found')) {
         res.status(404).json({
           success: false,
@@ -152,7 +152,7 @@ export class BusController {
   async deleteBus(req: Request, res: Response): Promise<void> {
     try {
       const { busId } = req.params;
-      
+
       if (!busId) {
         res.status(400).json({
           success: false,
@@ -160,16 +160,16 @@ export class BusController {
         });
         return;
       }
-      
+
       await busService.deleteBus(busId);
-      
+
       res.json({
         success: true,
         message: `Bus with ID ${busId} deleted successfully`,
       });
     } catch (error: any) {
       console.error('Error deleting bus:', error);
-      
+
       if (error.message.includes('not found')) {
         res.status(404).json({
           success: false,
@@ -186,4 +186,3 @@ export class BusController {
 }
 
 export default new BusController();
-

@@ -4,11 +4,7 @@
  */
 
 import { getDb, getMessaging, collections } from '../config/firebase.config';
-import {
-  NotificationCreateInput,
-  NotificationType,
-  NotificationPriority,
-} from '../types';
+import { NotificationCreateInput, NotificationType, NotificationPriority } from '../types';
 
 export interface Notification {
   id?: string;
@@ -73,10 +69,7 @@ export class NotificationService {
   /**
    * Récupère les notifications pour un utilisateur
    */
-  async getNotificationsForUser(
-    userId: string,
-    limit: number = 50
-  ): Promise<Notification[]> {
+  async getNotificationsForUser(userId: string, limit = 50): Promise<Notification[]> {
     const db = getDb();
 
     const snapshot = await db
@@ -86,10 +79,13 @@ export class NotificationService {
       .limit(limit)
       .get();
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Notification));
+    return snapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as Notification
+    );
   }
 
   /**
@@ -221,16 +217,14 @@ export class NotificationService {
 
     try {
       const response = await messaging.sendEachForMulticast(message);
-      console.log(
-        `✅ Notifications envoyées: ${response.successCount}/${tokens.length}`
-      );
+      console.log(`✅ Notifications envoyées: ${response.successCount}/${tokens.length}`);
 
       // Supprimer les tokens invalides
       if (response.failureCount > 0) {
         await this.cleanupInvalidTokens(response, tokens);
       }
     } catch (error) {
-      console.error('❌ Erreur lors de l\'envoi des notifications:', error);
+      console.error("❌ Erreur lors de l'envoi des notifications:", error);
       throw new Error('Failed to send push notifications');
     }
   }
@@ -238,10 +232,7 @@ export class NotificationService {
   /**
    * Nettoie les tokens FCM invalides
    */
-  private async cleanupInvalidTokens(
-    response: any,
-    tokens: string[]
-  ): Promise<void> {
+  private async cleanupInvalidTokens(response: any, tokens: string[]): Promise<void> {
     const db = getDb();
     const batch = db.batch();
 
@@ -260,7 +251,7 @@ export class NotificationService {
     });
 
     await batch.commit();
-    console.log(`🧹 Tokens invalides supprimés`);
+    console.log('🧹 Tokens invalides supprimés');
   }
 
   /**

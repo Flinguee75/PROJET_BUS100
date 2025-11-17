@@ -13,7 +13,7 @@ class WebSocketManager {
   /**
    * Initialise le serveur WebSocket
    */
-  initialize(port: number = 8080): void {
+  initialize(port = 8080): void {
     try {
       this.wss = new WebSocketServer({ port });
 
@@ -76,9 +76,7 @@ class WebSocketManager {
       }
     });
 
-    console.log(
-      `📡 Broadcast GPS update pour bus ${data.busId} à ${this.clients.size} clients`
-    );
+    console.log(`📡 Broadcast GPS update pour bus ${data.busId} à ${this.clients.size} clients`);
   }
 
   /**

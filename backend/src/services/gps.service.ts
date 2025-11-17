@@ -4,12 +4,7 @@
  */
 
 import { getDb, collections } from '../config/firebase.config';
-import {
-  GPSUpdateInput,
-  GPSLiveData,
-  GPSHistoryEntry,
-  BusLiveStatus,
-} from '../types';
+import { GPSUpdateInput, GPSLiveData, GPSHistoryEntry, BusLiveStatus } from '../types';
 
 export class GPSService {
   /**
@@ -133,10 +128,7 @@ export class GPSService {
   /**
    * Récupère l'historique GPS d'un bus pour une journée
    */
-  async getHistoryForDay(
-    busId: string,
-    date: Date
-  ): Promise<GPSHistoryEntry[]> {
+  async getHistoryForDay(busId: string, date: Date): Promise<GPSHistoryEntry[]> {
     const dateStr = date.toISOString().split('T')[0]!;
     const db = getDb();
 
@@ -154,12 +146,7 @@ export class GPSService {
    * Calcule la distance entre deux points GPS (formule Haversine)
    * Retourne la distance en kilomètres
    */
-  calculateDistance(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ): number {
+  calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371; // Rayon de la Terre en km
     const dLat = this.toRadians(lat2 - lat1);
     const dLng = this.toRadians(lng2 - lng1);
@@ -193,12 +180,7 @@ export class GPSService {
     destLng: number,
     currentSpeed: number
   ): number {
-    const distance = this.calculateDistance(
-      currentLat,
-      currentLng,
-      destLat,
-      destLng
-    );
+    const distance = this.calculateDistance(currentLat, currentLng, destLat, destLng);
 
     // Si vitesse = 0, impossible de calculer ETA
     if (currentSpeed === 0) {

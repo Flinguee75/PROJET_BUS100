@@ -32,7 +32,6 @@ export const useAuth = (): UseAuthReturn => {
     return () => {
       unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Dépendances vides = exécuter UNE SEULE FOIS
 
   /**
