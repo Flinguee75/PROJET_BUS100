@@ -1,0 +1,19 @@
+{
+  "name": "projet-bus",
+  "version": "1.0.0",
+  "description": "Système de transport scolaire avec suivi GPS temps réel",
+  "private": true,
+  "scripts": {
+    "start": "firebase emulators:start --only functions,firestore,auth --project projet-bus-60a3f",
+    "start:backend": "cd backend && npm run serve",
+    "start:frontend": "cd web-admin && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd web-admin && npm run build",
+    "deploy": "firebase deploy",
+    "deploy:functions": "cd backend && npm run deploy",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "test:backend": "cd backend && npm test",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:fix:backend": "cd backend && npm run lint:fix"
+  }
+}
