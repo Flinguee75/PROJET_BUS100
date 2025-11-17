@@ -6,6 +6,7 @@ import '../utils/app_colors.dart';
 import '../widgets/enfant_card.dart';
 import 'map_screen.dart';
 import 'login_screen.dart';
+import 'enfant_settings_screen.dart';
 
 /// Écran d'accueil - Liste des enfants
 class HomeScreen extends StatefulWidget {
@@ -140,6 +141,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (_) => MapScreen(
                           enfant: enfant,
                           bus: bus,
+                        ),
+                      ),
+                    );
+                  },
+                  onSettingsTap: () {
+                    // Ouvrir les paramètres de l'enfant
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => EnfantSettingsScreen(
+                          enfant: enfant,
                         ),
                       ),
                     );
