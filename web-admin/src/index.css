@@ -1,0 +1,65 @@
+/**
+ * Styles globaux de l'application
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply m-0 p-0 bg-gray-50;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+/* Styles personnalisés pour Mapbox */
+.mapboxgl-popup-content {
+  @apply rounded-lg shadow-lg;
+  padding: 0 !important;
+}
+
+.mapboxgl-popup-tip {
+  display: none;
+}
+
+/* Animation de chargement */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+

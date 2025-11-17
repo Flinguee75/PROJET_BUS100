@@ -67,3 +67,23 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Dans backend/.gitignore
+service-account-key.json
+*.json
+!package*.json
+!tsconfig.json
+
+
+# Android
+android/app/build/
+android/app/build.gradle
+android/app/build.gradle.kts
+android/app/build.gradle.kts.kts
+android/app/build.gradle.kts.kts.kts
+android/app/build.gradle.kts.kts.kts.kts
+android/app/build.gradle.kts.kts.kts.kts.kts
+android/app/build.gradle.kts.kts.kts.kts.kts.kts
+android/app/build.gradle.kts.kts.kts.kts.kts.kts.kts
+android/app/build.gradle.kts.kts.kts.kts.kts.kts.kts.kts
+android/app/google-services.json

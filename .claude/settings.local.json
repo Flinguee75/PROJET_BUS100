@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(cat:*)",
+      "Bash(env)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(pkill:*)",
+      "Bash(firebase emulators:start:*)",
+      "Bash(timeout 30 firebase emulators:start:*)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:coverage:*)"
     ],
     "deny": [],
     "ask": []

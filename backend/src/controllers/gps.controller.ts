@@ -99,7 +99,7 @@ export class GPSController {
    * GET /api/gps/live
    * Récupère toutes les positions live
    */
-  async getAllLivePositions(req: Request, res: Response): Promise<void> {
+  async getAllLivePositions(_req: Request, res: Response): Promise<void> {
     try {
       const positions = await gpsService.getAllLivePositions();
 

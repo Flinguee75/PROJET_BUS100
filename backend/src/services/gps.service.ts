@@ -3,7 +3,7 @@
  * Règle: Toute la logique métier doit être dans les services, PAS dans les controllers
  */
 
-import { db, collections } from '../config/firebase.config';
+import { getDb, collections } from '../config/firebase.config';
 import {
   GPSUpdateInput,
   GPSLiveData,
@@ -22,6 +22,7 @@ export class GPSService {
     const { busId, lat, lng, speed, heading, accuracy, timestamp } = data;
 
     // Validation business: vérifier que le bus existe
+    const db = getDb();
     const busDoc = await db.collection(collections.buses).doc(busId).get();
     if (!busDoc.exists) {
       throw new Error(`Bus ${busId} not found`);
@@ -68,6 +69,7 @@ export class GPSService {
    */
   private async archiveGPSPosition(data: GPSUpdateInput): Promise<void> {
     const { busId, lat, lng, speed, heading, accuracy, timestamp } = data;
+    const db = getDb();
 
     const historyEntry: GPSHistoryEntry = {
       busId,
@@ -82,11 +84,11 @@ export class GPSService {
       timestamp: new Date(timestamp),
     };
 
-    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0]!; // Format: YYYY-MM-DD
     await db
       .collection(collections.gpsHistory)
       .doc(busId)
-      .collection(today || '')
+      .collection(today)
       .doc(timestamp.toString())
       .set(historyEntry);
   }
@@ -108,6 +110,7 @@ export class GPSService {
    * Récupère la position live d'un bus
    */
   async getLivePosition(busId: string): Promise<GPSLiveData | null> {
+    const db = getDb();
     const doc = await db.collection(collections.gpsLive).doc(busId).get();
 
     if (!doc.exists) {
@@ -121,6 +124,7 @@ export class GPSService {
    * Récupère toutes les positions live de tous les bus actifs
    */
   async getAllLivePositions(): Promise<GPSLiveData[]> {
+    const db = getDb();
     const snapshot = await db.collection(collections.gpsLive).get();
 
     return snapshot.docs.map((doc) => doc.data() as GPSLiveData);
@@ -133,12 +137,13 @@ export class GPSService {
     busId: string,
     date: Date
   ): Promise<GPSHistoryEntry[]> {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toISOString().split('T')[0]!;
+    const db = getDb();
 
     const snapshot = await db
       .collection(collections.gpsHistory)
       .doc(busId)
-      .collection(dateStr ?? '')
+      .collection(dateStr)
       .orderBy('timestamp', 'asc')
       .get();
 

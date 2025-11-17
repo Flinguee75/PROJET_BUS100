@@ -14,34 +14,46 @@ class WebSocketManager {
    * Initialise le serveur WebSocket
    */
   initialize(port: number = 8080): void {
-    this.wss = new WebSocketServer({ port });
+    try {
+      this.wss = new WebSocketServer({ port });
 
-    this.wss.on('connection', (ws: WebSocket) => {
-      console.log('🔌 Nouveau client WebSocket connecté');
-      this.clients.add(ws);
+      this.wss.on('connection', (ws: WebSocket) => {
+        console.log('🔌 Nouveau client WebSocket connecté');
+        this.clients.add(ws);
 
-      // Message de bienvenue
-      ws.send(
-        JSON.stringify({
-          type: 'connected',
-          message: 'Connecté au serveur GPS',
-        })
-      );
+        // Message de bienvenue
+        ws.send(
+          JSON.stringify({
+            type: 'connected',
+            message: 'Connecté au serveur GPS',
+          })
+        );
 
-      // Gérer déconnexion
-      ws.on('close', () => {
-        console.log('🔌 Client WebSocket déconnecté');
-        this.clients.delete(ws);
+        // Gérer déconnexion
+        ws.on('close', () => {
+          console.log('🔌 Client WebSocket déconnecté');
+          this.clients.delete(ws);
+        });
+
+        // Gérer erreurs
+        ws.on('error', (error) => {
+          console.error('❌ Erreur WebSocket:', error);
+          this.clients.delete(ws);
+        });
       });
 
-      // Gérer erreurs
-      ws.on('error', (error) => {
-        console.error('❌ Erreur WebSocket:', error);
-        this.clients.delete(ws);
+      // Gérer les erreurs du serveur
+      this.wss.on('error', (error: Error) => {
+        console.error(`❌ Erreur serveur WebSocket sur port ${port}:`, error.message);
+        // Ne pas lancer l'erreur pour éviter de crasher l'application
       });
-    });
 
-    console.log(`✅ Serveur WebSocket démarré sur port ${port}`);
+      console.log(`✅ Serveur WebSocket démarré sur port ${port}`);
+    } catch (error) {
+      console.error(`❌ Impossible de démarrer WebSocket sur port ${port}:`, error);
+      // Ne pas lancer l'erreur - l'application peut fonctionner sans WebSocket
+      this.wss = null;
+    }
   }
 
   /**
@@ -76,7 +88,9 @@ class WebSocketManager {
     this.clients.forEach((client) => {
       client.close();
     });
+    this.clients.clear();
     this.wss?.close();
+    this.wss = null;
     console.log('🔌 Serveur WebSocket fermé');
   }
 
