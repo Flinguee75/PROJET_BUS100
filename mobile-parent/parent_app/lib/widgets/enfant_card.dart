@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/bus.dart';
 import '../models/enfant.dart';
 import '../utils/app_colors.dart';
+import 'eta_badge.dart';
 
 /// Widget Card pour afficher un enfant
 class EnfantCard extends StatelessWidget {
@@ -128,9 +129,17 @@ class EnfantCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const Spacer(),
 
-                    // Immatriculation
+                    // Badge ETA
+                    ETABadge(bus: bus),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Immatriculation et chauffeur
+                Row(
+                  children: [
                     const Icon(
                       Icons.directions_bus,
                       size: 20,

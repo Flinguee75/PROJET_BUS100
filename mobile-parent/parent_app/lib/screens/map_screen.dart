@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/bus.dart';
 import '../models/enfant.dart';
 import '../providers/bus_provider.dart';
+import '../services/eta_service.dart';
 import '../utils/app_colors.dart';
 
 /// Écran de carte - Suivi en temps réel du bus
@@ -24,6 +25,10 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
+
+  // Destination par défaut (école) - à remplacer par la vraie destination
+  final double _destinationLat = 36.8065;
+  final double _destinationLng = 10.1815;
 
   @override
   void dispose() {
@@ -192,6 +197,12 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(height: 12),
 
+                      // ETA et Distance
+                      if (bus.currentPosition != null) ...[
+                        _buildETASection(bus),
+                        const Divider(height: 24),
+                      ],
+
                       // Informations du bus
                       _buildInfoRow(
                         Icons.directions_bus,
@@ -222,6 +233,113 @@ class _MapScreenState extends State<MapScreen> {
                   );
                 },
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildETASection(Bus bus) {
+    if (bus.currentPosition == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculer la distance
+    final distance = ETAService.calculateDistance(
+      bus.currentPosition!.lat,
+      bus.currentPosition!.lng,
+      _destinationLat,
+      _destinationLng,
+    );
+
+    // Calculer l'ETA
+    final eta = ETAService.calculateETA(distance, bus.currentPosition!.speed);
+    final formattedETA = ETAService.formatETA(eta);
+
+    // Vérifier si proche
+    final isNear = ETAService.isNearDestination(
+      busPosition: bus.currentPosition!,
+      destinationLat: _destinationLat,
+      destinationLng: _destinationLng,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isNear ? AppColors.success.withOpacity(0.1) : AppColors.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          // ETA
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: isNear ? AppColors.success : AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isNear ? AppColors.success : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formattedETA,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isNear ? AppColors.success : AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Distance
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.straighten,
+                      size: 16,
+                      color: isNear ? AppColors.success : AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isNear ? AppColors.success : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  distance < 1
+                      ? '${(distance * 1000).toStringAsFixed(0)} m'
+                      : '${distance.toStringAsFixed(1)} km',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isNear ? AppColors.success : AppColors.primary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
