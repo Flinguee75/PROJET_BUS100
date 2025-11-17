@@ -51,9 +51,9 @@ jspm_packages/
 # Build
 dist/
 build/
-lib/
 out/
 functions/lib/
+# Note: Ne pas ignorer mobile-parent/**/lib car c'est le code source Flutter
 
 # Cache
 .npm
