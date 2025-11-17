@@ -8,12 +8,14 @@ class EnfantCard extends StatelessWidget {
   final Enfant enfant;
   final Bus? bus;
   final VoidCallback? onTap;
+  final VoidCallback? onSettingsTap;
 
   const EnfantCard({
     super.key,
     required this.enfant,
     this.bus,
     this.onTap,
+    this.onSettingsTap,
   });
 
   @override
@@ -79,6 +81,18 @@ class EnfantCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  // Bouton paramètres
+                  if (onSettingsTap != null)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.settings,
+                        size: 24,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: onSettingsTap,
+                      tooltip: 'Paramètres',
+                    ),
 
                   // Icône de navigation
                   const Icon(
