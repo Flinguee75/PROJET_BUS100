@@ -7,7 +7,7 @@ export interface Bus {
     driverId: string | null;
     routeId: string | null;
     status: BusStatus;
-    maintenanceStatus: MaintenanceStatus;
+    maintenanceStatus: BusMaintenanceStatus;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -17,7 +17,7 @@ export declare enum BusStatus {
     IN_MAINTENANCE = "in_maintenance",
     OUT_OF_SERVICE = "out_of_service"
 }
-export declare enum MaintenanceStatus {
+export declare enum BusMaintenanceStatus {
     OK = "ok",
     WARNING = "warning",
     CRITICAL = "critical"
@@ -36,6 +36,6 @@ export interface BusUpdateInput {
     driverId?: string | null;
     routeId?: string | null;
     status?: BusStatus;
-    maintenanceStatus?: MaintenanceStatus;
+    maintenanceStatus?: BusMaintenanceStatus;
 }
 //# sourceMappingURL=bus.types.d.ts.map
