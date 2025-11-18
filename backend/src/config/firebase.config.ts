@@ -38,7 +38,7 @@ if (!admin.apps.length) {
     } else {
       // Priorité 2: Fichier local dans backend/
       const localServiceAccountPath = path.join(__dirname, '../../service-account-key.json');
-      
+
       if (fs.existsSync(localServiceAccountPath)) {
         serviceAccountPath = localServiceAccountPath;
         console.log(`📁 Service account trouvé localement: ${serviceAccountPath}`);
@@ -53,10 +53,8 @@ if (!admin.apps.length) {
     // Charger le service account si trouvé
     if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       try {
-        const serviceAccountJson = JSON.parse(
-          fs.readFileSync(serviceAccountPath, 'utf8')
-        );
-        
+        const serviceAccountJson = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+
         serviceAccount = {
           projectId: serviceAccountJson.project_id,
           clientEmail: serviceAccountJson.client_email,

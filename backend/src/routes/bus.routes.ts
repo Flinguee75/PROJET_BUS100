@@ -58,4 +58,3 @@ router.put('/:busId', (req, res) => busController.updateBus(req, res));
 router.delete('/:busId', (req, res) => busController.deleteBus(req, res));
 
 export default router;
-

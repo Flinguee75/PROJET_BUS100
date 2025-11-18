@@ -18,9 +18,7 @@ router.post('/update', (req, res) => gpsController.updatePosition(req, res));
  * GET /api/gps/live/:busId
  * Récupère la position live d'un bus spécifique
  */
-router.get('/live/:busId', (req, res) =>
-  gpsController.getLivePosition(req, res)
-);
+router.get('/live/:busId', (req, res) => gpsController.getLivePosition(req, res));
 
 /**
  * GET /api/gps/live
@@ -40,8 +38,6 @@ router.get('/history/:busId', (req, res) => gpsController.getHistory(req, res));
  * POST /api/gps/calculate-eta
  * Calcule le temps d'arrivée estimé
  */
-router.post('/calculate-eta', (req, res) =>
-  gpsController.calculateETA(req, res)
-);
+router.post('/calculate-eta', (req, res) => gpsController.calculateETA(req, res));
 
 export default router;

@@ -149,7 +149,7 @@ export class GPSController {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'Erreur lors de la récupération de l\'historique',
+        message: "Erreur lors de la récupération de l'historique",
       });
     }
   }
@@ -161,8 +161,7 @@ export class GPSController {
    */
   async calculateETA(req: Request, res: Response): Promise<void> {
     try {
-      const { currentLat, currentLng, destLat, destLng, currentSpeed } =
-        req.body;
+      const { currentLat, currentLng, destLat, destLng, currentSpeed } = req.body;
 
       // Validation simple
       if (
@@ -192,9 +191,7 @@ export class GPSController {
         data: {
           etaMinutes,
           etaText:
-            etaMinutes === -1
-              ? 'Impossible de calculer (vitesse = 0)'
-              : `${etaMinutes} minutes`,
+            etaMinutes === -1 ? 'Impossible de calculer (vitesse = 0)' : `${etaMinutes} minutes`,
         },
       });
     } catch (error) {

@@ -44,10 +44,11 @@ export const createBus = async (data: BusCreateInput): Promise<BusBackend> => {
   try {
     const response = await api.post('/api/buses', data);
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating bus:', error);
+    const err = error as { response?: { data?: { error?: string } } };
     throw new Error(
-      error.response?.data?.error || 'Impossible de créer le bus'
+      err.response?.data?.error || 'Impossible de créer le bus'
     );
   }
 };
@@ -62,10 +63,11 @@ export const getAllBuses = async (includeLive = false): Promise<BusBackend[]> =>
       params: { live: includeLive },
     });
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching buses:', error);
+    const err = error as { response?: { data?: { error?: string } } };
     throw new Error(
-      error.response?.data?.error || 'Impossible de récupérer les bus'
+      err.response?.data?.error || 'Impossible de récupérer les bus'
     );
   }
 };
@@ -77,10 +79,11 @@ export const getBusById = async (busId: string): Promise<BusBackend> => {
   try {
     const response = await api.get(`/api/buses/${busId}`);
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching bus:', error);
+    const err = error as { response?: { data?: { error?: string } } };
     throw new Error(
-      error.response?.data?.error || 'Impossible de récupérer le bus'
+      err.response?.data?.error || 'Impossible de récupérer le bus'
     );
   }
 };
@@ -95,10 +98,11 @@ export const updateBus = async (
   try {
     const response = await api.put(`/api/buses/${busId}`, data);
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating bus:', error);
+    const err = error as { response?: { data?: { error?: string } } };
     throw new Error(
-      error.response?.data?.error || 'Impossible de mettre à jour le bus'
+      err.response?.data?.error || 'Impossible de mettre à jour le bus'
     );
   }
 };
@@ -109,10 +113,11 @@ export const updateBus = async (
 export const deleteBus = async (busId: string): Promise<void> => {
   try {
     await api.delete(`/api/buses/${busId}`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting bus:', error);
+    const err = error as { response?: { data?: { error?: string } } };
     throw new Error(
-      error.response?.data?.error || 'Impossible de supprimer le bus'
+      err.response?.data?.error || 'Impossible de supprimer le bus'
     );
   }
 };

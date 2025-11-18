@@ -38,7 +38,8 @@ app.get('/health', (_req, res) => {
 // Exemple: /projet-bus-60a3f/europe-west4/api/dashboard/stats -> /dashboard/stats
 app.use('/api/gps', gpsRoutes);
 app.use('/api/buses', busRoutes);
-app.use('/dashboard', dashboardRoutes); // Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
+// Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
+app.use('/dashboard', dashboardRoutes);
 
 // Route 404
 app.use((req, res) => {
@@ -50,21 +51,14 @@ app.use((req, res) => {
 });
 
 // Error handling middleware
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ) => {
-    console.error('❌ Erreur serveur:', err);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    });
-  }
-);
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('❌ Erreur serveur:', err);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
 
 // Export Firebase Function
 // Accessible via: https://europe-west4-projet-bus-60a3f.cloudfunctions.net/api

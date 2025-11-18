@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, waitFor } from '@testing-library/react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { LoginPage } from '@/pages/LoginPage';
@@ -92,7 +91,6 @@ describe('Auth Flow Integration', () => {
   });
 
   it('permet la connexion', async () => {
-    const user = userEvent.setup();
     const mockUser = {
       uid: 'test-uid',
       email: 'test@example.com',
@@ -100,7 +98,7 @@ describe('Auth Flow Integration', () => {
     };
 
     // D'abord pas d'utilisateur
-    let authCallback: any;
+    let authCallback: ((user: unknown) => void) | null = null;
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       authCallback = callback;
       callback(null);
@@ -109,7 +107,7 @@ describe('Auth Flow Integration', () => {
 
     vi.mocked(authService.login).mockImplementation(async () => {
       // Simuler la mise à jour de l'état après connexion
-      authCallback(mockUser);
+      authCallback?.(mockUser);
       return mockUser;
     });
 
@@ -126,14 +124,13 @@ describe('Auth Flow Integration', () => {
   });
 
   it('permet la déconnexion', async () => {
-    const user = userEvent.setup();
     const mockUser = {
       uid: 'test-uid',
       email: 'test@example.com',
       role: 'admin',
     };
 
-    let authCallback: any;
+    let authCallback: ((user: unknown) => void) | null = null;
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       authCallback = callback;
       callback(mockUser);
@@ -141,7 +138,7 @@ describe('Auth Flow Integration', () => {
     });
 
     vi.mocked(authService.logout).mockImplementation(async () => {
-      authCallback(null);
+      authCallback?.(null);
     });
 
     const { container } = render(
@@ -172,8 +169,6 @@ describe('Auth Flow Integration', () => {
   });
 
   it('gère les erreurs de connexion', async () => {
-    const user = userEvent.setup();
-
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       callback(null);
       return vi.fn();

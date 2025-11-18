@@ -78,9 +78,7 @@ export const busUpdateSchema = z.object({
     .optional(),
   driverId: z.string().nullable().optional(),
   routeId: z.string().nullable().optional(),
-  status: z
-    .enum(['active', 'inactive', 'in_maintenance', 'out_of_service'])
-    .optional(),
+  status: z.enum(['active', 'inactive', 'in_maintenance', 'out_of_service']).optional(),
   maintenanceStatus: z.enum(['ok', 'warning', 'critical']).optional(),
 });
 
@@ -104,9 +102,7 @@ export const studentCreateSchema = z.object({
 export const userCreateSchema = z.object({
   email: z.string().email('Email invalide'),
   displayName: z.string().min(2, 'Nom trop court'),
-  phoneNumber: z
-    .string()
-    .regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide'),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide'),
   role: z.enum(['admin', 'driver', 'parent']),
 });
 
@@ -139,6 +135,4 @@ export type BusCreateInput = z.infer<typeof busCreateSchema>;
 export type BusUpdateInput = z.infer<typeof busUpdateSchema>;
 export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
-export type NotificationCreateInput = z.infer<
-  typeof notificationCreateSchema
->;
+export type NotificationCreateInput = z.infer<typeof notificationCreateSchema>;

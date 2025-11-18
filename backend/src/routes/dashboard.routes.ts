@@ -11,4 +11,3 @@ const router = Router();
 router.get('/stats', (req, res) => dashboardController.getDashboardStats(req, res));
 
 export default router;
-

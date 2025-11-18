@@ -4,7 +4,13 @@
  */
 
 import { getDb } from '../config/firebase.config';
-import { Bus, BusCreateInput, BusUpdateInput, BusStatus, MaintenanceStatus } from '../types/bus.types';
+import {
+  Bus,
+  BusCreateInput,
+  BusUpdateInput,
+  BusStatus,
+  MaintenanceStatus,
+} from '../types/bus.types';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export class BusService {
@@ -31,7 +37,7 @@ export class BusService {
 
     const docRef = await this.getCollection().add(busData);
     const doc = await docRef.get();
-    
+
     return {
       id: docRef.id,
       ...busData,
@@ -85,7 +91,7 @@ export class BusService {
    */
   async updateBus(busId: string, input: BusUpdateInput): Promise<Bus> {
     const docRef = this.getCollection().doc(busId);
-    
+
     // Vérifier que le bus existe
     const doc = await docRef.get();
     if (!doc.exists) {
@@ -99,7 +105,7 @@ export class BusService {
 
     const updated = await docRef.get();
     const data = updated.data();
-    
+
     return {
       id: updated.id,
       ...data,
@@ -117,7 +123,7 @@ export class BusService {
     if (!doc.exists) {
       throw new Error(`Bus with ID ${busId} not found`);
     }
-    
+
     await this.getCollection().doc(busId).delete();
   }
 
@@ -128,9 +134,7 @@ export class BusService {
   async getBusesWithLivePosition(): Promise<Bus[]> {
     const buses = await this.getAllBuses();
     const gpsSnapshot = await getDb().collection('gps_live').get();
-    const gpsMap = new Map(
-      gpsSnapshot.docs.map((doc) => [doc.id, doc.data()])
-    );
+    const gpsMap = new Map(gpsSnapshot.docs.map((doc) => [doc.id, doc.data()]));
 
     return buses.map((bus) => {
       const gpsData = gpsMap.get(bus.id);
@@ -150,4 +154,3 @@ export class BusService {
 }
 
 export default new BusService();
-

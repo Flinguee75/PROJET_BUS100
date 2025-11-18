@@ -5,8 +5,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
 import App from '@/App';
 import * as authService from '@/services/auth.service';
 
@@ -14,13 +12,6 @@ vi.mock('@/services/auth.service');
 
 describe('App Navigation Integration', () => {
   it('charge l\'application', async () => {
-    const mockUser = {
-      uid: 'test-uid',
-      email: 'admin@test.com',
-      displayName: 'Admin',
-      role: 'admin',
-    };
-
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       callback(null);
       return vi.fn();
