@@ -12,7 +12,8 @@
       "Bash(timeout 30 firebase emulators:start:*)",
       "Bash(npm install:*)",
       "Bash(npm test:*)",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "ask": []

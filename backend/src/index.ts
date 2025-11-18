@@ -34,11 +34,11 @@ app.get('/health', (_req, res) => {
 });
 
 // API Routes
-// Note: Firebase Functions mappe /projet-bus-60a3f/europe-west4/api/... vers /... dans Express
-// Exemple: /projet-bus-60a3f/europe-west4/api/dashboard/stats -> /dashboard/stats
-app.use('/api/gps', gpsRoutes);
-app.use('/api/buses', busRoutes);
-// Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
+// Note: Firebase Functions exporte cette fonction sous le nom 'api', donc elle est accessible via /api
+// Les routes Express sont ensuite ajoutées après ce préfixe
+// Exemple: Cloud Function 'api' + route Express '/buses' = URL finale '/api/buses'
+app.use('/gps', gpsRoutes);
+app.use('/buses', busRoutes);
 app.use('/dashboard', dashboardRoutes);
 
 // Route 404
