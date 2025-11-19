@@ -9,6 +9,7 @@ import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import * as maintenanceApi from '@/services/maintenance.api';
 import * as busApi from '@/services/bus.api';
 
@@ -54,32 +55,32 @@ const statusLabels: Record<string, string> = {
 const getSeverityColor = (severity: string) => {
   switch (severity) {
     case 'critical':
-      return 'bg-red-100 text-red-800';
+      return 'bg-danger-50 text-danger-700 border-danger-200';
     case 'high':
-      return 'bg-orange-100 text-orange-800';
+      return 'bg-warning-50 text-warning-700 border-warning-200';
     case 'medium':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-amber-50 text-amber-700 border-amber-200';
     case 'low':
-      return 'bg-green-100 text-green-800';
+      return 'bg-success-50 text-success-700 border-success-200';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-slate-50 text-slate-700 border-slate-200';
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-800';
+      return 'bg-success-50 text-success-700 border-success-200';
     case 'in_progress':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-primary-50 text-primary-700 border-primary-200';
     case 'scheduled':
-      return 'bg-purple-100 text-purple-800';
+      return 'bg-purple-50 text-purple-700 border-purple-200';
     case 'reported':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-warning-50 text-warning-700 border-warning-200';
     case 'cancelled':
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-slate-50 text-slate-700 border-slate-200';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-slate-50 text-slate-700 border-slate-200';
   }
 };
 
@@ -272,20 +273,20 @@ export const MaintenancePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header title="Gestion des Maintenances" />
+    <div className="min-h-screen bg-neutral-50">
+      <Header title="Gestion des Maintenances" subtitle="Suivre et gérer les opérations de maintenance" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filtres et bouton d'ajout */}
         <div className="mb-6 flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
               Filtrer par bus
             </label>
             <select
               value={filterBusId}
               onChange={(e) => setFilterBusId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             >
               <option value="">Tous les bus</option>
               {buses?.map((bus) => (
@@ -297,13 +298,13 @@ export const MaintenancePage = () => {
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
               Filtrer par statut
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
             >
               <option value="">Tous les statuts</option>
               {Object.entries(statusLabels).map(([value, label]) => (
@@ -316,62 +317,63 @@ export const MaintenancePage = () => {
 
           <button
             onClick={openCreateModal}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all shadow-card hover:shadow-lg font-medium flex items-center gap-2"
           >
-            Nouveau Rapport
+            <Plus className="w-5 h-5" strokeWidth={2} />
+            <span>Nouvelle maintenance</span>
           </button>
         </div>
 
         {/* Tableau des maintenances */}
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-white shadow-card rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Bus
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Titre
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Sévérité
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Statut
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Signalé le
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-200">
               {maintenances && maintenances.length > 0 ? (
                 maintenances.map((maintenance) => {
                   const bus = buses?.find((b) => b.id === maintenance.busId);
                   return (
-                    <tr key={maintenance.id} className="hover:bg-gray-50">
+                    <tr key={maintenance.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-slate-900">
                           {bus?.plateNumber || maintenance.busId}
                         </div>
-                        <div className="text-sm text-gray-500">{bus?.model}</div>
+                        <div className="text-sm text-slate-500">{bus?.model}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-slate-900">
                           {maintenance.title}
                         </div>
-                        <div className="text-sm text-gray-500 line-clamp-1">
+                        <div className="text-sm text-slate-500 line-clamp-1">
                           {maintenance.description}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-slate-900">
                           {maintenanceTypeLabels[maintenance.type]}
                         </span>
                       </td>
@@ -393,29 +395,33 @@ export const MaintenancePage = () => {
                           {statusLabels[maintenance.status]}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                         {formatDate(maintenance.reportedAt)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openEditModal(maintenance)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDelete(maintenance.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Supprimer
-                        </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditModal(maintenance)}
+                            className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                            title="Modifier"
+                          >
+                            <Edit2 className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(maintenance.id)}
+                            className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-all"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     Aucune maintenance trouvée
                   </td>
                 </tr>
@@ -443,13 +449,13 @@ export const MaintenancePage = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Bus */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Bus *
                   </label>
                   <select
                     value={formData.busId}
                     onChange={(e) => setFormData({ ...formData, busId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     required
                     disabled={!!editingMaintenanceId}
                   >
@@ -465,13 +471,13 @@ export const MaintenancePage = () => {
                 {/* Type et Sévérité */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Type *
                     </label>
                     <select
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                       required
                     >
                       {Object.entries(maintenanceTypeLabels).map(([value, label]) => (
@@ -483,13 +489,13 @@ export const MaintenancePage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Sévérité *
                     </label>
                     <select
                       value={formData.severity}
                       onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                       required
                     >
                       {Object.entries(severityLabels).map(([value, label]) => (
@@ -503,14 +509,14 @@ export const MaintenancePage = () => {
 
                 {/* Titre */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Titre *
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     placeholder="Ex: Problème de freins"
                     required
                   />
@@ -518,13 +524,13 @@ export const MaintenancePage = () => {
 
                 {/* Description */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Description *
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     rows={3}
                     placeholder="Décrire le problème en détail..."
                     required
@@ -534,13 +540,13 @@ export const MaintenancePage = () => {
                 {/* Statut (seulement en édition) */}
                 {editingMaintenanceId && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Statut
                     </label>
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     >
                       {Object.entries(statusLabels).map(([value, label]) => (
                         <option key={value} value={value}>
@@ -554,19 +560,19 @@ export const MaintenancePage = () => {
                 {/* Date planifiée et Coût */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Date planifiée
                     </label>
                     <input
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Coût (€)
                     </label>
                     <input
@@ -574,7 +580,7 @@ export const MaintenancePage = () => {
                       step="0.01"
                       value={formData.cost}
                       onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                       placeholder="0.00"
                     />
                   </div>
@@ -583,27 +589,27 @@ export const MaintenancePage = () => {
                 {/* Date de fin (seulement en édition et si statut = completed) */}
                 {editingMaintenanceId && formData.status === 'completed' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Date de fin
                     </label>
                     <input
                       type="date"
                       value={formData.completedDate}
                       onChange={(e) => setFormData({ ...formData, completedDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     />
                   </div>
                 )}
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     Notes additionnelles
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
                     rows={2}
                     placeholder="Notes optionnelles..."
                   />
@@ -614,14 +620,14 @@ export const MaintenancePage = () => {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400"
                   >
                     {createMutation.isPending || updateMutation.isPending
                       ? 'Enregistrement...'

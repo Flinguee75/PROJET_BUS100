@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { UserRole } from '@/types/auth';
 import * as authService from '@/services/auth.service';
 
 vi.mock('@/services/auth.service');
@@ -83,7 +84,7 @@ describe('LoginPage', () => {
     vi.mocked(authService.login).mockResolvedValue({
       uid: 'test-uid',
       email: 'test@example.com',
-      role: 'admin',
+      role: UserRole.ADMIN,
     });
 
     renderLoginPage();

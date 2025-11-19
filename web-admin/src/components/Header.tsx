@@ -1,9 +1,10 @@
 /**
- * Composant Header - En-tête de page
+ * Composant Header - En-tête de page (Design Professionnel)
  * Affiche le titre de la page et les infos utilisateur
  */
 
 import { useNavigate } from 'react-router-dom';
+import { Bell, LogOut } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 interface HeaderProps {
@@ -24,49 +25,71 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
     }
   };
 
+  // Obtenir les initiales de l'utilisateur
+  const getUserInitials = () => {
+    const name = user?.displayName || user?.email || 'Admin';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   return (
-    <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10">
+    <header className="bg-white border-b border-slate-200 px-6 lg:px-8 py-4 sticky top-0 z-20 shadow-sm">
       <div className="flex items-center justify-between">
         {/* Titre de la page */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+          <h1 className="text-2xl font-bold text-slate-900 font-display tracking-tight">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="text-sm text-slate-600 mt-0.5 font-medium">
+              {subtitle}
+            </p>
+          )}
         </div>
 
         {/* Informations utilisateur */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-3">
           {/* Notifications */}
           <button
-            className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all duration-200"
             aria-label="Notifications"
+            title="Notifications"
           >
-            <span className="text-xl">🔔</span>
+            <Bell className="w-5 h-5" strokeWidth={2} />
             {/* Badge de notification */}
-            <span className="absolute top-1 right-1 w-2 h-2 bg-danger-500 rounded-full"></span>
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full ring-2 ring-white"></span>
           </button>
 
+          {/* Séparateur vertical */}
+          <div className="h-8 w-px bg-slate-200"></div>
+
           {/* Profil utilisateur */}
-          <div className="flex items-center space-x-3">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-semibold text-slate-900">
                 {user?.displayName || user?.email?.split('@')[0] || 'Admin'}
               </p>
-              <p className="text-xs text-gray-600">{user?.role || 'Administrateur'}</p>
+              <p className="text-xs text-slate-500 font-medium">
+                {user?.role || 'Administrateur'}
+              </p>
             </div>
             
             {/* Avatar */}
-            <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
-              {(user?.displayName || user?.email || 'A')[0].toUpperCase()}
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+              {getUserInitials()}
             </div>
 
-            {/* Menu déroulant (simplifié) */}
+            {/* Bouton déconnexion */}
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-600 hover:text-danger-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-slate-600 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-all duration-200 group"
               title="Déconnexion"
               aria-label="Déconnexion"
             >
-              <span className="text-xl">🚪</span>
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" strokeWidth={2} />
             </button>
           </div>
         </div>

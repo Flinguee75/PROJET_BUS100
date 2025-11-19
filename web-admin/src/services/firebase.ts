@@ -60,11 +60,9 @@ const initFirebase = () => {
     firebaseDb = getFirestore(firebaseApp);
 
     // Note: Les émulateurs Firebase doivent être lancés manuellement si nécessaire
-    // En mode développement, utiliser Firebase production par défaut
-    // Pour utiliser les émulateurs, lancez: firebase emulators:start
-    // et utilisez les variables d'environnement pour forcer la connexion
-    if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
-      // Connexion aux émulateurs seulement si explicitement activé
+    // En mode développement local, se connecter automatiquement aux émulateurs
+    if (import.meta.env.DEV) {
+      // Connexion aux émulateurs en mode développement
       try {
         connectAuthEmulator(firebaseAuth, 'http://localhost:9099', { disableWarnings: true });
         console.log('🔧 Connecté à l\'émulateur Auth Firebase');
