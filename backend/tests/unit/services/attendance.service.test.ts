@@ -85,7 +85,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -167,7 +167,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -225,7 +225,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -250,7 +250,7 @@ describe('AttendanceService', () => {
     it('lance une erreur si l\'élève n\'existe pas', async () => {
       // Arrange
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: false,
         }),
       });
@@ -301,7 +301,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -358,7 +358,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -406,7 +406,7 @@ describe('AttendanceService', () => {
       };
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockStudentDoc),
+        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
       });
 
       mockGet.mockResolvedValue({
@@ -508,7 +508,7 @@ describe('AttendanceService', () => {
 
       // Mock student documents
       mockDoc.mockImplementation((studentId: string) => ({
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           data: () => ({
             firstName: studentId === 'student-001' ? 'Aya' : 'Ibrahim',
@@ -577,7 +577,7 @@ describe('AttendanceService', () => {
       });
 
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           data: () => ({
             firstName: 'Test',

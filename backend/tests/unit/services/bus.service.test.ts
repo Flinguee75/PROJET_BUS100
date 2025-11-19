@@ -3,19 +3,19 @@
  * Teste toutes les opérations CRUD sur les bus
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { BusService } from '../../../src/services/bus.service';
 import { BusStatus, BusMaintenanceStatus } from '../../../src/types/bus.types';
 
 // Mock Firestore
-const mockAdd = vi.fn();
-const mockGet = vi.fn();
-const mockDoc = vi.fn();
-const mockUpdate = vi.fn();
-const mockDelete = vi.fn();
-const mockCollection = vi.fn();
+const mockAdd = jest.fn();
+const mockGet = jest.fn();
+const mockDoc = jest.fn();
+const mockUpdate = jest.fn();
+const mockDelete = jest.fn();
+const mockCollection = jest.fn();
 
-vi.mock('../../../src/config/firebase.config', () => ({
+jest.mock('../../../src/config/firebase.config', () => ({
   db: {
     collection: vi.fn((name: string) => ({
       add: mockAdd,
@@ -29,15 +29,15 @@ describe('BusService', () => {
   let busService: BusService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     busService = new BusService();
   });
 
   describe('createBus', () => {
     it('crée un nouveau bus avec succès', async () => {
-      const mockDocRef = {
+      const mockDocRef: any = {
         id: 'bus-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'bus-123',
           data: () => ({
             plateNumber: 'TU 123 TN 456',
@@ -70,9 +70,9 @@ describe('BusService', () => {
     });
 
     it('initialise les valeurs par défaut correctement', async () => {
-      const mockDocRef = {
+      const mockDocRef: any = {
         id: 'bus-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'bus-123',
           data: () => ({
             plateNumber: 'TU 123 TN 456',
@@ -160,8 +160,8 @@ describe('BusService', () => {
 
   describe('getBusById', () => {
     it('retourne null si le bus n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: false,
         }),
       };
@@ -174,8 +174,8 @@ describe('BusService', () => {
     });
 
     it('retourne le bus s\'il existe', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'bus-123',
           data: () => ({
@@ -202,8 +202,8 @@ describe('BusService', () => {
 
   describe('updateBus', () => {
     it('met à jour un bus existant', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({ exists: true }) // Première vérification
           .mockResolvedValueOnce({
             // Après update
@@ -219,7 +219,7 @@ describe('BusService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -237,8 +237,8 @@ describe('BusService', () => {
     });
 
     it('lance une erreur si le bus n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -251,9 +251,9 @@ describe('BusService', () => {
 
   describe('deleteBus', () => {
     it('supprime un bus existant', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: true }),
-        delete: vi.fn().mockResolvedValue(undefined),
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({ exists: true }),
+        delete: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -264,8 +264,8 @@ describe('BusService', () => {
     });
 
     it('lance une erreur si le bus n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);

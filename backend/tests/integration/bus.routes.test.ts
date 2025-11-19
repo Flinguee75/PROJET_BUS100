@@ -3,7 +3,7 @@
  * Teste les endpoints API REST complets
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import busRoutes from '../../src/routes/bus.routes';
@@ -11,7 +11,7 @@ import busService from '../../src/services/bus.service';
 import { BusStatus, BusMaintenanceStatus } from '../../src/types/bus.types';
 
 // Mock du service
-vi.mock('../../src/services/bus.service');
+jest.mock('../../src/services/bus.service');
 
 const app = express();
 app.use(express.json());
@@ -19,7 +19,7 @@ app.use('/api/buses', busRoutes);
 
 describe('Bus Routes Integration Tests', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('POST /api/buses', () => {
@@ -38,7 +38,7 @@ describe('Bus Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(busService.createBus).mockResolvedValue(mockBus);
+      jest.mocked(busService.createBus).mockResolvedValue(mockBus);
 
       const response = await request(app)
         .post('/api/buses')
@@ -69,7 +69,7 @@ describe('Bus Routes Integration Tests', () => {
     });
 
     it('retourne 400 en cas d\'erreur de création', async () => {
-      vi.mocked(busService.createBus).mockRejectedValue(
+      jest.mocked(busService.createBus).mockRejectedValue(
         new Error('Database error')
       );
 
@@ -118,7 +118,7 @@ describe('Bus Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(busService.getAllBuses).mockResolvedValue(mockBuses);
+      jest.mocked(busService.getAllBuses).mockResolvedValue(mockBuses);
 
       const response = await request(app).get('/api/buses');
 
@@ -151,7 +151,7 @@ describe('Bus Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(busService.getBusesWithLivePosition).mockResolvedValue(
+      jest.mocked(busService.getBusesWithLivePosition).mockResolvedValue(
         mockBusesWithGPS
       );
 
@@ -164,7 +164,7 @@ describe('Bus Routes Integration Tests', () => {
     });
 
     it('retourne une liste vide si aucun bus', async () => {
-      vi.mocked(busService.getAllBuses).mockResolvedValue([]);
+      jest.mocked(busService.getAllBuses).mockResolvedValue([]);
 
       const response = await request(app).get('/api/buses');
 
@@ -190,7 +190,7 @@ describe('Bus Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(busService.getBusById).mockResolvedValue(mockBus);
+      jest.mocked(busService.getBusById).mockResolvedValue(mockBus);
 
       const response = await request(app).get('/api/buses/bus-123');
 
@@ -200,7 +200,7 @@ describe('Bus Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le bus n\'existe pas', async () => {
-      vi.mocked(busService.getBusById).mockResolvedValue(null);
+      jest.mocked(busService.getBusById).mockResolvedValue(null);
 
       const response = await request(app).get('/api/buses/bus-inexistant');
 
@@ -226,7 +226,7 @@ describe('Bus Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(busService.updateBus).mockResolvedValue(mockUpdatedBus);
+      jest.mocked(busService.updateBus).mockResolvedValue(mockUpdatedBus);
 
       const response = await request(app)
         .put('/api/buses/bus-123')
@@ -242,7 +242,7 @@ describe('Bus Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le bus à mettre à jour n\'existe pas', async () => {
-      vi.mocked(busService.updateBus).mockRejectedValue(
+      jest.mocked(busService.updateBus).mockRejectedValue(
         new Error('Bus with ID bus-inexistant not found')
       );
 
@@ -257,7 +257,7 @@ describe('Bus Routes Integration Tests', () => {
 
   describe('DELETE /api/buses/:busId', () => {
     it('supprime un bus existant', async () => {
-      vi.mocked(busService.deleteBus).mockResolvedValue(undefined);
+      jest.mocked(busService.deleteBus).mockResolvedValue(undefined);
 
       const response = await request(app).delete('/api/buses/bus-123');
 
@@ -267,7 +267,7 @@ describe('Bus Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le bus à supprimer n\'existe pas', async () => {
-      vi.mocked(busService.deleteBus).mockRejectedValue(
+      jest.mocked(busService.deleteBus).mockRejectedValue(
         new Error('Bus with ID bus-inexistant not found')
       );
 
