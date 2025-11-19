@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BusService } from '../../../src/services/bus.service';
-import { BusStatus, MaintenanceStatus } from '../../../src/types/bus.types';
+import { BusStatus, BusMaintenanceStatus } from '../../../src/types/bus.types';
 
 // Mock Firestore
 const mockAdd = vi.fn();
@@ -45,7 +45,7 @@ describe('BusService', () => {
             year: 2024,
             capacity: 50,
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
           createTime: { toDate: () => new Date('2024-01-01') },
           updateTime: { toDate: () => new Date('2024-01-01') },
@@ -80,7 +80,7 @@ describe('BusService', () => {
             year: 2024,
             capacity: 50,
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
             driverId: null,
             routeId: null,
           }),
@@ -102,7 +102,7 @@ describe('BusService', () => {
 
       expect(result.driverId).toBeNull();
       expect(result.routeId).toBeNull();
-      expect(result.maintenanceStatus).toBe(MaintenanceStatus.OK);
+      expect(result.maintenanceStatus).toBe(BusMaintenanceStatus.OK);
     });
   });
 
@@ -128,7 +128,7 @@ describe('BusService', () => {
             year: 2024,
             capacity: 50,
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
           createTime: { toDate: () => new Date() },
           updateTime: { toDate: () => new Date() },
@@ -141,7 +141,7 @@ describe('BusService', () => {
             year: 2023,
             capacity: 40,
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
           createTime: { toDate: () => new Date() },
           updateTime: { toDate: () => new Date() },
