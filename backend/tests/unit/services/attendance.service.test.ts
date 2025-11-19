@@ -3,7 +3,7 @@
  * Teste les opérations de montée/descente et récupération d'historique
  */
 
-import { describe, it, expect, beforeEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { AttendanceService } from '../../../src/services/attendance.service';
 import notificationService from '../../../src/services/notification.service';
 
@@ -33,12 +33,7 @@ jest.mock('../../../src/config/firebase.config', () => ({
   },
 }));
 
-// Mock NotificationService
-jest.mock('../../../src/services/notification.service', () => ({
-  default: {
-    notifyParentsOfStudent: jest.fn().mockResolvedValue({}),
-  },
-}));
+jest.mock('../../../src/services/notification.service');
 
 describe('AttendanceService', () => {
   let attendanceService: AttendanceService;
@@ -47,6 +42,9 @@ describe('AttendanceService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     attendanceService = new AttendanceService();
+
+    // Setup notification service spy
+    jest.spyOn(notificationService, 'notifyParentsOfStudent').mockResolvedValue({} as any);
 
     // Mock chaîné pour where
     mockWhere.mockReturnValue({
@@ -129,9 +127,14 @@ describe('AttendanceService', () => {
 
       expect(notificationService.notifyParentsOfStudent).toHaveBeenCalledWith(
         'student-001',
-        expect.objectContaining({ firstName: 'Aya' }),
-        expect.any(Date),
-        'board'
+        expect.stringContaining('Aya Kouassi'),
+        expect.stringContaining('est monté(e) dans le bus'),
+        'student_boarded',
+        'high',
+        expect.objectContaining({
+          eventType: 'board',
+          studentName: 'Aya Kouassi',
+        })
       );
     });
 
@@ -331,9 +334,14 @@ describe('AttendanceService', () => {
 
       expect(notificationService.notifyParentsOfStudent).toHaveBeenCalledWith(
         'student-001',
-        expect.objectContaining({ firstName: 'Ibrahim' }),
-        expect.any(Date),
-        'exit'
+        expect.stringContaining('Ibrahim Traoré'),
+        expect.stringContaining('est descendu(e) du bus'),
+        'student_exited',
+        'high',
+        expect.objectContaining({
+          eventType: 'exit',
+          studentName: 'Ibrahim Traoré',
+        })
       );
     });
 

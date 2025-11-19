@@ -31,12 +31,12 @@ describe('Attendance Routes Integration Tests', () => {
         date: '2024-01-15',
         boardingTime: new Date('2024-01-15T08:30:00.000Z'),
         boardingLocation: { lat: 5.36, lng: -4.008 },
-        status: 'boarded',
+        status: 'boarded' as const,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      attendanceService.boardStudent as jest.Mocked<typeof attendanceService.boardStudent>.mockResolvedValue(mockRecord);
+      (attendanceService.boardStudent as jest.MockedFunction<typeof attendanceService.boardStudent>).mockResolvedValue(mockRecord);
 
       const response = await request(app)
         .post('/api/attendance/board')
@@ -70,7 +70,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 409 si l\'élève est déjà dans le bus', async () => {
-      attendanceService.boardStudent as jest.Mocked<typeof attendanceService.boardStudent>.mockRejectedValue(
+      (attendanceService.boardStudent as jest.MockedFunction<typeof attendanceService.boardStudent>).mockRejectedValue(
         new Error('Student student-001 is already on the bus')
       );
 
@@ -88,7 +88,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 404 si l\'élève n\'existe pas', async () => {
-      attendanceService.boardStudent as jest.Mocked<typeof attendanceService.boardStudent>.mockRejectedValue(
+      (attendanceService.boardStudent as jest.MockedFunction<typeof attendanceService.boardStudent>).mockRejectedValue(
         new Error('Student student-999 not found')
       );
 
@@ -117,12 +117,12 @@ describe('Attendance Routes Integration Tests', () => {
         boardingTime: new Date('2024-01-15T08:30:00.000Z'),
         exitTime: new Date('2024-01-15T16:00:00.000Z'),
         exitLocation: { lat: 5.32, lng: -4.03 },
-        status: 'completed',
+        status: 'completed' as const,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      attendanceService.exitStudent as jest.Mocked<typeof attendanceService.exitStudent>.mockResolvedValue(mockRecord);
+      (attendanceService.exitStudent as jest.MockedFunction<typeof attendanceService.exitStudent>).mockResolvedValue(mockRecord);
 
       const response = await request(app)
         .post('/api/attendance/exit')
@@ -141,7 +141,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 409 si l\'élève n\'est pas dans le bus', async () => {
-      attendanceService.exitStudent as jest.Mocked<typeof attendanceService.exitStudent>.mockRejectedValue(
+      (attendanceService.exitStudent as jest.MockedFunction<typeof attendanceService.exitStudent>).mockRejectedValue(
         new Error('Student student-001 is not currently on the bus')
       );
 
@@ -159,7 +159,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 409 si aucun record de montée n\'existe', async () => {
-      attendanceService.exitStudent as jest.Mocked<typeof attendanceService.exitStudent>.mockRejectedValue(
+      (attendanceService.exitStudent as jest.MockedFunction<typeof attendanceService.exitStudent>).mockRejectedValue(
         new Error('No boarding record found for student student-001 today. Student must board first.')
       );
 
@@ -183,12 +183,15 @@ describe('Attendance Routes Integration Tests', () => {
         id: 'attendance-001',
         studentId: 'student-001',
         busId: 'bus-001',
+        driverId: 'driver-001',
         date: '2024-01-15',
-        status: 'boarded',
+        status: 'boarded' as const,
         boardingTime: new Date('2024-01-15T08:30:00.000Z'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      attendanceService.getStudentAttendance as jest.Mocked<typeof attendanceService.getStudentAttendance>.mockResolvedValue(mockRecord);
+      (attendanceService.getStudentAttendance as jest.MockedFunction<typeof attendanceService.getStudentAttendance>).mockResolvedValue(mockRecord);
 
       const response = await request(app).get('/api/attendance/student/student-001');
 
@@ -199,7 +202,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 404 si aucun record n\'existe', async () => {
-      attendanceService.getStudentAttendance as jest.Mocked<typeof attendanceService.getStudentAttendance>.mockResolvedValue(null);
+      (attendanceService.getStudentAttendance as jest.MockedFunction<typeof attendanceService.getStudentAttendance>).mockResolvedValue(null);
 
       const response = await request(app).get('/api/attendance/student/student-999');
 
@@ -213,11 +216,14 @@ describe('Attendance Routes Integration Tests', () => {
         id: 'attendance-001',
         studentId: 'student-001',
         busId: 'bus-001',
+        driverId: 'driver-001',
         date: '2024-01-10',
-        status: 'completed',
+        status: 'completed' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      attendanceService.getStudentAttendance as jest.Mocked<typeof attendanceService.getStudentAttendance>.mockResolvedValue(mockRecord);
+      (attendanceService.getStudentAttendance as jest.MockedFunction<typeof attendanceService.getStudentAttendance>).mockResolvedValue(mockRecord);
 
       const response = await request(app).get('/api/attendance/student/student-001?date=2024-01-10');
 
@@ -243,7 +249,7 @@ describe('Attendance Routes Integration Tests', () => {
         },
       ];
 
-      attendanceService.getStudentsOnBus as jest.Mocked<typeof attendanceService.getStudentsOnBus>.mockResolvedValue(mockStudents);
+      (attendanceService.getStudentsOnBus as jest.MockedFunction<typeof attendanceService.getStudentsOnBus>).mockResolvedValue(mockStudents);
 
       const response = await request(app).get('/api/attendance/bus/bus-001/students');
 
@@ -256,7 +262,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne une liste vide si aucun élève n\'est dans le bus', async () => {
-      attendanceService.getStudentsOnBus as jest.Mocked<typeof attendanceService.getStudentsOnBus>.mockResolvedValue([]);
+      (attendanceService.getStudentsOnBus as jest.MockedFunction<typeof attendanceService.getStudentsOnBus>).mockResolvedValue([]);
 
       const response = await request(app).get('/api/attendance/bus/bus-001/students');
 
@@ -268,7 +274,7 @@ describe('Attendance Routes Integration Tests', () => {
 
   describe('GET /api/attendance/bus/:busId/count', () => {
     it('retourne le nombre d\'élèves dans le bus', async () => {
-      attendanceService.countStudentsOnBus as jest.Mocked<typeof attendanceService.countStudentsOnBus>.mockResolvedValue(5);
+      (attendanceService.countStudentsOnBus as jest.MockedFunction<typeof attendanceService.countStudentsOnBus>).mockResolvedValue(5);
 
       const response = await request(app).get('/api/attendance/bus/bus-001/count');
 
@@ -279,7 +285,7 @@ describe('Attendance Routes Integration Tests', () => {
     });
 
     it('retourne 0 si aucun élève n\'est dans le bus', async () => {
-      attendanceService.countStudentsOnBus as jest.Mocked<typeof attendanceService.countStudentsOnBus>.mockResolvedValue(0);
+      (attendanceService.countStudentsOnBus as jest.MockedFunction<typeof attendanceService.countStudentsOnBus>).mockResolvedValue(0);
 
       const response = await request(app).get('/api/attendance/bus/bus-001/count');
 
@@ -295,19 +301,25 @@ describe('Attendance Routes Integration Tests', () => {
           id: 'attendance-001',
           studentId: 'student-001',
           busId: 'bus-001',
+          driverId: 'driver-001',
           date: '2024-01-15',
-          status: 'completed',
+          status: 'completed' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
           id: 'attendance-002',
           studentId: 'student-002',
           busId: 'bus-001',
+          driverId: 'driver-001',
           date: '2024-01-14',
-          status: 'completed',
+          status: 'completed' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
-      attendanceService.getBusAttendanceHistory as jest.Mocked<typeof attendanceService.getBusAttendanceHistory>.mockResolvedValue(mockHistory);
+      (attendanceService.getBusAttendanceHistory as jest.MockedFunction<typeof attendanceService.getBusAttendanceHistory>).mockResolvedValue(mockHistory);
 
       const response = await request(app).get(
         '/api/attendance/bus/bus-001/history?startDate=2024-01-01&endDate=2024-01-31'
@@ -336,19 +348,25 @@ describe('Attendance Routes Integration Tests', () => {
           id: 'attendance-001',
           studentId: 'student-001',
           busId: 'bus-001',
+          driverId: 'driver-001',
           date: '2024-01-15',
-          status: 'completed',
+          status: 'completed' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
           id: 'attendance-002',
           studentId: 'student-001',
           busId: 'bus-001',
+          driverId: 'driver-001',
           date: '2024-01-14',
-          status: 'completed',
+          status: 'completed' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
-      attendanceService.getStudentAttendanceHistory as jest.Mocked<typeof attendanceService.getStudentAttendanceHistory>.mockResolvedValue(mockHistory);
+      (attendanceService.getStudentAttendanceHistory as jest.MockedFunction<typeof attendanceService.getStudentAttendanceHistory>).mockResolvedValue(mockHistory);
 
       const response = await request(app).get(
         '/api/attendance/student/student-001/history?startDate=2024-01-01&endDate=2024-01-31'
