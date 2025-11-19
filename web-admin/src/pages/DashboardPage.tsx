@@ -206,11 +206,11 @@ export const DashboardPage = () => {
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></div>
                         En route
-                      </span>
+                    </span>
                       <span className="font-semibold text-slate-900">
                         {stats.busEnRoute ?? 0}
-                      </span>
-                    </div>
+                    </span>
+                  </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -219,7 +219,7 @@ export const DashboardPage = () => {
                       <span className="font-semibold text-slate-900">
                         {stats.busArrives ?? 0}
                       </span>
-                    </div>
+                </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
@@ -228,9 +228,9 @@ export const DashboardPage = () => {
                       <span className="font-semibold text-slate-900">
                         {stats.busNonPartis ?? 0}
                       </span>
-                    </div>
                   </div>
-                  
+                </div>
+                
                   <div className="pt-2 border-t border-slate-100">
                     <p className="text-xs text-slate-500 flex items-center gap-1.5">
                       <Bus className="w-3.5 h-3.5" />
@@ -390,9 +390,9 @@ export const DashboardPage = () => {
                   <div>
                     <p className="text-xs font-medium text-slate-600 mb-1">Disponibilité Flotte</p>
                     <div className="flex items-baseline gap-2">
-                      <p className={`text-2xl font-bold ${
+                    <p className={`text-2xl font-bold ${
                         (stats.busImmobilises ?? 0) === 0 ? 'text-success-600' : 'text-danger-600'
-                      }`}>
+                    }`}>
                         {stats.busDisponibles ?? stats.busTotaux ?? 0}
                       </p>
                       <span className="text-xs text-slate-500">

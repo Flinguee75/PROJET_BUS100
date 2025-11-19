@@ -237,14 +237,14 @@ export class DashboardService {
    * Retourne des statistiques par défaut en cas d'erreur
    */
   private getDefaultStats(): DashboardStats {
-    return {
+      return {
       // Métriques de base
-      busActifs: 0,
-      busTotaux: 0,
-      elevesTransportes: 0,
-      busEnRetard: 0,
-      totalTrajets: 0,
-      alertesMaintenance: 0,
+        busActifs: 0,
+        busTotaux: 0,
+        elevesTransportes: 0,
+        busEnRetard: 0,
+        totalTrajets: 0,
+        alertesMaintenance: 0,
 
       // Nouvelles métriques opérationnelles
       retardsCritiques: 0,
@@ -265,7 +265,7 @@ export class DashboardService {
       tauxPonctualite: 100,
       tempsTrajetMoyen: 35,
       tempsTrajetPrevu: 35,
-    };
+      };
   }
 }
 
