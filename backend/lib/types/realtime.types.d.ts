@@ -1,0 +1,38 @@
+import { BusStatus } from './bus.types';
+import { GPSPosition, BusLiveStatus } from './gps.types';
+export interface DriverInfo {
+    id: string;
+    name: string;
+    phone: string;
+}
+export interface RouteInfo {
+    id: string;
+    name: string;
+    fromZone: string;
+    toZone: string;
+}
+export interface BusRealtimeData {
+    id: string;
+    plateNumber: string;
+    capacity: number;
+    model: string;
+    year: number;
+    status: BusStatus;
+    currentPosition: GPSPosition | null;
+    liveStatus: BusLiveStatus | null;
+    driver: DriverInfo | null;
+    route: RouteInfo | null;
+    passengersCount: number;
+    currentZone: string | null;
+    lastUpdate: Date | null;
+    isActive: boolean;
+}
+export interface BusStatistics {
+    total: number;
+    active: number;
+    inactive: number;
+    enRoute: number;
+    stopped: number;
+    totalPassengers: number;
+}
+//# sourceMappingURL=realtime.types.d.ts.map

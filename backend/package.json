@@ -19,7 +19,8 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=tests/unit",
-    "test:integration": "jest --testPathPattern=tests/integration"
+    "test:integration": "jest --testPathPattern=tests/integration",
+    "seed": "ts-node src/scripts/seed-mock-data.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

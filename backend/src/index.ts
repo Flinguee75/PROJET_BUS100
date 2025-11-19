@@ -11,6 +11,7 @@ import cors from 'cors';
 import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import realtimeRoutes from './routes/realtime.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -38,6 +39,7 @@ app.get('/health', (_req, res) => {
 // Exemple: /projet-bus-60a3f/europe-west4/api/dashboard/stats -> /dashboard/stats
 app.use('/api/gps', gpsRoutes);
 app.use('/api/buses', busRoutes);
+app.use('/api/realtime', realtimeRoutes);
 // Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
 app.use('/dashboard', dashboardRoutes);
 
