@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
-import 'home_screen.dart';
+import 'main_map_screen.dart';
 
 /// Écran de connexion
 class LoginScreen extends StatefulWidget {
@@ -38,9 +38,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Connexion réussie → aller vers Home
+      // Connexion réussie → aller vers la carte principale
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainMapScreen()),
       );
     } else {
       // Afficher l'erreur
