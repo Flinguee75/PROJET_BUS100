@@ -88,20 +88,63 @@ export const DashboardPage = () => {
     <div className="flex-1 bg-neutral-50">
       <Header title="Tableau de bord" />
 
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {isLoading && (
-          <div className="flex justify-center py-16">
+          <div className="flex flex-col items-center justify-center py-20">
             <LoadingSpinner message="Chargement des statistiques..." />
+            <p className="text-sm text-slate-500 mt-4">Récupération des données en temps réel...</p>
           </div>
         )}
 
         {error && (
           <div className="py-8">
             <ErrorMessage message="Impossible de charger les statistiques" />
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 mb-2">💡 <strong>Astuce :</strong> Assurez-vous que :</p>
+              <ul className="text-xs text-blue-700 list-disc list-inside space-y-1 ml-4">
+                <li>Le backend est démarré : <code className="bg-blue-100 px-1 py-0.5 rounded">npm run serve</code></li>
+                <li>Des données mockées existent : <code className="bg-blue-100 px-1 py-0.5 rounded">npm run seed</code></li>
+                <li>L'API est accessible sur le bon port</li>
+              </ul>
+            </div>
           </div>
         )}
 
-        {stats && (
+        {stats && stats.busTotaux === 0 && (
+          <div className="max-w-2xl mx-auto mt-12">
+            <div className="bg-gradient-to-br from-primary-50 to-blue-50 border-2 border-primary-200 rounded-2xl p-8 text-center">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Bus className="w-8 h-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Aucune donnée disponible</h3>
+              <p className="text-slate-600 mb-6">
+                Le système n'a pas encore de données. Commencez par créer des données mockées pour tester le Dashboard.
+              </p>
+              <div className="bg-white rounded-lg p-4 text-left">
+                <p className="text-sm font-semibold text-slate-800 mb-3">🚀 Pour commencer :</p>
+                <ol className="text-sm text-slate-700 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-primary-600">1.</span>
+                    <span>Ouvrez un terminal dans le dossier <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">backend/</code></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-primary-600">2.</span>
+                    <span>Exécutez : <code className="bg-slate-100 px-2 py-0.5 rounded text-xs font-mono">npm run seed</code></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-primary-600">3.</span>
+                    <span>Rechargez cette page (F5)</span>
+                  </li>
+                </ol>
+              </div>
+              <p className="text-xs text-slate-500 mt-4">
+                💡 Le script créera 8 bus, 100 élèves, des scans et des positions GPS avec retards simulés.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {stats && stats.busTotaux > 0 && (
           <>
             {/* En-tête avec statut global OPÉRATIONNEL */}
             <div className="mb-8">
@@ -136,7 +179,7 @@ export const DashboardPage = () => {
             </div>
 
             {/* KPIs OPÉRATIONNELS - 3 colonnes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 mb-8">
               
               {/* CARTE 1 - ÉTAT DU SERVICE (Remplace "Bus actifs") */}
               <div className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-250 p-6 border border-slate-200/60">

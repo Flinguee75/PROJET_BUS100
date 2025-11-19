@@ -5,14 +5,15 @@
 import axios from 'axios';
 import type { BusRealtimeData, BusStatistics } from '../types/realtime';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/projet-bus-60a3f/europe-west4/api';
+// Utiliser la même base URL que gps.api.ts (sans /api à la fin)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/projet-bus-60a3f/europe-west4';
 
 /**
  * Récupère tous les bus avec leurs données en temps réel
  */
 export async function getAllBusesRealtime(): Promise<BusRealtimeData[]> {
   const response = await axios.get<{ success: boolean; data: BusRealtimeData[]; count: number }>(
-    `${API_URL}/api/realtime/buses`
+    `${API_BASE_URL}/api/realtime/buses`
   );
   return response.data.data;
 }
@@ -22,7 +23,7 @@ export async function getAllBusesRealtime(): Promise<BusRealtimeData[]> {
  */
 export async function getBusStatistics(): Promise<BusStatistics> {
   const response = await axios.get<{ success: boolean; data: BusStatistics }>(
-    `${API_URL}/api/realtime/statistics`
+    `${API_BASE_URL}/api/realtime/statistics`
   );
   return response.data.data;
 }
@@ -32,7 +33,7 @@ export async function getBusStatistics(): Promise<BusStatistics> {
  */
 export async function getBusRealtime(busId: string): Promise<BusRealtimeData> {
   const response = await axios.get<{ success: boolean; data: BusRealtimeData }>(
-    `${API_URL}/api/realtime/buses/${busId}`
+    `${API_BASE_URL}/api/realtime/buses/${busId}`
   );
   return response.data.data;
 }
