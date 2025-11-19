@@ -9,7 +9,7 @@ import {
   BusCreateInput,
   BusUpdateInput,
   BusStatus,
-  MaintenanceStatus,
+  BusMaintenanceStatus,
 } from '../types/bus.types';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -28,7 +28,7 @@ export class BusService {
     const busData = {
       ...input,
       status: BusStatus.ACTIVE,
-      maintenanceStatus: MaintenanceStatus.OK,
+      maintenanceStatus: BusMaintenanceStatus.OK,
       driverId: null,
       routeId: null,
       createdAt: now,

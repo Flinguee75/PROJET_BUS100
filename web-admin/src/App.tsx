@@ -22,6 +22,7 @@ import { BusDetailsPage } from '@/pages/BusDetailsPage';
 import { BusesManagementPage } from '@/pages/BusesManagementPage';
 import { StudentsManagementPage } from '@/pages/StudentsManagementPage';
 import { DriversManagementPage } from '@/pages/DriversManagementPage';
+import { MaintenancePage } from '@/pages/MaintenancePage';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 // Configuration du client React Query
@@ -71,6 +72,9 @@ function AppRoutes() {
           <Route path="buses/:busId" element={<BusDetailsPage />} />
           <Route path="drivers" element={<DriversManagementPage />} />
           <Route path="students" element={<StudentsManagementPage />} />
+          <Route path="maintenance" element={<MaintenancePage />} />
+          <Route path="drivers" element={<div className="p-8"><h1 className="text-2xl font-bold">Conducteurs (À venir)</h1></div>} />
+          <Route path="students" element={<div className="p-8"><h1 className="text-2xl font-bold">Élèves (À venir)</h1></div>} />
           <Route path="settings" element={<div className="p-8"><h1 className="text-2xl font-bold">Paramètres (À venir)</h1></div>} />
         </Route>
 

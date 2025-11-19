@@ -8,7 +8,7 @@ import request from 'supertest';
 import express from 'express';
 import busRoutes from '../../src/routes/bus.routes';
 import busService from '../../src/services/bus.service';
-import { BusStatus, MaintenanceStatus } from '../../src/types/bus.types';
+import { BusStatus, BusMaintenanceStatus } from '../../src/types/bus.types';
 
 // Mock du service
 vi.mock('../../src/services/bus.service');
@@ -31,7 +31,7 @@ describe('Bus Routes Integration Tests', () => {
         year: 2024,
         capacity: 50,
         status: BusStatus.ACTIVE,
-        maintenanceStatus: MaintenanceStatus.OK,
+        maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
         routeId: null,
         createdAt: new Date(),
@@ -97,7 +97,7 @@ describe('Bus Routes Integration Tests', () => {
           year: 2024,
           capacity: 50,
           status: BusStatus.ACTIVE,
-          maintenanceStatus: MaintenanceStatus.OK,
+          maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
           routeId: null,
           createdAt: new Date(),
@@ -110,7 +110,7 @@ describe('Bus Routes Integration Tests', () => {
           year: 2023,
           capacity: 40,
           status: BusStatus.ACTIVE,
-          maintenanceStatus: MaintenanceStatus.OK,
+          maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
           routeId: null,
           createdAt: new Date(),
@@ -137,7 +137,7 @@ describe('Bus Routes Integration Tests', () => {
           year: 2024,
           capacity: 50,
           status: BusStatus.ACTIVE,
-          maintenanceStatus: MaintenanceStatus.OK,
+          maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
           routeId: null,
           createdAt: new Date(),
@@ -183,7 +183,7 @@ describe('Bus Routes Integration Tests', () => {
         year: 2024,
         capacity: 50,
         status: BusStatus.ACTIVE,
-        maintenanceStatus: MaintenanceStatus.OK,
+        maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
         routeId: null,
         createdAt: new Date(),
@@ -219,7 +219,7 @@ describe('Bus Routes Integration Tests', () => {
         year: 2024,
         capacity: 60,
         status: BusStatus.ACTIVE,
-        maintenanceStatus: MaintenanceStatus.OK,
+        maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
         routeId: null,
         createdAt: new Date(),

@@ -13,6 +13,7 @@ import busRoutes from './routes/bus.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import studentRoutes from './routes/student.routes';
 import driverRoutes from './routes/driver.routes';
+import maintenanceRoutes from './routes/maintenance.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -44,6 +45,7 @@ app.use('/buses', busRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/students', studentRoutes);
 app.use('/drivers', driverRoutes);
+app.use('/maintenances', maintenanceRoutes);
 
 // Route 404
 app.use((req, res) => {

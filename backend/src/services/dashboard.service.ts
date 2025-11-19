@@ -4,7 +4,7 @@
 
 import { getDb } from '../config/firebase.config';
 import busService from './bus.service';
-import { BusStatus, MaintenanceStatus, Bus } from '../types/bus.types';
+import { BusStatus, BusMaintenanceStatus, Bus } from '../types/bus.types';
 
 export interface DashboardStats {
   busActifs: number;
@@ -58,8 +58,8 @@ export class DashboardService {
       const totalTrajets = 0;
       const alertesMaintenance = buses.filter(
         (bus) =>
-          bus.maintenanceStatus === MaintenanceStatus.CRITICAL ||
-          bus.maintenanceStatus === MaintenanceStatus.WARNING
+          bus.maintenanceStatus === BusMaintenanceStatus.CRITICAL ||
+          bus.maintenanceStatus === BusMaintenanceStatus.WARNING
       ).length;
 
       return {
