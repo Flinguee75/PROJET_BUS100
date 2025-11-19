@@ -69,5 +69,25 @@ export const mockDashboardStats: DashboardStats = {
   busEnRetard: 3,
   totalTrajets: 120,
   alertesMaintenance: 7,
+
+  // Nouvelles métriques opérationnelles
+  retardsCritiques: 1,
+  retardsGraves: 2,
+  busImmobilises: 5,
+  busDisponibles: 145,
+  tauxValidation: 95,
+  elevesNonScannes: 425,
+
+  // État détaillé du service
+  busEnRoute: 100,
+  busArrives: 20,
+  busNonPartis: 5,
+  busEnAttente: 15,
+
+  // Métriques de performance
+  retardMoyen: 3.5,
+  tauxPonctualite: 96.5,
+  tempsTrajetMoyen: 28,
+  tempsTrajetPrevu: 25,
 };
 

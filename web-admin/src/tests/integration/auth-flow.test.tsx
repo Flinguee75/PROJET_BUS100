@@ -5,8 +5,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
+import { UserRole } from '@/types/auth';
 import { LoginPage } from '@/pages/LoginPage';
 import * as authService from '@/services/auth.service';
 
@@ -67,7 +68,7 @@ describe('Auth Flow Integration', () => {
     });
 
     const { container } = render(
-      <BrowserRouter initialEntries={['/protected']}>
+      <MemoryRouter initialEntries={['/protected']}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<div>Login Page</div>} />
@@ -81,7 +82,7 @@ describe('Auth Flow Integration', () => {
             />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     );
 
     // Attendre que le composant se monte
@@ -94,11 +95,11 @@ describe('Auth Flow Integration', () => {
     const mockUser = {
       uid: 'test-uid',
       email: 'test@example.com',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     // D'abord pas d'utilisateur
-    let authCallback: ((user: unknown) => void) | null = null;
+    let authCallback: ((user: typeof mockUser | null) => void) | null = null;
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       authCallback = callback;
       callback(null);
@@ -127,10 +128,10 @@ describe('Auth Flow Integration', () => {
     const mockUser = {
       uid: 'test-uid',
       email: 'test@example.com',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
-    let authCallback: ((user: unknown) => void) | null = null;
+    let authCallback: ((user: typeof mockUser | null) => void) | null = null;
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       authCallback = callback;
       callback(mockUser);
@@ -142,7 +143,7 @@ describe('Auth Flow Integration', () => {
     });
 
     const { container } = render(
-      <BrowserRouter initialEntries={['/protected']}>
+      <MemoryRouter initialEntries={['/protected']}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<div>Login Page</div>} />
@@ -156,7 +157,7 @@ describe('Auth Flow Integration', () => {
             />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     );
 
     // Attendre que le composant se monte
@@ -194,7 +195,7 @@ describe('Auth Flow Integration', () => {
     });
 
     const { container } = render(
-      <BrowserRouter initialEntries={['/protected']}>
+      <MemoryRouter initialEntries={['/protected']}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<div>Login Page</div>} />
@@ -208,7 +209,7 @@ describe('Auth Flow Integration', () => {
             />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     );
 
     // Vérifier que le composant se monte (même s'il est en loading)

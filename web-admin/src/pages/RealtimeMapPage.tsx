@@ -3,7 +3,7 @@
  * Affiche les bus en temps réel avec informations détaillées
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useQuery } from '@tanstack/react-query';
@@ -125,62 +125,8 @@ export const RealtimeMapPage = () => {
     };
   }, []);
 
-  // Mettre à jour les marqueurs quand les bus changent
-  useEffect(() => {
-    if (!map.current || !mapLoaded) return;
-
-    filteredBuses.forEach((bus) => {
-      if (!bus.currentPosition) return;
-
-      const { lat, lng } = bus.currentPosition;
-      const busId = bus.id;
-
-      // Si le marqueur existe déjà, le mettre à jour
-      if (markers.current.has(busId)) {
-        const marker = markers.current.get(busId)!;
-        marker.setLngLat([lng, lat]);
-
-        // Mettre à jour le popup
-        if (popups.current.has(busId)) {
-          const popup = popups.current.get(busId)!;
-          popup.setHTML(createPopupHTML(bus));
-        }
-      } else {
-        // Créer un nouveau marqueur
-        const el = document.createElement('div');
-        el.className = 'custom-marker';
-        el.innerHTML = createMarkerHTML(bus);
-
-        // Créer le popup
-        const popup = new mapboxgl.Popup({
-          offset: 25,
-          closeButton: true,
-          closeOnClick: false,
-        }).setHTML(createPopupHTML(bus));
-
-        popups.current.set(busId, popup);
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .setPopup(popup)
-          .addTo(map.current!);
-
-        markers.current.set(busId, marker);
-      }
-    });
-
-    // Supprimer les marqueurs des bus qui n'existent plus
-    markers.current.forEach((marker, busId) => {
-      if (!filteredBuses.find((b) => b.id === busId)) {
-        marker.remove();
-        markers.current.delete(busId);
-        popups.current.delete(busId);
-      }
-    });
-  }, [filteredBuses, mapLoaded]);
-
   // Créer le HTML du marqueur
-  const createMarkerHTML = (bus: BusRealtimeData): string => {
+  const createMarkerHTML = useCallback((bus: BusRealtimeData): string => {
     const statusClass = getStatusClass(bus.liveStatus);
     const busIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`;
 
@@ -196,10 +142,10 @@ export const RealtimeMapPage = () => {
         }
       </div>
     `;
-  };
+  }, []);
 
   // Créer le HTML du popup
-  const createPopupHTML = (bus: BusRealtimeData): string => {
+  const createPopupHTML = useCallback((bus: BusRealtimeData): string => {
     return `
       <div class="p-4 min-w-[280px]">
         <div class="flex items-center justify-between mb-3">
@@ -286,7 +232,61 @@ export const RealtimeMapPage = () => {
         </div>
       </div>
     `;
-  };
+  }, []);
+
+  // Mettre à jour les marqueurs quand les bus changent
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    filteredBuses.forEach((bus) => {
+      if (!bus.currentPosition) return;
+
+      const { lat, lng } = bus.currentPosition;
+      const busId = bus.id;
+
+      // Si le marqueur existe déjà, le mettre à jour
+      if (markers.current.has(busId)) {
+        const marker = markers.current.get(busId)!;
+        marker.setLngLat([lng, lat]);
+
+        // Mettre à jour le popup
+        if (popups.current.has(busId)) {
+          const popup = popups.current.get(busId)!;
+          popup.setHTML(createPopupHTML(bus));
+        }
+      } else {
+        // Créer un nouveau marqueur
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.innerHTML = createMarkerHTML(bus);
+
+        // Créer le popup
+        const popup = new mapboxgl.Popup({
+          offset: 25,
+          closeButton: true,
+          closeOnClick: false,
+        }).setHTML(createPopupHTML(bus));
+
+        popups.current.set(busId, popup);
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .setPopup(popup)
+          .addTo(map.current!);
+
+        markers.current.set(busId, marker);
+      }
+    });
+
+    // Supprimer les marqueurs des bus qui n'existent plus
+    markers.current.forEach((marker, busId) => {
+      if (!filteredBuses.find((b) => b.id === busId)) {
+        marker.remove();
+        markers.current.delete(busId);
+        popups.current.delete(busId);
+      }
+    });
+  }, [filteredBuses, mapLoaded, createMarkerHTML, createPopupHTML]);
 
   // Obtenir la classe CSS pour le statut
   const getStatusClass = (status: BusLiveStatus | null): string => {
@@ -386,126 +386,126 @@ export const RealtimeMapPage = () => {
         <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden h-full">
           {/* Contenu scrollable */}
           <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-            {/* Statistiques */}
-            {stats && (
-              <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-white">
-                <div className="flex items-center gap-2 mb-4">
-                  <Activity className="w-5 h-5 text-primary-600" strokeWidth={2} />
-                  <h3 className="text-lg font-bold text-slate-900 font-display">Statistiques</h3>
+          {/* Statistiques */}
+          {stats && (
+            <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-5 h-5 text-primary-600" strokeWidth={2} />
+                <h3 className="text-lg font-bold text-slate-900 font-display">Statistiques</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Bus className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                    <div className="text-xs text-slate-600 font-medium">Total bus</div>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Bus className="w-4 h-4 text-slate-500" strokeWidth={2} />
-                      <div className="text-xs text-slate-600 font-medium">Total bus</div>
-                    </div>
-                    <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
+                <div className="bg-success-50 p-3 rounded-lg border border-success-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="w-4 h-4 text-success-600" strokeWidth={2} />
+                    <div className="text-xs text-success-700 font-medium">En course</div>
                   </div>
-                  <div className="bg-success-50 p-3 rounded-lg border border-success-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CheckCircle2 className="w-4 h-4 text-success-600" strokeWidth={2} />
-                      <div className="text-xs text-success-700 font-medium">En course</div>
-                    </div>
-                    <div className="text-2xl font-bold text-success-700">{stats.active}</div>
+                  <div className="text-2xl font-bold text-success-700">{stats.active}</div>
+                </div>
+                <div className="bg-primary-50 p-3 rounded-lg border border-primary-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Navigation className="w-4 h-4 text-primary-600" strokeWidth={2} />
+                    <div className="text-xs text-primary-700 font-medium">En route</div>
                   </div>
-                  <div className="bg-primary-50 p-3 rounded-lg border border-primary-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Navigation className="w-4 h-4 text-primary-600" strokeWidth={2} />
-                      <div className="text-xs text-primary-700 font-medium">En route</div>
-                    </div>
-                    <div className="text-2xl font-bold text-primary-700">{stats.enRoute}</div>
+                  <div className="text-2xl font-bold text-primary-700">{stats.enRoute}</div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-4 h-4 text-slate-600" strokeWidth={2} />
+                    <div className="text-xs text-slate-600 font-medium">Élèves</div>
                   </div>
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="w-4 h-4 text-slate-600" strokeWidth={2} />
-                      <div className="text-xs text-slate-600 font-medium">Élèves</div>
-                    </div>
-                    <div className="text-2xl font-bold text-slate-900">{stats.totalPassengers}</div>
-                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{stats.totalPassengers}</div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Filtres et recherche */}
-            <div className="p-5 border-b border-slate-200">
-              {/* Barre de recherche */}
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
-                  <input
-                    type="text"
-                    placeholder="Rechercher un bus..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Boutons de filtre */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setFilterStatus('all')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    filterStatus === 'all'
-                      ? 'bg-primary-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Tous ({buses.length})
-                </button>
-                <button
-                  onClick={() => setFilterStatus('active')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    filterStatus === 'active'
-                      ? 'bg-success-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Actifs ({activeBuses.length})
-                </button>
-                <button
-                  onClick={() => setFilterStatus('inactive')}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    filterStatus === 'inactive'
-                      ? 'bg-slate-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Inactifs ({inactiveBuses.length})
-                </button>
+          {/* Filtres et recherche */}
+          <div className="p-5 border-b border-slate-200">
+            {/* Barre de recherche */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
+                <input
+                  type="text"
+                  placeholder="Rechercher un bus..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
               </div>
             </div>
 
-            {/* Liste des bus en course */}
-            {activeBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'active') && (
-              <div className="p-5 border-b border-slate-200">
-                <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm">
-                  <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
-                  Bus en course ({activeBuses.length})
-                </h4>
-                <div className="space-y-2.5">
-                  {activeBuses.map((bus) => (
-                    <BusCard key={bus.id} bus={bus} />
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Boutons de filtre */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  filterStatus === 'all'
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Tous ({buses.length})
+              </button>
+              <button
+                onClick={() => setFilterStatus('active')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  filterStatus === 'active'
+                    ? 'bg-success-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Actifs ({activeBuses.length})
+              </button>
+              <button
+                onClick={() => setFilterStatus('inactive')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  filterStatus === 'inactive'
+                    ? 'bg-slate-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Inactifs ({inactiveBuses.length})
+              </button>
+            </div>
+          </div>
 
-            {/* Liste des bus hors course */}
-            {inactiveBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'inactive') && (
-              <div className="p-5">
-                <h4 className="font-semibold text-slate-600 mb-3 flex items-center gap-2 text-sm">
-                  <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
-                  Bus hors course ({inactiveBuses.length})
-                </h4>
-                <div className="space-y-2.5">
-                  {inactiveBuses.map((bus) => (
-                    <BusCard key={bus.id} bus={bus} />
-                  ))}
-                </div>
+          {/* Liste des bus en course */}
+          {activeBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'active') && (
+            <div className="p-5 border-b border-slate-200">
+              <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm">
+                <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
+                Bus en course ({activeBuses.length})
+              </h4>
+              <div className="space-y-2.5">
+                {activeBuses.map((bus) => (
+                  <BusCard key={bus.id} bus={bus} />
+                ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Liste des bus hors course */}
+          {inactiveBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'inactive') && (
+            <div className="p-5">
+              <h4 className="font-semibold text-slate-600 mb-3 flex items-center gap-2 text-sm">
+                <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
+                Bus hors course ({inactiveBuses.length})
+              </h4>
+              <div className="space-y-2.5">
+                {inactiveBuses.map((bus) => (
+                  <BusCard key={bus.id} bus={bus} />
+                ))}
+              </div>
+            </div>
+          )}
           </div>
           {/* Fin du contenu scrollable */}
         </div>

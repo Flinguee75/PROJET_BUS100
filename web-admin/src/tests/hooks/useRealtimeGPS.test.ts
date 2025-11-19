@@ -52,7 +52,7 @@ describe('useRealtimeGPS', () => {
       status: 'EN_ROUTE',
     };
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         forEach: (callback: (doc: unknown) => void) => {
           callback({
@@ -86,7 +86,7 @@ describe('useRealtimeGPS', () => {
       lastUpdate: Date.now(),
     };
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         forEach: (callback: (doc: unknown) => void) => {
           callback({
@@ -117,7 +117,7 @@ describe('useRealtimeGPS', () => {
       lastUpdate: Date.now(),
     };
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         forEach: (callback: (doc: unknown) => void) => {
           callback({
@@ -149,7 +149,7 @@ describe('useRealtimeGPS', () => {
       lastUpdate: fiveMinutesAgo,
     };
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         forEach: (callback: (doc: unknown) => void) => {
           callback({
@@ -172,7 +172,7 @@ describe('useRealtimeGPS', () => {
   it('gère les erreurs de Firestore', async () => {
     const mockError = new Error('Firestore error');
 
-    mockOnSnapshot.mockImplementation((query, onNext, onError) => {
+    mockOnSnapshot.mockImplementation((_query, _onNext, onError) => {
       onError(mockError);
       return vi.fn();
     });
@@ -186,9 +186,10 @@ describe('useRealtimeGPS', () => {
   });
 
   it('met à jour les bus en temps réel', async () => {
-    let snapshotCallback: ((snapshot: unknown) => void) | null = null;
+    type SnapshotType = { forEach?: (callback: (doc: unknown) => void) => void; docs?: unknown[] };
+    let snapshotCallback: ((snapshot: SnapshotType) => void) | null = null;
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       snapshotCallback = onNext;
       return vi.fn();
     });
@@ -208,7 +209,7 @@ describe('useRealtimeGPS', () => {
       },
     };
 
-    snapshotCallback(snapshot1);
+    snapshotCallback!(snapshot1);
 
     await waitFor(() => {
       expect(result.current.buses).toHaveLength(1);
@@ -234,7 +235,7 @@ describe('useRealtimeGPS', () => {
       },
     };
 
-    snapshotCallback(snapshot2);
+    snapshotCallback!(snapshot2);
 
     await waitFor(() => {
       expect(result.current.buses).toHaveLength(2);
@@ -279,7 +280,7 @@ describe('useRealtimeBusPosition', () => {
       timestamp: Date.now(),
     };
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         docs: [
           {
@@ -303,7 +304,7 @@ describe('useRealtimeBusPosition', () => {
   });
 
   it('retourne null si le bus n\'est pas trouvé', async () => {
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       const snapshot = {
         docs: [],
       };
@@ -327,7 +328,7 @@ describe('useRealtimeBusPosition', () => {
   });
 
   it('gère les erreurs', async () => {
-    mockOnSnapshot.mockImplementation((query, onNext, onError) => {
+    mockOnSnapshot.mockImplementation((_query, _onNext, onError) => {
       onError(new Error('Firestore error'));
       return vi.fn();
     });
@@ -341,9 +342,10 @@ describe('useRealtimeBusPosition', () => {
   });
 
   it('met à jour la position en temps réel', async () => {
-    let snapshotCallback: ((snapshot: unknown) => void) | null = null;
+    type SnapshotType = { forEach?: (callback: (doc: unknown) => void) => void; docs?: unknown[] };
+    let snapshotCallback: ((snapshot: SnapshotType) => void) | null = null;
 
-    mockOnSnapshot.mockImplementation((query, onNext) => {
+    mockOnSnapshot.mockImplementation((_query, onNext) => {
       snapshotCallback = onNext;
       return vi.fn();
     });
@@ -360,7 +362,7 @@ describe('useRealtimeBusPosition', () => {
       ],
     };
 
-    snapshotCallback(snapshot1);
+    snapshotCallback!(snapshot1);
 
     await waitFor(() => {
       expect(result.current.position).toEqual(position1);
@@ -376,7 +378,7 @@ describe('useRealtimeBusPosition', () => {
       ],
     };
 
-    snapshotCallback(snapshot2);
+    snapshotCallback!(snapshot2);
 
     await waitFor(() => {
       expect(result.current.position).toEqual(position2);

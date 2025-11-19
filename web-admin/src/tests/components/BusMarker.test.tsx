@@ -31,6 +31,7 @@ describe('BusMarker', () => {
       status: 'EN_ROUTE',
       statusLabel: 'En route',
       itineraire: 'Ligne A',
+      maintenanceStatus: 80,
       currentPosition: {
         lat: 48.8566,
         lng: 2.3522,
@@ -93,6 +94,8 @@ describe('BusMarker', () => {
 
     // Le marqueur est créé avec un élément HTML personnalisé
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     expect(element.style.backgroundColor).toBe('rgb(16, 185, 129)'); // Vert
@@ -104,6 +107,8 @@ describe('BusMarker', () => {
     render(<BusMarker bus={mockBus} map={mockMap} />);
 
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     // Le navigateur peut retourner rgb() ou hex
@@ -116,6 +121,8 @@ describe('BusMarker', () => {
     render(<BusMarker bus={mockBus} map={mockMap} />);
 
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     // Le navigateur peut retourner rgb() ou hex
@@ -128,6 +135,8 @@ describe('BusMarker', () => {
     render(<BusMarker bus={mockBus} map={mockMap} />);
 
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     // Le navigateur peut retourner rgb() ou hex
@@ -142,6 +151,8 @@ describe('BusMarker', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     // Simuler un clic sur le marqueur - l'event listener a été ajouté par addEventListener
@@ -186,6 +197,8 @@ describe('BusMarker', () => {
     render(<BusMarker bus={mockBus} map={mockMap} />);
 
     const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+    expect(markerCall).toBeDefined();
+    if (!markerCall || !markerCall[0]) return;
     const element = markerCall[0].element as HTMLDivElement;
 
     expect(element.style.width).toBe('40px');
@@ -210,6 +223,8 @@ describe('BusMarker', () => {
       render(<BusMarker bus={mockBus} map={mockMap} />);
 
       const markerCall = vi.mocked(mapboxgl.Marker).mock.calls[0];
+      expect(markerCall).toBeDefined();
+      if (!markerCall || !markerCall[0]) return;
       const element = markerCall[0].element as HTMLDivElement;
 
       expect(element.innerHTML).toBe(icon);

@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
+import { UserRole } from '@/types/auth';
 import * as authService from '@/services/auth.service';
 
 // Mock du service
@@ -71,7 +72,7 @@ describe('AuthContext', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -98,7 +99,7 @@ describe('AuthContext', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -166,7 +167,7 @@ describe('AuthContext', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -200,7 +201,7 @@ describe('AuthContext', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -267,7 +268,7 @@ describe('AuthContext', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
