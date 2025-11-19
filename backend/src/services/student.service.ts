@@ -194,18 +194,50 @@ export class StudentService {
    * Assigne un élève à un bus et une route
    * @param studentId - ID de l'élève
    * @param busId - ID du bus
-   * @param routeId - ID de la route
+   * @param routeId - ID de la route (optionnel si auto-génération active)
+   * @param autoRegenerate - Si true, déclenche la régénération de route auto (défaut: true)
    */
-  async assignToBus(studentId: string, busId: string, routeId: string): Promise<Student> {
-    return this.updateStudent(studentId, { busId, routeId });
+  async assignToBus(
+    studentId: string,
+    busId: string,
+    routeId?: string,
+    autoRegenerate: boolean = true
+  ): Promise<Student> {
+    const result = await this.updateStudent(studentId, { busId, routeId: routeId || null });
+
+    // Déclencher la régénération automatique de la route si activée
+    if (autoRegenerate) {
+      // Note: Auto-regeneration is triggered via external call to avoid circular dependency
+      // Frontend should call /api/routes/generate/:busId after student assignment
+      console.log(`Student ${studentId} assigned to bus ${busId}. Route regeneration recommended.`);
+    }
+
+    return result;
   }
 
   /**
    * Retire un élève d'un bus
    * @param studentId - ID de l'élève
+   * @param autoRegenerate - Si true, déclenche la régénération de route auto (défaut: true)
    */
-  async removeFromBus(studentId: string): Promise<Student> {
-    return this.updateStudent(studentId, { busId: null, routeId: null });
+  async removeFromBus(studentId: string, autoRegenerate: boolean = true): Promise<Student> {
+    // Récupérer l'élève pour obtenir son busId
+    const student = await this.getStudentById(studentId);
+    if (!student) {
+      throw new Error(`Student with ID ${studentId} not found`);
+    }
+
+    const previousBusId = student.busId;
+    const result = await this.updateStudent(studentId, { busId: null, routeId: null });
+
+    // Déclencher la régénération automatique de la route si activée
+    if (autoRegenerate && previousBusId) {
+      // Note: Auto-regeneration is triggered via external call to avoid circular dependency
+      // Frontend should call /api/routes/regenerate/:busId after student removal
+      console.log(`Student ${studentId} removed from bus ${previousBusId}. Route regeneration recommended.`);
+    }
+
+    return result;
   }
 }
 

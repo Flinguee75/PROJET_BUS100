@@ -13,6 +13,12 @@ export interface Bus {
   routeId: string | null; // ID du parcours assigné
   status: BusStatus;
   maintenanceStatus: BusMaintenanceStatus;
+
+  // Champs pour génération automatique de routes
+  assignedCommune?: string; // Commune d'opération principale
+  assignedQuartiers?: string[]; // Sous-zones optionnelles
+  preferredDepartureTime?: string; // Heure de départ du matin (ex: "07:00")
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,4 +52,7 @@ export interface BusUpdateInput {
   routeId?: string | null;
   status?: BusStatus;
   maintenanceStatus?: BusMaintenanceStatus;
+  assignedCommune?: string;
+  assignedQuartiers?: string[];
+  preferredDepartureTime?: string;
 }

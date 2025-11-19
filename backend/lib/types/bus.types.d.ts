@@ -8,6 +8,9 @@ export interface Bus {
     routeId: string | null;
     status: BusStatus;
     maintenanceStatus: BusMaintenanceStatus;
+    assignedCommune?: string;
+    assignedQuartiers?: string[];
+    preferredDepartureTime?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -37,5 +40,8 @@ export interface BusUpdateInput {
     routeId?: string | null;
     status?: BusStatus;
     maintenanceStatus?: BusMaintenanceStatus;
+    assignedCommune?: string;
+    assignedQuartiers?: string[];
+    preferredDepartureTime?: string;
 }
 //# sourceMappingURL=bus.types.d.ts.map

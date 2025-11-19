@@ -12,6 +12,12 @@ router.get('/available', routeController.getAvailableRoutes.bind(routeController
 router.get('/communes', routeController.getCommunes.bind(routeController));
 router.get('/quartiers/:commune', routeController.getQuartiersByCommune.bind(routeController));
 
+// Routes de génération automatique (doivent venir AVANT les routes avec :id)
+router.post('/generate/:busId', routeController.generateRouteForBus.bind(routeController));
+router.post('/regenerate/:busId', routeController.regenerateRoute.bind(routeController));
+router.get('/by-bus/:busId', routeController.getRouteByBus.bind(routeController));
+router.get('/preview/:busId', routeController.previewRoute.bind(routeController));
+
 // Routes CRUD
 router.get('/', routeController.getAllRoutes.bind(routeController));
 router.get('/:id', routeController.getRouteById.bind(routeController));

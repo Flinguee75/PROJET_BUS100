@@ -5,7 +5,9 @@
 
 import { Request, Response } from 'express';
 import routeService from '../services/route.service';
+import routeGenerationService from '../services/route-generation.service';
 import { CommuneAbidjan, QUARTIERS_BY_COMMUNE } from '../types/route.types';
+import { routeGenerationRequestSchema } from '../utils/validation.schemas';
 
 export class RouteController {
   /**
@@ -386,6 +388,228 @@ export class RouteController {
       res.status(500).json({
         success: false,
         error: 'Failed to assign driver to route',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * POST /api/routes/generate/:busId
+   * Génère automatiquement une route optimale pour un bus
+   */
+  async generateRouteForBus(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.params;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+
+      // Valider le body
+      const validationResult = routeGenerationRequestSchema.safeParse({
+        busId,
+        ...req.body,
+      });
+
+      if (!validationResult.success) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid request parameters',
+          details: validationResult.error.errors,
+        });
+        return;
+      }
+
+      const route = await routeGenerationService.generateRouteForBus(busId);
+
+      res.status(200).json({
+        success: true,
+        data: route,
+        message: 'Route generated successfully',
+      });
+    } catch (error) {
+      console.error('Error generating route:', error);
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: 'Bus not found',
+            message: error.message,
+          });
+          return;
+        }
+
+        if (error.message.includes('No students')) {
+          res.status(400).json({
+            success: false,
+            error: 'No students assigned to this bus',
+            message: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate route',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * POST /api/routes/regenerate/:busId
+   * Force la régénération d'une route pour un bus
+   */
+  async regenerateRoute(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.params;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+
+      const route = await routeGenerationService.regenerateRoute(busId);
+
+      res.status(200).json({
+        success: true,
+        data: route,
+        message: 'Route regenerated successfully',
+      });
+    } catch (error) {
+      console.error('Error regenerating route:', error);
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: 'Bus not found',
+            message: error.message,
+          });
+          return;
+        }
+
+        if (error.message.includes('No students')) {
+          res.status(400).json({
+            success: false,
+            error: 'No students assigned to this bus',
+            message: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to regenerate route',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * GET /api/routes/by-bus/:busId
+   * Récupère la route d'un bus spécifique
+   */
+  async getRouteByBus(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.params;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+
+      const routes = await routeService.getAllRoutes();
+      const busRoutes = routes.filter((r) => r.busId === busId && r.isActive);
+
+      if (busRoutes.length === 0) {
+        res.status(404).json({
+          success: false,
+          error: 'No route found for this bus',
+        });
+        return;
+      }
+
+      // Retourner la route auto-générée en priorité, sinon la première route manuelle
+      const autoRoute = busRoutes.find((r) => !r.isManual);
+      const route = autoRoute || busRoutes[0];
+
+      res.status(200).json({
+        success: true,
+        data: route,
+      });
+    } catch (error) {
+      console.error('Error fetching route by bus:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch route',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * GET /api/routes/preview/:busId
+   * Prévisualise une route sans la sauvegarder
+   */
+  async previewRoute(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.params;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+
+      const route = await routeGenerationService.previewRoute(busId);
+
+      res.status(200).json({
+        success: true,
+        data: route,
+        message: 'Route preview generated',
+      });
+    } catch (error) {
+      console.error('Error previewing route:', error);
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            error: 'Bus not found',
+            message: error.message,
+          });
+          return;
+        }
+
+        if (error.message.includes('No students')) {
+          res.status(400).json({
+            success: false,
+            error: 'No students assigned to this bus',
+            message: error.message,
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to preview route',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }

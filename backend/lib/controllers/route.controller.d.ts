@@ -11,6 +11,10 @@ export declare class RouteController {
     assignBus(req: Request, res: Response): Promise<void>;
     removeBus(req: Request, res: Response): Promise<void>;
     assignDriver(req: Request, res: Response): Promise<void>;
+    generateRouteForBus(req: Request, res: Response): Promise<void>;
+    regenerateRoute(req: Request, res: Response): Promise<void>;
+    getRouteByBus(req: Request, res: Response): Promise<void>;
+    previewRoute(req: Request, res: Response): Promise<void>;
 }
 declare const _default: RouteController;
 export default _default;
