@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
+import { EmptyState } from '@/components/EmptyState';
+import { Plus, Edit2, Trash2, Users, X, AlertTriangle, MapPin } from 'lucide-react';
 import * as studentApi from '@/services/student.api';
 
 interface StudentFormData {
@@ -265,23 +267,24 @@ export const StudentsManagementPage = () => {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
-      <Header title="Gestion des Élèves" />
+    <div className="flex-1 bg-neutral-50">
+      <Header title="Gestion des Élèves" subtitle="Interface complète pour gérer les élèves" />
 
       <div className="p-8">
         {/* En-tête avec bouton d'ajout */}
         <div className="mb-6 flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800">Liste des Élèves</h2>
-            <p className="text-gray-600 mt-1">
+            <h2 className="text-2xl font-bold text-slate-900 font-display">Liste des Élèves</h2>
+            <p className="text-slate-600 mt-1">
               {students?.length || 0} élève(s) enregistré(s)
             </p>
           </div>
           <button
             onClick={openCreateModal}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-md"
+            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
           >
-            + Ajouter un élève
+            <Plus className="w-5 h-5" strokeWidth={2} />
+            <span>Ajouter un élève</span>
           </button>
         </div>
 
@@ -294,91 +297,100 @@ export const StudentsManagementPage = () => {
         {error && <ErrorMessage message="Impossible de charger les élèves" />}
 
         {!isLoading && !error && students && students.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <p className="text-gray-500 text-lg">Aucun élève enregistré</p>
-            <p className="text-gray-400 mt-2">
-              Cliquez sur "Ajouter un élève" pour commencer
-            </p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="Aucun élève enregistré"
+            description="Commencez par ajouter votre premier élève pour gérer les inscriptions"
+            action={{
+              label: "Ajouter un élève",
+              onClick: openCreateModal,
+              icon: Plus
+            }}
+          />
         )}
 
         {!isLoading && !error && students && students.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Nom Complet
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Classe
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Date de naissance
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Bus assigné
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Statut
                   </th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {students.map((student) => (
-                  <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-slate-900">
                         {student.firstName} {student.lastName}
                       </div>
                       {student.specialNeeds && (
-                        <div className="text-xs text-amber-600 mt-1">
-                          ⚠️ Besoins spéciaux
+                        <div className="flex items-center gap-1 text-xs text-warning-700 mt-1">
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                          <span>Besoins spéciaux</span>
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{student.grade}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-slate-700">{student.grade}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">
                       {new Date(student.dateOfBirth).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-6 py-4">
                       {student.busId ? (
-                        <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        <span className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md">
                           Bus {student.busId.substring(0, 8)}
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-500">Non assigné</span>
+                        <span className="text-sm text-slate-500">Non assigné</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`text-sm px-2 py-1 rounded ${
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${
                           student.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-success-50 text-success-700 border-success-200'
+                            : 'bg-danger-50 text-danger-700 border-danger-200'
                         }`}
                       >
                         {student.isActive ? 'Actif' : 'Inactif'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => openEditModal(student)}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDelete(student.id, `${student.firstName} ${student.lastName}`)
-                        }
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
-                      >
-                        Supprimer
-                      </button>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(student)}
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                          title="Modifier"
+                        >
+                          <Edit2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleDelete(student.id, `${student.firstName} ${student.lastName}`)
+                          }
+                          className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-all"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -389,17 +401,24 @@ export const StudentsManagementPage = () => {
 
         {/* Modal de création/édition */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <h3 className="text-xl font-bold text-slate-900 font-display">
                   {editingStudentId ? 'Modifier l\'élève' : 'Ajouter un nouvel élève'}
                 </h3>
+                <button
+                  onClick={closeModal}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-all"
+                  type="button"
+                >
+                  <X className="w-5 h-5 text-slate-500" strokeWidth={2} />
+                </button>
               </div>
 
               <form onSubmit={handleSubmit} className="p-6">
                 {formError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  <div className="mb-4 p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg">
                     {formError}
                   </div>
                 )}
@@ -407,7 +426,7 @@ export const StudentsManagementPage = () => {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   {/* Informations personnelles */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Prénom *
                     </label>
                     <input
@@ -415,13 +434,13 @@ export const StudentsManagementPage = () => {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Nom *
                     </label>
                     <input
@@ -429,13 +448,13 @@ export const StudentsManagementPage = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Date de naissance *
                     </label>
                     <input
@@ -443,13 +462,13 @@ export const StudentsManagementPage = () => {
                       name="dateOfBirth"
                       value={formData.dateOfBirth}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Classe *
                     </label>
                     <input
@@ -458,14 +477,14 @@ export const StudentsManagementPage = () => {
                       value={formData.grade}
                       onChange={handleInputChange}
                       placeholder="Ex: CM2, 6ème..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   {!editingStudentId && (
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
                         IDs des parents (séparés par des virgules) *
                       </label>
                       <input
@@ -474,7 +493,7 @@ export const StudentsManagementPage = () => {
                         value={formData.parentIds}
                         onChange={handleInputChange}
                         placeholder="parent-1, parent-2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                         required
                       />
                     </div>
@@ -482,7 +501,7 @@ export const StudentsManagementPage = () => {
 
                   {/* Localisation géographique */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Commune (Abidjan)
                     </label>
                     <input
@@ -491,12 +510,12 @@ export const StudentsManagementPage = () => {
                       value={formData.commune}
                       onChange={handleInputChange}
                       placeholder="Ex: Cocody, Yopougon..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Quartier
                     </label>
                     <input
@@ -505,17 +524,20 @@ export const StudentsManagementPage = () => {
                       value={formData.quartier}
                       onChange={handleInputChange}
                       placeholder="Ex: Riviera, II Plateaux..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   {/* Adresse de ramassage */}
-                  <div className="col-span-2 border-t pt-4">
-                    <h4 className="font-medium text-gray-800 mb-3">Adresse de ramassage</h4>
+                  <div className="col-span-2 border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin className="w-4 h-4 text-slate-600" strokeWidth={2} />
+                      <h4 className="font-semibold text-slate-800">Adresse de ramassage</h4>
+                    </div>
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Adresse *
                     </label>
                     <input
@@ -523,13 +545,13 @@ export const StudentsManagementPage = () => {
                       name="pickupAddress"
                       value={formData.pickupAddress}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Latitude
                     </label>
                     <input
@@ -538,12 +560,12 @@ export const StudentsManagementPage = () => {
                       name="pickupLat"
                       value={formData.pickupLat}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Longitude
                     </label>
                     <input
@@ -552,17 +574,20 @@ export const StudentsManagementPage = () => {
                       name="pickupLng"
                       value={formData.pickupLng}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   {/* Adresse de dépôt */}
-                  <div className="col-span-2 border-t pt-4">
-                    <h4 className="font-medium text-gray-800 mb-3">Adresse de dépôt</h4>
+                  <div className="col-span-2 border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin className="w-4 h-4 text-slate-600" strokeWidth={2} />
+                      <h4 className="font-semibold text-slate-800">Adresse de dépôt</h4>
+                    </div>
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Adresse *
                     </label>
                     <input
@@ -570,13 +595,13 @@ export const StudentsManagementPage = () => {
                       name="dropoffAddress"
                       value={formData.dropoffAddress}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Latitude
                     </label>
                     <input
@@ -585,12 +610,12 @@ export const StudentsManagementPage = () => {
                       name="dropoffLat"
                       value={formData.dropoffLat}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Longitude
                     </label>
                     <input
@@ -599,13 +624,13 @@ export const StudentsManagementPage = () => {
                       name="dropoffLng"
                       value={formData.dropoffLng}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
 
                   {/* Besoins spéciaux */}
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Besoins spéciaux (optionnel)
                     </label>
                     <textarea
@@ -613,24 +638,24 @@ export const StudentsManagementPage = () => {
                       value={formData.specialNeeds}
                       onChange={handleInputChange}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       placeholder="Allergies, handicap, autres informations importantes..."
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-5 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-all font-medium"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all font-medium shadow-md disabled:opacity-50"
                   >
                     {createMutation.isPending || updateMutation.isPending
                       ? 'Enregistrement...'

@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
+import { EmptyState } from '@/components/EmptyState';
+import { Plus, Edit2, Trash2, UserCog, X, AlertTriangle, CreditCard, Calendar } from 'lucide-react';
 import * as driverApi from '@/services/driver.api';
 
 interface DriverFormData {
@@ -197,25 +199,26 @@ export const DriversManagementPage = () => {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
-      <Header title="Gestion des Chauffeurs" />
+    <div className="flex-1 bg-neutral-50">
+      <Header title="Gestion des Chauffeurs" subtitle="Interface complète pour gérer les chauffeurs" />
 
       <div className="p-8">
         {/* En-tête avec bouton d'ajout */}
         <div className="mb-6 flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800">
+            <h2 className="text-2xl font-bold text-slate-900 font-display">
               Liste des Chauffeurs
             </h2>
-            <p className="text-gray-600 mt-1">
+            <p className="text-slate-600 mt-1">
               {drivers?.length || 0} chauffeur(s) enregistré(s)
             </p>
           </div>
           <button
             onClick={openCreateModal}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-md"
+            className="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
           >
-            + Ajouter un chauffeur
+            <Plus className="w-5 h-5" strokeWidth={2} />
+            <span>Ajouter un chauffeur</span>
           </button>
         </div>
 
@@ -228,107 +231,119 @@ export const DriversManagementPage = () => {
         {error && <ErrorMessage message="Impossible de charger les chauffeurs" />}
 
         {!isLoading && !error && drivers && drivers.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <p className="text-gray-500 text-lg">Aucun chauffeur enregistré</p>
-            <p className="text-gray-400 mt-2">
-              Cliquez sur "Ajouter un chauffeur" pour commencer
-            </p>
-          </div>
+          <EmptyState
+            icon={UserCog}
+            title="Aucun chauffeur enregistré"
+            description="Commencez par ajouter votre premier chauffeur pour gérer l'équipe"
+            action={{
+              label: "Ajouter un chauffeur",
+              onClick: openCreateModal,
+              icon: Plus
+            }}
+          />
         )}
 
         {!isLoading && !error && drivers && drivers.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Nom
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Téléphone
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     N° Permis
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Expiration Permis
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Bus assigné
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Statut
                   </th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {drivers.map((driver) => (
-                  <tr key={driver.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={driver.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-slate-900">
                         {driver.displayName}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{driver.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-slate-700">{driver.email}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">
                       {driver.phoneNumber}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-slate-700">
                       {driver.licenseNumber}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-700">
+                      <div className="text-sm text-slate-700">
                         {new Date(driver.licenseExpiry).toLocaleDateString('fr-FR')}
                       </div>
                       {isLicenseExpired(driver.licenseExpiry) && (
-                        <div className="text-xs text-red-600 mt-1">⚠️ Expiré</div>
+                        <div className="flex items-center gap-1 text-xs text-danger-700 mt-1">
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                          <span>Expiré</span>
+                        </div>
                       )}
                       {!isLicenseExpired(driver.licenseExpiry) &&
                         isLicenseExpiringSoon(driver.licenseExpiry) && (
-                          <div className="text-xs text-amber-600 mt-1">
-                            ⚠️ Expire bientôt
+                          <div className="flex items-center gap-1 text-xs text-warning-700 mt-1">
+                            <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                            <span>Expire bientôt</span>
                           </div>
                         )}
                     </td>
                     <td className="px-6 py-4">
                       {driver.busId ? (
-                        <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        <span className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md">
                           Bus {driver.busId.substring(0, 8)}
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-500">Non assigné</span>
+                        <span className="text-sm text-slate-500">Non assigné</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`text-sm px-2 py-1 rounded ${
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${
                           driver.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-success-50 text-success-700 border-success-200'
+                            : 'bg-danger-50 text-danger-700 border-danger-200'
                         }`}
                       >
                         {driver.isActive ? 'Actif' : 'Inactif'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => openEditModal(driver)}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleDelete(driver.id, driver.displayName)}
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
-                      >
-                        Supprimer
-                      </button>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(driver)}
+                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                          title="Modifier"
+                        >
+                          <Edit2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(driver.id, driver.displayName)}
+                          className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-all"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -339,17 +354,24 @@ export const DriversManagementPage = () => {
 
         {/* Modal de création/édition */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <h3 className="text-xl font-bold text-slate-900 font-display">
                   {editingDriverId ? 'Modifier le chauffeur' : 'Ajouter un nouveau chauffeur'}
                 </h3>
+                <button
+                  onClick={closeModal}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg transition-all"
+                  type="button"
+                >
+                  <X className="w-5 h-5 text-slate-500" strokeWidth={2} />
+                </button>
               </div>
 
               <form onSubmit={handleSubmit} className="p-6">
                 {formError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  <div className="mb-4 p-3 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg">
                     {formError}
                   </div>
                 )}
@@ -357,7 +379,7 @@ export const DriversManagementPage = () => {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   {/* Informations personnelles */}
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Nom complet *
                     </label>
                     <input
@@ -365,13 +387,13 @@ export const DriversManagementPage = () => {
                       name="displayName"
                       value={formData.displayName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Email *
                     </label>
                     <input
@@ -380,18 +402,18 @@ export const DriversManagementPage = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       disabled={!!editingDriverId}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
                       required={!editingDriverId}
                     />
                     {editingDriverId && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         L'email ne peut pas être modifié
                       </p>
                     )}
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       Téléphone *
                     </label>
                     <input
@@ -399,42 +421,44 @@ export const DriversManagementPage = () => {
                       name="phoneNumber"
                       value={formData.phoneNumber}
                       onChange={handleInputChange}
-                      placeholder="+33612345678"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="+225 XX XX XX XX XX"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Numéro de permis *
+                    <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5" strokeWidth={2} />
+                      <span>Numéro de permis *</span>
                     </label>
                     <input
                       type="text"
                       name="licenseNumber"
                       value={formData.licenseNumber}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date d'expiration du permis *
+                    <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" strokeWidth={2} />
+                      <span>Date d'expiration *</span>
                     </label>
                     <input
                       type="date"
                       name="licenseExpiry"
                       value={formData.licenseExpiry}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                       required
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
                       URL de la photo (optionnel)
                     </label>
                     <input
@@ -443,23 +467,23 @@ export const DriversManagementPage = () => {
                       value={formData.photoUrl}
                       onChange={handleInputChange}
                       placeholder="https://..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-5 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-all font-medium"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all font-medium shadow-md disabled:opacity-50"
                   >
                     {createMutation.isPending || updateMutation.isPending
                       ? 'Enregistrement...'
