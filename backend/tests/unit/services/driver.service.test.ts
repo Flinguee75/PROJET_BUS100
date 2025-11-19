@@ -3,19 +3,19 @@
  * Teste toutes les opérations CRUD sur les chauffeurs
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { DriverService } from '../../../src/services/driver.service';
 import { UserRole } from '../../../src/types/user.types';
 
 // Mock Firestore
-const mockAdd = vi.fn();
-const mockGet = vi.fn();
-const mockDoc = vi.fn();
-const mockUpdate = vi.fn();
-const mockWhere = vi.fn();
-const mockLimit = vi.fn();
+const mockAdd = jest.fn();
+const mockGet = jest.fn();
+const mockDoc = jest.fn();
+const mockUpdate = jest.fn();
+const mockWhere = jest.fn();
+const mockLimit = jest.fn();
 
-vi.mock('../../../src/config/firebase.config', () => ({
+jest.mock('../../../src/config/firebase.config', () => ({
   getDb: vi.fn(() => ({
     collection: vi.fn(() => ({
       add: mockAdd,
@@ -30,7 +30,7 @@ describe('DriverService', () => {
   let driverService: DriverService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     driverService = new DriverService();
     
     // Mock chaîné pour where et limit
@@ -46,9 +46,9 @@ describe('DriverService', () => {
 
   describe('createDriver', () => {
     it('crée un nouveau chauffeur avec succès', async () => {
-      const mockDocRef = {
+      const mockDocRef: any = {
         id: 'driver-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'driver-123',
           data: () => ({
             email: 'driver@test.com',
@@ -85,9 +85,9 @@ describe('DriverService', () => {
     });
 
     it('initialise busId à null par défaut', async () => {
-      const mockDocRef = {
+      const mockDocRef: any = {
         id: 'driver-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'driver-123',
           data: () => ({
             email: 'driver@test.com',
@@ -178,8 +178,8 @@ describe('DriverService', () => {
 
   describe('getDriverById', () => {
     it('retourne null si le chauffeur n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: false,
         }),
       };
@@ -192,8 +192,8 @@ describe('DriverService', () => {
     });
 
     it('retourne null si l\'utilisateur n\'est pas un chauffeur', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'user-123',
           data: () => ({
@@ -216,8 +216,8 @@ describe('DriverService', () => {
     });
 
     it('retourne le chauffeur s\'il existe', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'driver-123',
           data: () => ({
@@ -277,8 +277,8 @@ describe('DriverService', () => {
 
   describe('updateDriver', () => {
     it('met à jour un chauffeur existant', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({
             exists: true,
             data: () => ({ role: UserRole.DRIVER }),
@@ -299,7 +299,7 @@ describe('DriverService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -318,8 +318,8 @@ describe('DriverService', () => {
     });
 
     it('lance une erreur si le chauffeur n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -330,8 +330,8 @@ describe('DriverService', () => {
     });
 
     it('lance une erreur si l\'utilisateur n\'est pas un chauffeur', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           data: () => ({ role: UserRole.ADMIN }),
         }),
@@ -347,12 +347,12 @@ describe('DriverService', () => {
 
   describe('deleteDriver', () => {
     it('marque un chauffeur comme inactif (soft delete)', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           data: () => ({ role: UserRole.DRIVER }),
         }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -363,8 +363,8 @@ describe('DriverService', () => {
     });
 
     it('lance une erreur si le chauffeur n\'existe pas', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -377,8 +377,8 @@ describe('DriverService', () => {
 
   describe('assignToBus', () => {
     it('assigne un chauffeur à un bus', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({
             exists: true,
             data: () => ({ role: UserRole.DRIVER }),
@@ -399,7 +399,7 @@ describe('DriverService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -412,8 +412,8 @@ describe('DriverService', () => {
 
   describe('removeFromBus', () => {
     it('retire un chauffeur d\'un bus', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({
             exists: true,
             data: () => ({ role: UserRole.DRIVER }),
@@ -434,7 +434,7 @@ describe('DriverService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -447,8 +447,8 @@ describe('DriverService', () => {
 
   describe('isLicenseExpired', () => {
     it('retourne true si le permis est expiré', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'driver-123',
           data: () => ({
@@ -474,8 +474,8 @@ describe('DriverService', () => {
     });
 
     it('retourne false si le permis est valide', async () => {
-      const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+      const mockDocRef: any = {
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'driver-123',
           data: () => ({

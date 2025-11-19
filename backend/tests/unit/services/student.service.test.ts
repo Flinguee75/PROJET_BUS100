@@ -3,19 +3,19 @@
  * Teste toutes les opérations CRUD sur les élèves
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { StudentService } from '../../../src/services/student.service';
 
 // Mock Firestore
-const mockAdd = vi.fn();
-const mockGet = vi.fn();
-const mockDoc = vi.fn();
-const mockUpdate = vi.fn();
-const mockWhere = vi.fn();
+const mockAdd = jest.fn();
+const mockGet = jest.fn();
+const mockDoc = jest.fn();
+const mockUpdate = jest.fn();
+const mockWhere = jest.fn();
 
-vi.mock('../../../src/config/firebase.config', () => ({
-  getDb: vi.fn(() => ({
-    collection: vi.fn(() => ({
+jest.mock('../../../src/config/firebase.config', () => ({
+  getDb: jest.fn(() => ({
+    collection: jest.fn(() => ({
       add: mockAdd,
       get: mockGet,
       doc: mockDoc,
@@ -28,9 +28,9 @@ describe('StudentService', () => {
   let studentService: StudentService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     studentService = new StudentService();
-    
+
     // Mock chaîné pour where
     mockWhere.mockReturnValue({
       get: mockGet,
@@ -42,7 +42,7 @@ describe('StudentService', () => {
     it('crée un nouvel élève avec succès', async () => {
       const mockDocRef = {
         id: 'student-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'student-123',
           data: () => ({
             firstName: 'Jean',
@@ -77,6 +77,8 @@ describe('StudentService', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM2',
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         pickupLocation: {
           address: '123 Rue de Test',
           lat: 36.8065,
@@ -101,7 +103,7 @@ describe('StudentService', () => {
     it('initialise les valeurs par défaut correctement', async () => {
       const mockDocRef = {
         id: 'student-123',
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'student-123',
           data: () => ({
             firstName: 'Marie',
@@ -136,6 +138,8 @@ describe('StudentService', () => {
         dateOfBirth: new Date('2011-03-20'),
         grade: 'CE2',
         parentIds: ['parent-2'],
+        commune: 'Yopougon',
+        quartier: 'Niangon',
         pickupLocation: {
           address: '789 Rue Test',
           lat: 36.8065,
@@ -219,7 +223,7 @@ describe('StudentService', () => {
   describe('getStudentById', () => {
     it('retourne null si l\'élève n\'existe pas', async () => {
       const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: false,
         }),
       };
@@ -233,7 +237,7 @@ describe('StudentService', () => {
 
     it('retourne l\'élève s\'il existe', async () => {
       const mockDocRef = {
-        get: vi.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'student-123',
           data: () => ({
@@ -329,8 +333,8 @@ describe('StudentService', () => {
 
   describe('updateStudent', () => {
     it('met à jour un élève existant', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({ exists: true })
           .mockResolvedValueOnce({
             exists: true,
@@ -350,7 +354,7 @@ describe('StudentService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -370,7 +374,7 @@ describe('StudentService', () => {
 
     it('lance une erreur si l\'élève n\'existe pas', async () => {
       const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -384,8 +388,8 @@ describe('StudentService', () => {
   describe('deleteStudent', () => {
     it('marque un élève comme inactif (soft delete)', async () => {
       const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: true }),
-        update: vi.fn().mockResolvedValue(undefined),
+        get: (jest.fn() as any).mockResolvedValue({ exists: true }),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -397,7 +401,7 @@ describe('StudentService', () => {
 
     it('lance une erreur si l\'élève n\'existe pas', async () => {
       const mockDocRef = {
-        get: vi.fn().mockResolvedValue({ exists: false }),
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -410,8 +414,8 @@ describe('StudentService', () => {
 
   describe('assignToBus', () => {
     it('assigne un élève à un bus et une route', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({ exists: true })
           .mockResolvedValueOnce({
             exists: true,
@@ -431,7 +435,7 @@ describe('StudentService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -445,8 +449,8 @@ describe('StudentService', () => {
 
   describe('removeFromBus', () => {
     it('retire un élève d\'un bus', async () => {
-      const mockDocRef = {
-        get: vi.fn()
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({ exists: true })
           .mockResolvedValueOnce({
             exists: true,
@@ -466,7 +470,7 @@ describe('StudentService', () => {
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
           }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);

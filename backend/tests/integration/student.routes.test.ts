@@ -3,14 +3,14 @@
  * Teste les endpoints API REST complets
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import studentRoutes from '../../src/routes/student.routes';
 import studentService from '../../src/services/student.service';
 
 // Mock du service
-vi.mock('../../src/services/student.service');
+jest.mock('../../src/services/student.service');
 
 const app = express();
 app.use(express.json());
@@ -18,7 +18,7 @@ app.use('/api/students', studentRoutes);
 
 describe('Student Routes Integration Tests', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('POST /api/students', () => {
@@ -30,6 +30,8 @@ describe('Student Routes Integration Tests', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM2',
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         busId: null,
         routeId: null,
         pickupLocation: {
@@ -47,7 +49,7 @@ describe('Student Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(studentService.createStudent).mockResolvedValue(mockStudent);
+      jest.mocked(studentService.createStudent).mockResolvedValue(mockStudent);
 
       const response = await request(app)
         .post('/api/students')
@@ -57,6 +59,8 @@ describe('Student Routes Integration Tests', () => {
           dateOfBirth: '2010-05-15T00:00:00.000Z',
           grade: 'CM2',
           parentIds: ['parent-1'],
+          commune: 'Cocody',
+          quartier: 'Riviera',
           pickupLocation: {
             address: '123 Rue de Test',
             lat: 36.8065,
@@ -99,6 +103,8 @@ describe('Student Routes Integration Tests', () => {
           dateOfBirth: new Date('2010-05-15'),
           grade: 'CM2',
           parentIds: ['parent-1'],
+          commune: 'Cocody',
+          quartier: 'Riviera',
           busId: null,
           routeId: null,
           pickupLocation: {
@@ -117,7 +123,7 @@ describe('Student Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(studentService.getAllStudents).mockResolvedValue(mockStudents);
+      jest.mocked(studentService.getAllStudents).mockResolvedValue(mockStudents);
 
       const response = await request(app).get('/api/students');
 
@@ -136,6 +142,8 @@ describe('Student Routes Integration Tests', () => {
           dateOfBirth: new Date('2010-05-15'),
           grade: 'CM2',
           parentIds: ['parent-1'],
+          commune: 'Cocody',
+          quartier: 'Riviera',
           busId: null,
           routeId: null,
           pickupLocation: {
@@ -154,7 +162,7 @@ describe('Student Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(studentService.getStudentsByParent).mockResolvedValue(mockStudents);
+      jest.mocked(studentService.getStudentsByParent).mockResolvedValue(mockStudents);
 
       const response = await request(app).get('/api/students?parentId=parent-1');
 
@@ -164,7 +172,7 @@ describe('Student Routes Integration Tests', () => {
     });
 
     it('retourne une liste vide si aucun élève', async () => {
-      vi.mocked(studentService.getAllStudents).mockResolvedValue([]);
+      jest.mocked(studentService.getAllStudents).mockResolvedValue([]);
 
       const response = await request(app).get('/api/students');
 
@@ -183,6 +191,8 @@ describe('Student Routes Integration Tests', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM2',
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         busId: 'bus-1',
         routeId: 'route-1',
         pickupLocation: {
@@ -200,7 +210,7 @@ describe('Student Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(studentService.getStudentById).mockResolvedValue(mockStudent);
+      jest.mocked(studentService.getStudentById).mockResolvedValue(mockStudent);
 
       const response = await request(app).get('/api/students/student-123');
 
@@ -210,7 +220,7 @@ describe('Student Routes Integration Tests', () => {
     });
 
     it('retourne 404 si l\'élève n\'existe pas', async () => {
-      vi.mocked(studentService.getStudentById).mockResolvedValue(null);
+      jest.mocked(studentService.getStudentById).mockResolvedValue(null);
 
       const response = await request(app).get('/api/students/student-inexistant');
 
@@ -229,6 +239,8 @@ describe('Student Routes Integration Tests', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM1', // Mis à jour
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         busId: 'bus-1',
         routeId: 'route-1',
         pickupLocation: {
@@ -246,7 +258,7 @@ describe('Student Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(studentService.updateStudent).mockResolvedValue(mockUpdatedStudent);
+      jest.mocked(studentService.updateStudent).mockResolvedValue(mockUpdatedStudent);
 
       const response = await request(app)
         .patch('/api/students/student-123')
@@ -260,7 +272,7 @@ describe('Student Routes Integration Tests', () => {
     });
 
     it('retourne 404 si l\'élève n\'existe pas', async () => {
-      vi.mocked(studentService.updateStudent).mockRejectedValue(
+      jest.mocked(studentService.updateStudent).mockRejectedValue(
         new Error('Student with ID student-inexistant not found')
       );
 
@@ -275,7 +287,7 @@ describe('Student Routes Integration Tests', () => {
 
   describe('DELETE /api/students/:id', () => {
     it('supprime un élève existant', async () => {
-      vi.mocked(studentService.deleteStudent).mockResolvedValue(undefined);
+      jest.mocked(studentService.deleteStudent).mockResolvedValue(undefined);
 
       const response = await request(app).delete('/api/students/student-123');
 
@@ -285,7 +297,7 @@ describe('Student Routes Integration Tests', () => {
     });
 
     it('retourne 404 si l\'élève n\'existe pas', async () => {
-      vi.mocked(studentService.deleteStudent).mockRejectedValue(
+      jest.mocked(studentService.deleteStudent).mockRejectedValue(
         new Error('Student with ID student-inexistant not found')
       );
 
@@ -305,6 +317,8 @@ describe('Student Routes Integration Tests', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM2',
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         busId: 'bus-1',
         routeId: 'route-1',
         pickupLocation: {
@@ -322,7 +336,7 @@ describe('Student Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(studentService.assignToBus).mockResolvedValue(mockStudent);
+      jest.mocked(studentService.assignToBus).mockResolvedValue(mockStudent);
 
       const response = await request(app)
         .post('/api/students/student-123/assign-bus')
@@ -358,6 +372,8 @@ describe('Student Routes Integration Tests', () => {
         dateOfBirth: new Date('2010-05-15'),
         grade: 'CM2',
         parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
         busId: null,
         routeId: null,
         pickupLocation: {
@@ -375,7 +391,7 @@ describe('Student Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(studentService.removeFromBus).mockResolvedValue(mockStudent);
+      jest.mocked(studentService.removeFromBus).mockResolvedValue(mockStudent);
 
       const response = await request(app)
         .post('/api/students/student-123/remove-bus');

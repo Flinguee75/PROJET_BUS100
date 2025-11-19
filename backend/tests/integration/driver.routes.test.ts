@@ -3,7 +3,7 @@
  * Teste les endpoints API REST complets
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import driverRoutes from '../../src/routes/driver.routes';
@@ -11,7 +11,7 @@ import driverService from '../../src/services/driver.service';
 import { UserRole } from '../../src/types/user.types';
 
 // Mock du service
-vi.mock('../../src/services/driver.service');
+jest.mock('../../src/services/driver.service');
 
 const app = express();
 app.use(express.json());
@@ -19,7 +19,7 @@ app.use('/api/drivers', driverRoutes);
 
 describe('Driver Routes Integration Tests', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('POST /api/drivers', () => {
@@ -38,7 +38,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.createDriver).mockResolvedValue(mockDriver);
+      jest.mocked(driverService.createDriver).mockResolvedValue(mockDriver as any);
 
       const response = await request(app)
         .post('/api/drivers')
@@ -101,7 +101,7 @@ describe('Driver Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(driverService.getAllDrivers).mockResolvedValue(mockDrivers);
+      jest.mocked(driverService.getAllDrivers).mockResolvedValue(mockDrivers as any);
 
       const response = await request(app).get('/api/drivers');
 
@@ -128,7 +128,7 @@ describe('Driver Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(driverService.getAvailableDrivers).mockResolvedValue(mockDrivers);
+      jest.mocked(driverService.getAvailableDrivers).mockResolvedValue(mockDrivers as any);
 
       const response = await request(app).get('/api/drivers?available=true');
 
@@ -138,7 +138,7 @@ describe('Driver Routes Integration Tests', () => {
     });
 
     it('retourne une liste vide si aucun chauffeur', async () => {
-      vi.mocked(driverService.getAllDrivers).mockResolvedValue([]);
+      jest.mocked(driverService.getAllDrivers).mockResolvedValue([]);
 
       const response = await request(app).get('/api/drivers');
 
@@ -164,7 +164,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.getDriverById).mockResolvedValue(mockDriver);
+      jest.mocked(driverService.getDriverById).mockResolvedValue(mockDriver as any);
 
       const response = await request(app).get('/api/drivers/driver-123');
 
@@ -174,7 +174,7 @@ describe('Driver Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le chauffeur n\'existe pas', async () => {
-      vi.mocked(driverService.getDriverById).mockResolvedValue(null);
+      jest.mocked(driverService.getDriverById).mockResolvedValue(null);
 
       const response = await request(app).get('/api/drivers/driver-inexistant');
 
@@ -200,7 +200,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.getDriverByBus).mockResolvedValue(mockDriver);
+      jest.mocked(driverService.getDriverByBus).mockResolvedValue(mockDriver as any);
 
       const response = await request(app).get('/api/drivers/bus/bus-1');
 
@@ -210,7 +210,7 @@ describe('Driver Routes Integration Tests', () => {
     });
 
     it('retourne 404 si aucun chauffeur assigné au bus', async () => {
-      vi.mocked(driverService.getDriverByBus).mockResolvedValue(null);
+      jest.mocked(driverService.getDriverByBus).mockResolvedValue(null);
 
       const response = await request(app).get('/api/drivers/bus/bus-999');
 
@@ -237,7 +237,7 @@ describe('Driver Routes Integration Tests', () => {
         },
       ];
 
-      vi.mocked(driverService.getDriversWithExpiredLicense).mockResolvedValue(mockDrivers);
+      jest.mocked(driverService.getDriversWithExpiredLicense).mockResolvedValue(mockDrivers as any);
 
       const response = await request(app).get('/api/drivers/expired-licenses');
 
@@ -263,7 +263,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.updateDriver).mockResolvedValue(mockUpdatedDriver);
+      jest.mocked(driverService.updateDriver).mockResolvedValue(mockUpdatedDriver as any);
 
       const response = await request(app)
         .patch('/api/drivers/driver-123')
@@ -278,7 +278,7 @@ describe('Driver Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le chauffeur n\'existe pas', async () => {
-      vi.mocked(driverService.updateDriver).mockRejectedValue(
+      jest.mocked(driverService.updateDriver).mockRejectedValue(
         new Error('Driver with ID driver-inexistant not found')
       );
 
@@ -293,7 +293,7 @@ describe('Driver Routes Integration Tests', () => {
 
   describe('DELETE /api/drivers/:id', () => {
     it('supprime un chauffeur existant', async () => {
-      vi.mocked(driverService.deleteDriver).mockResolvedValue(undefined);
+      jest.mocked(driverService.deleteDriver).mockResolvedValue(undefined);
 
       const response = await request(app).delete('/api/drivers/driver-123');
 
@@ -303,7 +303,7 @@ describe('Driver Routes Integration Tests', () => {
     });
 
     it('retourne 404 si le chauffeur n\'existe pas', async () => {
-      vi.mocked(driverService.deleteDriver).mockRejectedValue(
+      jest.mocked(driverService.deleteDriver).mockRejectedValue(
         new Error('Driver with ID driver-inexistant not found')
       );
 
@@ -330,7 +330,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.assignToBus).mockResolvedValue(mockDriver);
+      jest.mocked(driverService.assignToBus).mockResolvedValue(mockDriver as any);
 
       const response = await request(app)
         .post('/api/drivers/driver-123/assign-bus')
@@ -369,7 +369,7 @@ describe('Driver Routes Integration Tests', () => {
         updatedAt: new Date(),
       };
 
-      vi.mocked(driverService.removeFromBus).mockResolvedValue(mockDriver);
+      jest.mocked(driverService.removeFromBus).mockResolvedValue(mockDriver as any);
 
       const response = await request(app)
         .post('/api/drivers/driver-123/remove-bus');

@@ -56,7 +56,7 @@ describe('MaintenanceService', () => {
       const now = new Date();
       const mockDocRef = {
         id: 'maint-123',
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'maint-123',
           data: () => ({
             busId: 'bus-123',
@@ -96,7 +96,7 @@ describe('MaintenanceService', () => {
       const now = new Date();
       const mockDocRef = {
         id: 'maint-123',
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           id: 'maint-123',
           data: () => ({
             busId: 'bus-123',
@@ -208,7 +208,7 @@ describe('MaintenanceService', () => {
   describe('getMaintenanceById', () => {
     it('retourne null si la maintenance n\'existe pas', async () => {
       const mockDocRef = {
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: false,
         }),
       };
@@ -223,7 +223,7 @@ describe('MaintenanceService', () => {
     it('retourne la maintenance si elle existe', async () => {
       const now = new Date();
       const mockDocRef = {
-        get: jest.fn().mockResolvedValue({
+        get: (jest.fn() as any).mockResolvedValue({
           exists: true,
           id: 'maint-123',
           data: () => ({
@@ -255,7 +255,7 @@ describe('MaintenanceService', () => {
     it('met à jour une maintenance existante', async () => {
       const now = new Date();
       const mockDocRef = {
-        get: jest.fn()
+        get: (jest.fn() as any)
           .mockResolvedValueOnce({ exists: true }) // Première vérification
           .mockResolvedValueOnce({
             // Après update
@@ -274,7 +274,7 @@ describe('MaintenanceService', () => {
             createTime: { toDate: () => now },
             updateTime: { toDate: () => now },
           }),
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -294,7 +294,7 @@ describe('MaintenanceService', () => {
 
     it('lance une erreur si la maintenance n\'existe pas', async () => {
       const mockDocRef = {
-        get: jest.fn().mockResolvedValue({ exists: false }),
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -308,8 +308,8 @@ describe('MaintenanceService', () => {
   describe('deleteMaintenance', () => {
     it('supprime une maintenance existante', async () => {
       const mockDocRef = {
-        get: jest.fn().mockResolvedValue({ exists: true }),
-        delete: jest.fn().mockResolvedValue(undefined),
+        get: (jest.fn() as any).mockResolvedValue({ exists: true }),
+        delete: (jest.fn() as any).mockResolvedValue(undefined),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -321,7 +321,7 @@ describe('MaintenanceService', () => {
 
     it('lance une erreur si la maintenance n\'existe pas', async () => {
       const mockDocRef = {
-        get: jest.fn().mockResolvedValue({ exists: false }),
+        get: (jest.fn() as any).mockResolvedValue({ exists: false }),
       };
 
       mockDoc.mockReturnValue(mockDocRef);
@@ -366,7 +366,7 @@ describe('MaintenanceService', () => {
 
       const mockQuery = {
         orderBy: jest.fn().mockReturnValue({
-          get: jest.fn().mockResolvedValue({ docs: mockDocs }),
+          get: (jest.fn() as any).mockResolvedValue({ docs: mockDocs }),
         }),
       };
 
