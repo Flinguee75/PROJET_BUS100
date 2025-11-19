@@ -12,7 +12,7 @@ export interface Bus {
   driverId: string | null; // ID du chauffeur assigné
   routeId: string | null; // ID du parcours assigné
   status: BusStatus;
-  maintenanceStatus: MaintenanceStatus;
+  maintenanceStatus: BusMaintenanceStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,7 +24,7 @@ export enum BusStatus {
   OUT_OF_SERVICE = 'out_of_service',
 }
 
-export enum MaintenanceStatus {
+export enum BusMaintenanceStatus {
   OK = 'ok',
   WARNING = 'warning',
   CRITICAL = 'critical',
@@ -45,5 +45,5 @@ export interface BusUpdateInput {
   driverId?: string | null;
   routeId?: string | null;
   status?: BusStatus;
-  maintenanceStatus?: MaintenanceStatus;
+  maintenanceStatus?: BusMaintenanceStatus;
 }

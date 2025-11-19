@@ -5,7 +5,7 @@
 
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { BusStatus, MaintenanceStatus } from '../types/bus.types';
+import { BusStatus, BusMaintenanceStatus } from '../types/bus.types';
 import { BusLiveStatus } from '../types/gps.types';
 
 // Initialiser Firebase Admin
@@ -178,7 +178,7 @@ async function seedMockData() {
       driverId: driver.id,
       routeId: isActive ? route.id : null,
       status: isActive ? BusStatus.ACTIVE : BusStatus.INACTIVE,
-      maintenanceStatus: MaintenanceStatus.OK,
+      maintenanceStatus: BusMaintenanceStatus.OK,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });

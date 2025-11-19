@@ -12,6 +12,9 @@ import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import realtimeRoutes from './routes/realtime.routes';
+import studentRoutes from './routes/student.routes';
+import driverRoutes from './routes/driver.routes';
+import maintenanceRoutes from './routes/maintenance.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -35,13 +38,16 @@ app.get('/health', (_req, res) => {
 });
 
 // API Routes
-// Note: Firebase Functions mappe /projet-bus-60a3f/europe-west4/api/... vers /... dans Express
-// Exemple: /projet-bus-60a3f/europe-west4/api/dashboard/stats -> /dashboard/stats
-app.use('/api/gps', gpsRoutes);
-app.use('/api/buses', busRoutes);
-app.use('/api/realtime', realtimeRoutes);
-// Firebase Functions enlève /projet-bus-60a3f/europe-west4/api
+// Note: Firebase Functions exporte cette fonction sous le nom 'api', donc elle est accessible via /api
+// Les routes Express sont ensuite ajoutées après ce préfixe
+// Exemple: Cloud Function 'api' + route Express '/buses' = URL finale '/api/buses'
+app.use('/gps', gpsRoutes);
+app.use('/buses', busRoutes);
+app.use('/realtime', realtimeRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/students', studentRoutes);
+app.use('/drivers', driverRoutes);
+app.use('/maintenances', maintenanceRoutes);
 
 // Route 404
 app.use((req, res) => {
