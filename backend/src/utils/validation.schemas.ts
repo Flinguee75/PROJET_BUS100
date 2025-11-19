@@ -156,6 +156,8 @@ export const notificationCreateSchema = z.object({
     'bus_delayed',
     'bus_breakdown',
     'student_absent',
+    'student_boarded',
+    'student_exited',
     'route_changed',
     'maintenance_due',
     'general',
@@ -169,6 +171,33 @@ export const notificationCreateSchema = z.object({
   data: z.record(z.unknown()).optional(),
 });
 
+/**
+ * Schéma Boarding Event
+ * Validation pour montée/descente d'élève
+ */
+export const boardingEventSchema = z.object({
+  studentId: z.string().min(1, 'Student ID requis'),
+  busId: z.string().min(1, 'Bus ID requis'),
+  driverId: z.string().min(1, 'Driver ID requis'),
+  timestamp: z.number().positive().optional(), // Timestamp Unix optionnel (défaut: maintenant)
+  location: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
+  notes: z.string().max(500).optional(),
+});
+
+/**
+ * Schéma Attendance Query
+ * Validation pour requêtes d'historique
+ */
+export const attendanceQuerySchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+});
+
 // Types inférés depuis les schémas Zod
 export type GPSPositionInput = z.infer<typeof gpsPositionSchema>;
 export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
@@ -180,3 +209,5 @@ export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type NotificationCreateInput = z.infer<typeof notificationCreateSchema>;
 export type DriverCreateInput = z.infer<typeof driverCreateSchema>;
 export type DriverUpdateInput = z.infer<typeof driverUpdateSchema>;
+export type BoardingEventInput = z.infer<typeof boardingEventSchema>;
+export type AttendanceQueryInput = z.infer<typeof attendanceQuerySchema>;
