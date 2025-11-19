@@ -18,6 +18,8 @@ export interface StudentCreateInput {
   dateOfBirth: string; // ISO string
   grade: string;
   parentIds: string[];
+  commune: string;
+  quartier: string;
   pickupLocation: Location;
   dropoffLocation: Location;
   specialNeeds?: string;
@@ -28,6 +30,8 @@ export interface StudentUpdateInput {
   lastName?: string;
   dateOfBirth?: string;
   grade?: string;
+  commune?: string;
+  quartier?: string;
   busId?: string | null;
   routeId?: string | null;
   pickupLocation?: Location;
@@ -43,6 +47,8 @@ export interface Student {
   dateOfBirth: string;
   grade: string;
   parentIds: string[];
+  commune: string;
+  quartier: string;
   busId: string | null;
   routeId: string | null;
   pickupLocation: Location;
