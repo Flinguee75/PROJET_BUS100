@@ -146,14 +146,22 @@ export const RoutesManagementPage = () => {
                   <div className="flex items-center text-sm text-slate-700 mb-2">
                     <MapPin className="w-4 h-4 mr-1 text-slate-500" strokeWidth={2} />
                     <span className="font-semibold">Commune:</span>
-                    <span className="ml-2">{route.commune}</span>
+                    <span className="ml-2">
+                      {route.commune || <span className="text-slate-400 italic">Non définie</span>}
+                    </span>
                   </div>
                   <div className="flex items-start text-sm text-slate-700">
                     <Map className="w-4 h-4 mr-1 mt-0.5 text-slate-500 flex-shrink-0" strokeWidth={2} />
                     <span className="font-semibold">Quartiers:</span>
                     <span className="ml-2">
-                      {route.quartiers.slice(0, 3).join(', ')}
-                      {route.quartiers.length > 3 && ` +${route.quartiers.length - 3}`}
+                      {route.quartiers && route.quartiers.length > 0 ? (
+                        <>
+                          {route.quartiers.slice(0, 3).join(', ')}
+                          {route.quartiers.length > 3 && ` +${route.quartiers.length - 3}`}
+                        </>
+                      ) : (
+                        <span className="text-slate-400 italic">Aucun quartier</span>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -162,24 +170,24 @@ export const RoutesManagementPage = () => {
                 <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                   <div>
                     <span className="text-slate-500">Arrêts</span>
-                    <p className="font-bold text-slate-900">{route.stops.length}</p>
+                    <p className="font-bold text-slate-900">{route.stops?.length || 0}</p>
                   </div>
                   <div>
                     <span className="text-slate-500">Distance</span>
                     <p className="font-bold text-slate-900">
-                      {route.totalDistanceKm} km
+                      {route.totalDistanceKm != null ? `${route.totalDistanceKm} km` : 'N/A'}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-500">Durée</span>
                     <p className="font-bold text-slate-900">
-                      {route.estimatedDurationMinutes} min
+                      {route.estimatedDurationMinutes != null ? `${route.estimatedDurationMinutes} min` : 'N/A'}
                     </p>
                   </div>
                   <div>
                     <span className="text-slate-500">Occupation</span>
                     <p className="font-bold text-slate-900">
-                      {route.currentOccupancy}/{route.capacity}
+                      {route.currentOccupancy != null ? route.currentOccupancy : 0}/{route.capacity != null ? route.capacity : 0}
                     </p>
                   </div>
                 </div>
@@ -191,18 +199,24 @@ export const RoutesManagementPage = () => {
                     <p className="text-xs text-slate-700 font-semibold">Horaires</p>
                   </div>
                   <div className="text-sm text-slate-700">
-                    <div className="flex justify-between">
-                      <span>Matin:</span>
-                      <span className="font-semibold">
-                        {route.schedule.morningDeparture} → {route.schedule.morningArrival}
-                      </span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span>Après-midi:</span>
-                      <span className="font-semibold">
-                        {route.schedule.afternoonDeparture} → {route.schedule.afternoonArrival}
-                      </span>
-                    </div>
+                    {route.schedule ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Matin:</span>
+                          <span className="font-semibold">
+                            {route.schedule.morningDeparture || 'N/A'} → {route.schedule.morningArrival || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span>Après-midi:</span>
+                          <span className="font-semibold">
+                            {route.schedule.afternoonDeparture || 'N/A'} → {route.schedule.afternoonArrival || 'N/A'}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-slate-400 italic text-xs">Horaires non définis</span>
+                    )}
                   </div>
                 </div>
 
