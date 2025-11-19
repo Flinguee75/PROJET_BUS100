@@ -90,19 +90,31 @@ export const RealtimeMapPage = () => {
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Créer la carte centrée sur Abidjan
+    // Créer la carte centrée sur Abidjan - Interactions limitées
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
       center: ABIDJAN_CENTER,
-      zoom: 11,
+      zoom: 10.5, // Zoom initial pour vue globale d'Abidjan
+      // Limites de zoom pour éviter que la carte soit trop grande ou trop petite
+      minZoom: 9,   // Zoom minimum (vue très large d'Abidjan)
+      maxZoom: 14,  // Zoom maximum (vue détaillée mais pas trop proche)
+      // Activer les interactions normales
+      dragPan: true,           // Permettre le déplacement
+      scrollZoom: true,        // Permettre le zoom avec la molette
+      boxZoom: true,           // Permettre le zoom avec la boîte
+      doubleClickZoom: true,   // Permettre le zoom double-clic
+      touchZoomRotate: true,   // Permettre le zoom tactile
+      keyboard: true,           // Permettre les raccourcis clavier
+      touchPitch: false,        // Désactiver l'inclinaison tactile (optionnel)
+      dragRotate: false,       // Désactiver la rotation (optionnel)
     });
 
     map.current.on('load', () => {
       setMapLoaded(true);
     });
 
-    // Ajouter les contrôles de navigation
+    // Ajouter les contrôles de navigation (zoom +/-, rotation)
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     return () => {
@@ -325,12 +337,12 @@ export const RealtimeMapPage = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-neutral-50">
+    <div className="flex-1 flex flex-col bg-neutral-50" style={{ height: '100vh', overflow: 'hidden' }}>
       <Header title="Carte Temps Réel - Abidjan" subtitle="Suivi GPS des bus scolaires" />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Carte principale */}
-        <div className="flex-1 relative">
+      <div className="flex-1 flex overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
+        {/* Carte principale - Prend toute la hauteur disponible */}
+        <div className="flex-1 relative h-full">
           {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white bg-opacity-95">
               <LoadingSpinner message="Chargement de la carte..." />
@@ -357,8 +369,8 @@ export const RealtimeMapPage = () => {
             </div>
           )}
 
-          {/* Conteneur de la carte */}
-          <div ref={mapContainer} className="w-full h-full" />
+          {/* Conteneur de la carte - Prend toute la hauteur disponible */}
+          <div ref={mapContainer} className="w-full h-full absolute inset-0" />
 
           {/* Bouton de rafraîchissement */}
           <button
@@ -370,128 +382,132 @@ export const RealtimeMapPage = () => {
           </button>
         </div>
 
-        {/* Sidebar droite avec statistiques et liste */}
-        <div className="w-96 bg-white border-l border-slate-200 overflow-y-auto flex flex-col">
-          {/* Statistiques */}
-          {stats && (
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-white">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-5 h-5 text-primary-600" strokeWidth={2} />
-                <h3 className="text-lg font-bold text-slate-900 font-display">Statistiques</h3>
+        {/* Sidebar droite avec statistiques et liste - Scrollable */}
+        <div className="w-96 bg-white border-l border-slate-200 flex flex-col overflow-hidden h-full">
+          {/* Contenu scrollable */}
+          <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+            {/* Statistiques */}
+            {stats && (
+              <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+                <div className="flex items-center gap-2 mb-4">
+                  <Activity className="w-5 h-5 text-primary-600" strokeWidth={2} />
+                  <h3 className="text-lg font-bold text-slate-900 font-display">Statistiques</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bus className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                      <div className="text-xs text-slate-600 font-medium">Total bus</div>
+                    </div>
+                    <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
+                  </div>
+                  <div className="bg-success-50 p-3 rounded-lg border border-success-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2 className="w-4 h-4 text-success-600" strokeWidth={2} />
+                      <div className="text-xs text-success-700 font-medium">En course</div>
+                    </div>
+                    <div className="text-2xl font-bold text-success-700">{stats.active}</div>
+                  </div>
+                  <div className="bg-primary-50 p-3 rounded-lg border border-primary-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Navigation className="w-4 h-4 text-primary-600" strokeWidth={2} />
+                      <div className="text-xs text-primary-700 font-medium">En route</div>
+                    </div>
+                    <div className="text-2xl font-bold text-primary-700">{stats.enRoute}</div>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-4 h-4 text-slate-600" strokeWidth={2} />
+                      <div className="text-xs text-slate-600 font-medium">Élèves</div>
+                    </div>
+                    <div className="text-2xl font-bold text-slate-900">{stats.totalPassengers}</div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Bus className="w-4 h-4 text-slate-500" strokeWidth={2} />
-                    <div className="text-xs text-slate-600 font-medium">Total bus</div>
-                  </div>
-                  <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-                </div>
-                <div className="bg-success-50 p-3 rounded-lg border border-success-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CheckCircle2 className="w-4 h-4 text-success-600" strokeWidth={2} />
-                    <div className="text-xs text-success-700 font-medium">En course</div>
-                  </div>
-                  <div className="text-2xl font-bold text-success-700">{stats.active}</div>
-                </div>
-                <div className="bg-primary-50 p-3 rounded-lg border border-primary-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Navigation className="w-4 h-4 text-primary-600" strokeWidth={2} />
-                    <div className="text-xs text-primary-700 font-medium">En route</div>
-                  </div>
-                  <div className="text-2xl font-bold text-primary-700">{stats.enRoute}</div>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-4 h-4 text-slate-600" strokeWidth={2} />
-                    <div className="text-xs text-slate-600 font-medium">Élèves</div>
-                  </div>
-                  <div className="text-2xl font-bold text-slate-900">{stats.totalPassengers}</div>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Filtres et recherche */}
-          <div className="p-5 border-b border-slate-200">
-            {/* Barre de recherche */}
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
-                <input
-                  type="text"
-                  placeholder="Rechercher un bus..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Boutons de filtre */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  filterStatus === 'all'
-                    ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Tous ({buses.length})
-              </button>
-              <button
-                onClick={() => setFilterStatus('active')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  filterStatus === 'active'
-                    ? 'bg-success-600 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Actifs ({activeBuses.length})
-              </button>
-              <button
-                onClick={() => setFilterStatus('inactive')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  filterStatus === 'inactive'
-                    ? 'bg-slate-600 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Inactifs ({inactiveBuses.length})
-              </button>
-            </div>
-          </div>
-
-          {/* Liste des bus en course */}
-          {activeBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'active') && (
+            {/* Filtres et recherche */}
             <div className="p-5 border-b border-slate-200">
-              <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm">
-                <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
-                Bus en course ({activeBuses.length})
-              </h4>
-              <div className="space-y-2.5">
-                {activeBuses.map((bus) => (
-                  <BusCard key={bus.id} bus={bus} />
-                ))}
+              {/* Barre de recherche */}
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un bus..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                  />
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Liste des bus hors course */}
-          {inactiveBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'inactive') && (
-            <div className="p-5">
-              <h4 className="font-semibold text-slate-600 mb-3 flex items-center gap-2 text-sm">
-                <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
-                Bus hors course ({inactiveBuses.length})
-              </h4>
-              <div className="space-y-2.5">
-                {inactiveBuses.map((bus) => (
-                  <BusCard key={bus.id} bus={bus} />
-                ))}
+              {/* Boutons de filtre */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFilterStatus('all')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    filterStatus === 'all'
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Tous ({buses.length})
+                </button>
+                <button
+                  onClick={() => setFilterStatus('active')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    filterStatus === 'active'
+                      ? 'bg-success-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Actifs ({activeBuses.length})
+                </button>
+                <button
+                  onClick={() => setFilterStatus('inactive')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    filterStatus === 'inactive'
+                      ? 'bg-slate-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Inactifs ({inactiveBuses.length})
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Liste des bus en course */}
+            {activeBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'active') && (
+              <div className="p-5 border-b border-slate-200">
+                <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
+                  Bus en course ({activeBuses.length})
+                </h4>
+                <div className="space-y-2.5">
+                  {activeBuses.map((bus) => (
+                    <BusCard key={bus.id} bus={bus} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Liste des bus hors course */}
+            {inactiveBuses.length > 0 && (filterStatus === 'all' || filterStatus === 'inactive') && (
+              <div className="p-5">
+                <h4 className="font-semibold text-slate-600 mb-3 flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
+                  Bus hors course ({inactiveBuses.length})
+                </h4>
+                <div className="space-y-2.5">
+                  {inactiveBuses.map((bus) => (
+                    <BusCard key={bus.id} bus={bus} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Fin du contenu scrollable */}
         </div>
       </div>
 
