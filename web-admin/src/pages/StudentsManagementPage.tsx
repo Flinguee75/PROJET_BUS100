@@ -480,6 +480,35 @@ export const StudentsManagementPage = () => {
                     </div>
                   )}
 
+                  {/* Localisation géographique */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Commune (Abidjan)
+                    </label>
+                    <input
+                      type="text"
+                      name="commune"
+                      value={formData.commune}
+                      onChange={handleInputChange}
+                      placeholder="Ex: Cocody, Yopougon..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Quartier
+                    </label>
+                    <input
+                      type="text"
+                      name="quartier"
+                      value={formData.quartier}
+                      onChange={handleInputChange}
+                      placeholder="Ex: Riviera, II Plateaux..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
                   {/* Adresse de ramassage */}
                   <div className="col-span-2 border-t pt-4">
                     <h4 className="font-medium text-gray-800 mb-3">Adresse de ramassage</h4>
