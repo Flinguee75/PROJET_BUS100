@@ -13,6 +13,10 @@ export declare class RouteController {
     assignDriver(req: Request, res: Response): Promise<void>;
     startRoute(req: Request, res: Response): Promise<void>;
     stopRoute(req: Request, res: Response): Promise<void>;
+    generateRouteForBus(req: Request, res: Response): Promise<void>;
+    regenerateRoute(req: Request, res: Response): Promise<void>;
+    getRouteByBus(req: Request, res: Response): Promise<void>;
+    previewRoute(req: Request, res: Response): Promise<void>;
 }
 declare const _default: RouteController;
 export default _default;

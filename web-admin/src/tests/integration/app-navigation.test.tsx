@@ -6,6 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from '@/App';
+import { UserRole } from '@/types/auth';
 import * as authService from '@/services/auth.service';
 
 vi.mock('@/services/auth.service');
@@ -31,7 +32,7 @@ describe('App Navigation Integration', () => {
       uid: 'test-uid',
       email: 'admin@test.com',
       displayName: 'Admin',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {

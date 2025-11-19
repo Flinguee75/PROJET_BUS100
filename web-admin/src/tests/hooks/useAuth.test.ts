@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useAuth } from '@/hooks/useAuth';
+import { UserRole } from '@/types/auth';
 import * as authService from '@/services/auth.service';
 
 // Mock du service d'authentification
@@ -37,7 +38,7 @@ describe('useAuth', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -59,7 +60,7 @@ describe('useAuth', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation(() => vi.fn());
@@ -99,7 +100,7 @@ describe('useAuth', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -127,7 +128,7 @@ describe('useAuth', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
@@ -167,7 +168,7 @@ describe('useAuth', () => {
       uid: 'test-uid',
       email: 'test@example.com',
       displayName: 'Test User',
-      role: 'admin',
+      role: UserRole.ADMIN,
     };
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {

@@ -160,8 +160,6 @@ export const notificationCreateSchema = z.object({
     'bus_delayed',
     'bus_breakdown',
     'student_absent',
-    'student_boarded',
-    'student_exited',
     'route_changed',
     'maintenance_due',
     'general',
@@ -176,14 +174,106 @@ export const notificationCreateSchema = z.object({
 });
 
 /**
+ * Schéma pour coordonnées valides (lat/lng)
+ */
+export const coordinatesSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+/**
+ * Schéma pour heure au format HH:mm
+ */
+export const timeFormatSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format HH:mm attendu');
+
+/**
+ * Schéma pour Route Generation Request
+ */
+export const routeGenerationRequestSchema = z.object({
+  busId: z.string().min(1, 'Bus ID requis'),
+  departureTime: timeFormatSchema.optional(),
+  autoRegenerate: z.boolean().optional(),
+});
+
+/**
+ * Schéma pour Mapbox Waypoint
+ */
+export const mapboxWaypointSchema = z.object({
+  location: z.tuple([z.number(), z.number()]), // [lng, lat]
+  name: z.string().optional(),
+});
+
+/**
+ * Schéma pour Mapbox Optimization Response
+ */
+export const mapboxOptimizationResponseSchema = z.object({
+  code: z.string(),
+  waypoints: z.array(
+    z.object({
+      waypoint_index: z.number(),
+      trips_index: z.number(),
+      location: z.tuple([z.number(), z.number()]),
+      name: z.string(),
+    })
+  ),
+  trips: z.array(
+    z.object({
+      geometry: z.any(),
+      legs: z.array(
+        z.object({
+          summary: z.string(),
+          duration: z.number(),
+          distance: z.number(),
+          steps: z.array(z.any()),
+        })
+      ),
+      duration: z.number(),
+      distance: z.number(),
+    })
+  ),
+});
+
+/**
+ * Schéma pour Mapbox Directions Response
+ */
+export const mapboxDirectionsResponseSchema = z.object({
+  routes: z.array(
+    z.object({
+      duration: z.number(),
+      distance: z.number(),
+      legs: z.array(
+        z.object({
+          duration: z.number(),
+          distance: z.number(),
+        })
+      ),
+    })
+  ),
+});
+
+/**
+ * Schéma Bus Update avec champs pour génération automatique
+ */
+export const busUpdateWithAutoGenSchema = busUpdateSchema.extend({
+  assignedCommune: z.string().optional(),
+  assignedQuartiers: z.array(z.string()).optional(),
+  preferredDepartureTime: timeFormatSchema.optional(),
+});
+
+/**
  * Schéma Boarding Event
- * Validation pour montée/descente d'élève
+ * Validation pour événements de montée/descente d'élèves
  */
 export const boardingEventSchema = z.object({
-  studentId: z.string().min(1, 'Student ID requis'),
   busId: z.string().min(1, 'Bus ID requis'),
+  studentId: z.string().min(1, 'Student ID requis'),
   driverId: z.string().min(1, 'Driver ID requis'),
-  timestamp: z.number().positive().optional(), // Timestamp Unix optionnel (défaut: maintenant)
+  eventType: z.enum(['board', 'exit'], {
+    required_error: 'Event type requis (board ou exit)',
+  }),
+  timestamp: z.number().positive().optional(), // Timestamp Unix optionnel (généré par défaut)
   location: z
     .object({
       lat: z.number().min(-90).max(90),
@@ -213,5 +303,8 @@ export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type NotificationCreateInput = z.infer<typeof notificationCreateSchema>;
 export type DriverCreateInput = z.infer<typeof driverCreateSchema>;
 export type DriverUpdateInput = z.infer<typeof driverUpdateSchema>;
-export type BoardingEventInput = z.infer<typeof boardingEventSchema>;
-export type AttendanceQueryInput = z.infer<typeof attendanceQuerySchema>;
+export type RouteGenerationRequest = z.infer<typeof routeGenerationRequestSchema>;
+export type MapboxWaypoint = z.infer<typeof mapboxWaypointSchema>;
+export type MapboxOptimizationResponse = z.infer<typeof mapboxOptimizationResponseSchema>;
+export type MapboxDirectionsResponse = z.infer<typeof mapboxDirectionsResponseSchema>;
+export type BusUpdateWithAutoGen = z.infer<typeof busUpdateWithAutoGenSchema>;

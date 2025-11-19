@@ -8,8 +8,8 @@ export declare class StudentService {
     getStudentsByBus(busId: string): Promise<Student[]>;
     updateStudent(studentId: string, input: StudentUpdateInput): Promise<Student>;
     deleteStudent(studentId: string): Promise<void>;
-    assignToBus(studentId: string, busId: string, routeId: string): Promise<Student>;
-    removeFromBus(studentId: string): Promise<Student>;
+    assignToBus(studentId: string, busId: string, routeId?: string, autoRegenerate?: boolean): Promise<Student>;
+    removeFromBus(studentId: string, autoRegenerate?: boolean): Promise<Student>;
 }
 declare const _default: StudentService;
 export default _default;

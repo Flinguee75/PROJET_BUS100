@@ -156,8 +156,8 @@ export const RoutesManagementPage = () => {
                     <span className="ml-2">
                       {route.quartiers && route.quartiers.length > 0 ? (
                         <>
-                          {route.quartiers.slice(0, 3).join(', ')}
-                          {route.quartiers.length > 3 && ` +${route.quartiers.length - 3}`}
+                      {route.quartiers.slice(0, 3).join(', ')}
+                      {route.quartiers.length > 3 && ` +${route.quartiers.length - 3}`}
                         </>
                       ) : (
                         <span className="text-slate-400 italic">Aucun quartier</span>
@@ -201,18 +201,18 @@ export const RoutesManagementPage = () => {
                   <div className="text-sm text-slate-700">
                     {route.schedule ? (
                       <>
-                        <div className="flex justify-between">
-                          <span>Matin:</span>
-                          <span className="font-semibold">
+                    <div className="flex justify-between">
+                      <span>Matin:</span>
+                      <span className="font-semibold">
                             {route.schedule.morningDeparture || 'N/A'} → {route.schedule.morningArrival || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span>Après-midi:</span>
-                          <span className="font-semibold">
+                      </span>
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span>Après-midi:</span>
+                      <span className="font-semibold">
                             {route.schedule.afternoonDeparture || 'N/A'} → {route.schedule.afternoonArrival || 'N/A'}
-                          </span>
-                        </div>
+                      </span>
+                    </div>
                       </>
                     ) : (
                       <span className="text-slate-400 italic text-xs">Horaires non définis</span>
