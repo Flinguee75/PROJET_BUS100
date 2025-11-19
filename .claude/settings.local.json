@@ -18,7 +18,8 @@
       "Bash(npm run lint:*)",
       "Bash(/tmp/dashboard_head.tsx)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

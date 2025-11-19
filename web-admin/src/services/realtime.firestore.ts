@@ -28,6 +28,7 @@ export function watchAllBuses(
         // Transformer les données Firestore en format BusRealtimeData
         const bus: BusRealtimeData = {
           id: doc.id,
+          number: data.number || data.busNumber || `BUS-${doc.id.slice(0, 2).toUpperCase()}`,
           plateNumber: data.plateNumber || data.plate || doc.id,
           model: data.model || 'Bus scolaire',
           year: data.year || 2020,
@@ -100,6 +101,7 @@ export function watchBus(
       const data = snapshot.data();
       const bus: BusRealtimeData = {
         id: snapshot.id,
+        number: data.number || data.busNumber || `BUS-${snapshot.id.slice(0, 2).toUpperCase()}`,
         plateNumber: data.plateNumber || data.plate || snapshot.id,
         model: data.model || 'Bus scolaire',
         year: data.year || 2020,

@@ -9,8 +9,9 @@ import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { EmptyState } from '@/components/EmptyState';
-import { Plus, Edit2, Trash2, Users, X, AlertTriangle, MapPin } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, X, AlertTriangle, MapPin, Bus } from 'lucide-react';
 import * as studentApi from '@/services/student.api';
+import * as gpsApi from '@/services/gps.api';
 
 interface StudentFormData {
   firstName: string;
@@ -20,6 +21,10 @@ interface StudentFormData {
   parentIds: string;
   commune: string;
   quartier: string;
+  busId: string;
+  scheduleMorning: boolean;
+  scheduleMidday: boolean;
+  scheduleEvening: boolean;
   pickupAddress: string;
   pickupLat: string;
   pickupLng: string;
@@ -41,6 +46,10 @@ export const StudentsManagementPage = () => {
     parentIds: '',
     commune: '',
     quartier: '',
+    busId: '',
+    scheduleMorning: false,
+    scheduleMidday: false,
+    scheduleEvening: false,
     pickupAddress: '',
     pickupLat: '5.3600',
     pickupLng: '-4.0083',
@@ -59,6 +68,12 @@ export const StudentsManagementPage = () => {
   } = useQuery({
     queryKey: ['students'],
     queryFn: studentApi.getAllStudents,
+  });
+
+  // Récupérer la liste des bus pour le sélecteur
+  const { data: buses } = useQuery({
+    queryKey: ['all-buses'],
+    queryFn: gpsApi.getAllBuses,
   });
 
   // Mutation pour créer un élève
@@ -104,6 +119,10 @@ export const StudentsManagementPage = () => {
       parentIds: '',
       commune: '',
       quartier: '',
+      busId: '',
+      scheduleMorning: false,
+      scheduleMidday: false,
+      scheduleEvening: false,
       pickupAddress: '',
       pickupLat: '5.3600',
       pickupLng: '-4.0083',
@@ -126,6 +145,10 @@ export const StudentsManagementPage = () => {
       parentIds: student.parentIds.join(', '),
       commune: student.commune || '',
       quartier: student.quartier || '',
+      busId: student.busId || '',
+      scheduleMorning: student.busSchedule?.morning || false,
+      scheduleMidday: student.busSchedule?.midday || false,
+      scheduleEvening: student.busSchedule?.evening || false,
       pickupAddress: student.pickupLocation.address,
       pickupLat: student.pickupLocation.lat.toString(),
       pickupLng: student.pickupLocation.lng.toString(),
@@ -145,10 +168,15 @@ export const StudentsManagementPage = () => {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const validateForm = (): boolean => {
@@ -209,6 +237,16 @@ export const StudentsManagementPage = () => {
       return;
     }
 
+    // Créer l'objet busSchedule si au moins une période est cochée
+    const busSchedule =
+      formData.scheduleMorning || formData.scheduleMidday || formData.scheduleEvening
+        ? {
+            morning: formData.scheduleMorning,
+            midday: formData.scheduleMidday,
+            evening: formData.scheduleEvening,
+          }
+        : undefined;
+
     if (editingStudentId) {
       // Mode édition
       const updateData: studentApi.StudentUpdateInput = {
@@ -218,6 +256,8 @@ export const StudentsManagementPage = () => {
         grade: formData.grade,
         commune: formData.commune || undefined,
         quartier: formData.quartier || undefined,
+        busId: formData.busId || null,
+        busSchedule,
         pickupLocation: {
           address: formData.pickupAddress,
           lat: parseFloat(formData.pickupLat),
@@ -241,6 +281,8 @@ export const StudentsManagementPage = () => {
         parentIds: parentIdsArray,
         commune: formData.commune || 'Non spécifiée',
         quartier: formData.quartier || 'Non spécifié',
+        busId: formData.busId || undefined,
+        busSchedule,
         pickupLocation: {
           address: formData.pickupAddress,
           lat: parseFloat(formData.pickupLat),
@@ -349,9 +391,30 @@ export const StudentsManagementPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       {student.busId ? (
-                        <span className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md">
-                          Bus {student.busId.substring(0, 8)}
-                        </span>
+                        <div>
+                          <div className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md inline-block">
+                            {buses?.find(b => b.id === student.busId)?.number || `Bus ${student.busId.substring(0, 8)}`}
+                          </div>
+                          {student.busSchedule && (
+                            <div className="flex gap-1 mt-1">
+                              {student.busSchedule.morning && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                                  Matin
+                                </span>
+                              )}
+                              {student.busSchedule.midday && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded">
+                                  Midi
+                                </span>
+                              )}
+                              {student.busSchedule.evening && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded">
+                                  Soir
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-sm text-slate-500">Non assigné</span>
                       )}
@@ -522,6 +585,78 @@ export const StudentsManagementPage = () => {
                       className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     />
                   </div>
+
+                  {/* Section assignation bus */}
+                  <div className="col-span-2 border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Bus className="w-4 h-4 text-slate-600" strokeWidth={2} />
+                      <h4 className="font-semibold text-slate-800">Assignation Transport</h4>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Bus assigné
+                    </label>
+                    <select
+                      name="busId"
+                      value={formData.busId}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    >
+                      <option value="">Aucun bus (non assigné)</option>
+                      {buses?.map((bus) => (
+                        <option key={bus.id} value={bus.id}>
+                          {bus.number} - {bus.immatriculation} ({bus.chauffeur})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {formData.busId && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-3">
+                        Périodes de transport
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
+                          <input
+                            type="checkbox"
+                            name="scheduleMorning"
+                            checked={formData.scheduleMorning}
+                            onChange={handleInputChange}
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-2 focus:ring-primary-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Matin</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
+                          <input
+                            type="checkbox"
+                            name="scheduleMidday"
+                            checked={formData.scheduleMidday}
+                            onChange={handleInputChange}
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-2 focus:ring-primary-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Midi</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
+                          <input
+                            type="checkbox"
+                            name="scheduleEvening"
+                            checked={formData.scheduleEvening}
+                            onChange={handleInputChange}
+                            className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-2 focus:ring-primary-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">Soir</span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        Sélectionnez les périodes pendant lesquelles l'élève prend le bus
+                      </p>
+                    </div>
+                  )}
 
                   {/* Adresse de ramassage */}
                   <div className="col-span-2 border-t border-slate-200 pt-4">

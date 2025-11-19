@@ -12,6 +12,12 @@ export interface Location {
   notes?: string;
 }
 
+export interface BusSchedule {
+  morning?: boolean;   // Prend le bus le matin
+  midday?: boolean;    // Prend le bus à midi
+  evening?: boolean;   // Prend le bus le soir
+}
+
 export interface StudentCreateInput {
   firstName: string;
   lastName: string;
@@ -23,6 +29,8 @@ export interface StudentCreateInput {
   pickupLocation: Location;
   dropoffLocation: Location;
   specialNeeds?: string;
+  busId?: string;
+  busSchedule?: BusSchedule;
 }
 
 export interface StudentUpdateInput {
@@ -34,6 +42,7 @@ export interface StudentUpdateInput {
   quartier?: string;
   busId?: string | null;
   routeId?: string | null;
+  busSchedule?: BusSchedule;
   pickupLocation?: Location;
   dropoffLocation?: Location;
   specialNeeds?: string;
@@ -51,6 +60,7 @@ export interface Student {
   quartier: string;
   busId: string | null;
   routeId: string | null;
+  busSchedule?: BusSchedule;
   pickupLocation: Location;
   dropoffLocation: Location;
   photoUrl?: string;

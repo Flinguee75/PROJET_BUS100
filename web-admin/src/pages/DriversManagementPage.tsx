@@ -9,7 +9,7 @@ import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { EmptyState } from '@/components/EmptyState';
-import { Plus, Edit2, Trash2, UserCog, X, AlertTriangle, CreditCard, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, UserCog, X, AlertTriangle, CreditCard, Calendar, Eye } from 'lucide-react';
 import * as driverApi from '@/services/driver.api';
 
 interface DriverFormData {
@@ -24,6 +24,8 @@ interface DriverFormData {
 export const DriversManagementPage = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<driverApi.Driver | null>(null);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const [formData, setFormData] = useState<DriverFormData>({
     email: '',
@@ -247,19 +249,7 @@ export const DriversManagementPage = () => {
                     Nom
                   </th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Téléphone
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    N° Permis
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Expiration Permis
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Bus assigné
                   </th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Statut
@@ -277,39 +267,8 @@ export const DriversManagementPage = () => {
                         {driver.displayName}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{driver.email}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">
                       {driver.phoneNumber}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">
-                      {driver.licenseNumber}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-slate-700">
-                        {new Date(driver.licenseExpiry).toLocaleDateString('fr-FR')}
-                      </div>
-                      {isLicenseExpired(driver.licenseExpiry) && (
-                        <div className="flex items-center gap-1 text-xs text-danger-700 mt-1">
-                          <AlertTriangle className="w-3 h-3" strokeWidth={2} />
-                          <span>Expiré</span>
-                        </div>
-                      )}
-                      {!isLicenseExpired(driver.licenseExpiry) &&
-                        isLicenseExpiringSoon(driver.licenseExpiry) && (
-                          <div className="flex items-center gap-1 text-xs text-warning-700 mt-1">
-                            <AlertTriangle className="w-3 h-3" strokeWidth={2} />
-                            <span>Expire bientôt</span>
-                          </div>
-                        )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {driver.busId ? (
-                        <span className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md">
-                          Bus {driver.busId.substring(0, 8)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-slate-500">Non assigné</span>
-                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -324,6 +283,17 @@ export const DriversManagementPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsDetailsModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition-all font-medium text-sm flex items-center gap-1.5"
+                          title="Voir détails"
+                        >
+                          <Eye className="w-4 h-4" strokeWidth={2} />
+                          <span>Voir détails</span>
+                        </button>
                         <button
                           onClick={() => openEditModal(driver)}
                           className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
