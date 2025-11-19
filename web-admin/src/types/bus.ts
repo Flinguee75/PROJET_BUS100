@@ -35,6 +35,7 @@ export interface MaintenanceRecord {
 
 export interface Bus {
   id: string;
+  number: string; // Format: BUS-XX (ex: BUS-12, BUS-45)
   immatriculation: string;
   chauffeur: string;
   chauffeurId?: string;

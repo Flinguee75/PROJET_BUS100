@@ -42,6 +42,7 @@ export const useRealtimeGPS = (): UseRealtimeGPSReturn => {
               // Construire l'objet Bus à partir des données Firestore
               const bus: Bus = {
                 id: doc.id,
+                number: data.number || data.busNumber || `BUS-${doc.id.slice(0, 2).toUpperCase()}`,
                 immatriculation: data.immatriculation || data.plateNumber || doc.id,
                 chauffeur: data.chauffeur || data.driverName || 'Non assigné',
                 chauffeurId: data.chauffeurId || data.driverId,

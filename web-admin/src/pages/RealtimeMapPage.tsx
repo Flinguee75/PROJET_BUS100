@@ -144,13 +144,18 @@ export const RealtimeMapPage = () => {
     `;
   }, []);
 
-  // Créer le HTML du popup
+  // Créer le HTML du popup (version épurée)
   const createPopupHTML = useCallback((bus: BusRealtimeData): string => {
     return `
-      <div class="p-4 min-w-[280px]">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold text-lg text-slate-900">${bus.plateNumber}</h3>
-          <span class="px-2.5 py-1 rounded-md text-xs font-semibold ${getStatusBadgeClass(
+      <div class="p-4 min-w-[240px]">
+        <!-- Numéro du bus en grand -->
+        <div class="text-center mb-3 pb-3 border-b border-slate-200">
+          <h3 class="text-2xl font-bold text-primary-600">${bus.number}</h3>
+        </div>
+
+        <!-- Statut -->
+        <div class="flex items-center justify-center mb-3">
+          <span class="px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusBadgeClass(
             bus.liveStatus
           )}">
             ${getStatusLabel(bus.liveStatus)}
@@ -158,76 +163,33 @@ export const RealtimeMapPage = () => {
         </div>
 
         <div class="space-y-2.5 text-sm">
+          <!-- Chauffeur -->
           ${
             bus.driver
               ? `
-            <div class="flex items-start gap-2">
-              <svg class="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-              <div class="flex-1">
-                <p class="font-medium text-slate-700 text-xs">Conducteur</p>
-                <p class="text-slate-900 font-medium">${bus.driver.name}</p>
+            <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+              <svg class="w-4 h-4 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"/></svg>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-slate-900 truncate">${bus.driver.name}</p>
                 <p class="text-slate-500 text-xs">${bus.driver.phone}</p>
               </div>
             </div>
           `
-              : ''
-          }
-
-          ${
-            bus.currentZone
-              ? `
-            <div class="flex items-start gap-2">
-              <svg class="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              <div class="flex-1">
-                <p class="font-medium text-slate-700 text-xs">Zone actuelle</p>
-                <p class="text-slate-900 font-medium">${bus.currentZone}</p>
-              </div>
+              : `
+            <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+              <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"/></svg>
+              <p class="text-slate-400 text-xs italic">Aucun chauffeur assigné</p>
             </div>
           `
-              : ''
           }
 
-          ${
-            bus.route
-              ? `
-            <div class="flex items-start gap-2">
-              <svg class="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/></svg>
-              <div class="flex-1">
-                <p class="font-medium text-slate-700 text-xs">Itinéraire</p>
-                <p class="text-slate-900 font-medium">${bus.route.name}</p>
-                <p class="text-slate-500 text-xs">${bus.route.fromZone} → ${bus.route.toZone}</p>
-              </div>
-            </div>
-          `
-              : ''
-          }
-
-          <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+          <!-- Nombre d'élèves -->
+          <div class="flex items-center justify-between p-2.5 bg-primary-50 rounded-lg">
             <div class="flex items-center gap-2">
-              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span class="text-slate-700 text-xs font-medium">Élèves</span>
+              <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM7 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/></svg>
+              <span class="text-primary-700 text-xs font-medium">Élèves</span>
             </div>
-            <span class="text-slate-900 font-bold">${bus.passengersCount} / ${bus.capacity}</span>
-          </div>
-
-          ${
-            bus.currentPosition
-              ? `
-            <div class="flex items-center justify-between p-2 bg-primary-50 rounded-lg">
-              <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-                <span class="text-primary-700 text-xs font-medium">Vitesse</span>
-              </div>
-              <span class="text-primary-900 font-bold">${Math.round(bus.currentPosition.speed)} km/h</span>
-            </div>
-          `
-              : ''
-          }
-
-          <div class="pt-2 border-t border-slate-200">
-            <p class="text-xs text-slate-500">
-              <span class="font-medium">${bus.model}</span> · ${bus.year}
-            </p>
+            <span class="text-primary-900 font-bold text-base">${bus.passengersCount} / ${bus.capacity}</span>
           </div>
         </div>
       </div>
@@ -599,10 +561,10 @@ const BusCard = ({ bus }: { bus: BusRealtimeData }) => {
     <div className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-card-hover hover:border-slate-300 transition-all duration-200 cursor-pointer group">
       <div className="flex items-start justify-between mb-2.5">
         <div>
-          <h5 className="font-bold text-slate-900 group-hover:text-primary-600 transition-colors">
-            {bus.plateNumber}
+          <h5 className="font-bold text-lg text-primary-600 group-hover:text-primary-700 transition-colors">
+            {bus.number}
           </h5>
-          <p className="text-xs text-slate-500">{bus.model}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{bus.model}</p>
         </div>
         <span
           className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${statusBadge.className}`}

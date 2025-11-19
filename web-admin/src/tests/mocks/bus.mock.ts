@@ -13,6 +13,7 @@ export const mockGPSPosition: GPSPosition = {
 
 export const mockBus: Bus = {
   id: 'bus-001',
+  number: 'BUS-01',
   immatriculation: 'TN 12-345-67',
   chauffeur: 'Jean Dupont',
   chauffeurId: 'driver-001',
@@ -30,6 +31,7 @@ export const mockBuses: Bus[] = [
   {
     ...mockBus,
     id: 'bus-002',
+    number: 'BUS-02',
     immatriculation: 'TN 23-456-78',
     chauffeur: 'Marie Martin',
     chauffeurId: 'driver-002',
@@ -46,6 +48,7 @@ export const mockBuses: Bus[] = [
   {
     ...mockBus,
     id: 'bus-003',
+    number: 'BUS-03',
     immatriculation: 'TN 34-567-89',
     chauffeur: 'Pierre Dubois',
     chauffeurId: 'driver-003',

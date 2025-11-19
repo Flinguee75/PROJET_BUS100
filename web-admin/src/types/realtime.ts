@@ -41,6 +41,7 @@ export enum BusLiveStatus {
 
 export interface BusRealtimeData {
   id: string;
+  number: string; // Format: BUS-XX (ex: BUS-12, BUS-45)
   plateNumber: string;
   capacity: number;
   model: string;
@@ -51,6 +52,7 @@ export interface BusRealtimeData {
   driver: DriverInfo | null;
   route: RouteInfo | null;
   passengersCount: number;
+  passengersPresent?: number; // Nombre d'élèves présents actuellement
   currentZone: string | null;
   lastUpdate: string | null;
   isActive: boolean;

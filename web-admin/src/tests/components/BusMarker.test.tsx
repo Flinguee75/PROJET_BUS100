@@ -25,6 +25,7 @@ describe('BusMarker', () => {
     // Bus de test
     mockBus = {
       id: 'bus-1',
+      number: 'BUS-12',
       immatriculation: 'ABC-123',
       chauffeur: 'Jean Dupont',
       capacite: 50,
