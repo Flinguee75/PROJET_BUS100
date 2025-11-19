@@ -11,6 +11,7 @@ import cors from 'cors';
 import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import realtimeRoutes from './routes/realtime.routes';
 import studentRoutes from './routes/student.routes';
 import driverRoutes from './routes/driver.routes';
 import maintenanceRoutes from './routes/maintenance.routes';
@@ -42,6 +43,7 @@ app.get('/health', (_req, res) => {
 // Exemple: Cloud Function 'api' + route Express '/buses' = URL finale '/api/buses'
 app.use('/gps', gpsRoutes);
 app.use('/buses', busRoutes);
+app.use('/realtime', realtimeRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/students', studentRoutes);
 app.use('/drivers', driverRoutes);

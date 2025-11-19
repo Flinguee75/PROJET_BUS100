@@ -20,6 +20,7 @@
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
+    "seed": "ts-node src/scripts/seed-mock-data.ts",
     "create-user-emulator": "ts-node scripts/create-user-emulator.ts"
   },
   "dependencies": {
