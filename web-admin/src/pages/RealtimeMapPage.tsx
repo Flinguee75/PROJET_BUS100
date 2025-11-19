@@ -6,12 +6,11 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
-import * as realtimeApi from '@/services/realtime.api';
-import type { BusRealtimeData, BusLiveStatus } from '@/types/realtime';
+import { useRealtimeBuses, useRealtimeStatistics } from '@/hooks/useRealtimeBuses';
+import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 
 // Token Mapbox depuis les variables d'environnement
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -29,24 +28,11 @@ export const RealtimeMapPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // Récupérer les bus en temps réel
-  const {
-    data: buses = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<BusRealtimeData[]>({
-    queryKey: ['buses-realtime'],
-    queryFn: realtimeApi.getAllBusesRealtime,
-    refetchInterval: 5000, // Rafraîchir toutes les 5 secondes
-  });
+  // Récupérer les bus en temps réel via Firestore listeners
+  const { buses, isLoading, error } = useRealtimeBuses();
 
-  // Récupérer les statistiques
-  const { data: stats } = useQuery({
-    queryKey: ['bus-statistics'],
-    queryFn: realtimeApi.getBusStatistics,
-    refetchInterval: 10000, // Rafraîchir toutes les 10 secondes
-  });
+  // Récupérer les statistiques en temps réel calculées depuis les bus
+  const { stats } = useRealtimeStatistics();
 
   // Filtrer les bus selon la recherche et le statut
   const filteredBuses = buses.filter((bus) => {
@@ -164,9 +150,9 @@ export const RealtimeMapPage = () => {
       <div class="bus-marker ${statusClass}">
         <span class="text-xl">${icon}</span>
         ${
-          bus.liveStatus === 'en_route'
+          bus.liveStatus === BusLiveStatus.EN_ROUTE
             ? '<div class="bus-marker-check">✓</div>'
-            : bus.liveStatus === 'delayed'
+            : bus.liveStatus === BusLiveStatus.DELAYED
             ? '<div class="bus-marker-clock">⏰</div>'
             : ''
         }
@@ -253,12 +239,12 @@ export const RealtimeMapPage = () => {
   // Obtenir la classe CSS pour le statut
   const getStatusClass = (status: BusLiveStatus | null): string => {
     switch (status) {
-      case 'en_route':
+      case BusLiveStatus.EN_ROUTE:
         return 'en-route';
-      case 'stopped':
-      case 'idle':
+      case BusLiveStatus.STOPPED:
+      case BusLiveStatus.IDLE:
         return 'stopped';
-      case 'delayed':
+      case BusLiveStatus.DELAYED:
         return 'delayed';
       default:
         return 'inactive';
@@ -268,12 +254,12 @@ export const RealtimeMapPage = () => {
   // Obtenir la classe CSS pour le badge
   const getStatusBadgeClass = (status: BusLiveStatus | null): string => {
     switch (status) {
-      case 'en_route':
+      case BusLiveStatus.EN_ROUTE:
         return 'bg-green-100 text-green-700';
-      case 'stopped':
-      case 'idle':
+      case BusLiveStatus.STOPPED:
+      case BusLiveStatus.IDLE:
         return 'bg-blue-100 text-blue-700';
-      case 'delayed':
+      case BusLiveStatus.DELAYED:
         return 'bg-yellow-100 text-yellow-700';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -283,15 +269,15 @@ export const RealtimeMapPage = () => {
   // Obtenir le label du statut
   const getStatusLabel = (status: BusLiveStatus | null): string => {
     switch (status) {
-      case 'en_route':
+      case BusLiveStatus.EN_ROUTE:
         return 'En route';
-      case 'stopped':
+      case BusLiveStatus.STOPPED:
         return 'Arrêté';
-      case 'idle':
+      case BusLiveStatus.IDLE:
         return 'En attente';
-      case 'delayed':
+      case BusLiveStatus.DELAYED:
         return 'En retard';
-      case 'arrived':
+      case BusLiveStatus.ARRIVED:
         return 'Arrivé';
       default:
         return 'Hors service';
@@ -333,13 +319,13 @@ export const RealtimeMapPage = () => {
           {/* Conteneur de la carte */}
           <div ref={mapContainer} className="w-full h-full" />
 
-          {/* Bouton de rafraîchissement */}
-          <button
-            onClick={() => refetch()}
-            className="absolute top-4 left-4 z-10 bg-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-          >
-            🔄 Actualiser
-          </button>
+          {/* Indicateur de connexion temps réel */}
+          <div className="absolute top-4 left-4 z-10 bg-white px-4 py-2 rounded-lg shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-sm font-medium text-gray-700">Temps réel actif</span>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar droite avec statistiques et liste */}
@@ -531,22 +517,22 @@ const BusCard = ({ bus }: { bus: BusRealtimeData }) => {
         </div>
         <span
           className={`px-2 py-1 rounded-full text-xs font-semibold ${
-            bus.liveStatus === 'en_route'
+            bus.liveStatus === BusLiveStatus.EN_ROUTE
               ? 'bg-green-100 text-green-700'
-              : bus.liveStatus === 'delayed'
+              : bus.liveStatus === BusLiveStatus.DELAYED
               ? 'bg-yellow-100 text-yellow-700'
-              : bus.liveStatus === 'stopped' || bus.liveStatus === 'idle'
+              : bus.liveStatus === BusLiveStatus.STOPPED || bus.liveStatus === BusLiveStatus.IDLE
               ? 'bg-blue-100 text-blue-700'
               : 'bg-gray-100 text-gray-700'
           }`}
         >
-          {bus.liveStatus === 'en_route'
+          {bus.liveStatus === BusLiveStatus.EN_ROUTE
             ? 'En route'
-            : bus.liveStatus === 'delayed'
+            : bus.liveStatus === BusLiveStatus.DELAYED
             ? 'En retard'
-            : bus.liveStatus === 'stopped'
+            : bus.liveStatus === BusLiveStatus.STOPPED
             ? 'Arrêté'
-            : bus.liveStatus === 'idle'
+            : bus.liveStatus === BusLiveStatus.IDLE
             ? 'En attente'
             : 'Hors service'}
         </span>

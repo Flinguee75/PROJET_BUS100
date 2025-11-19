@@ -3,30 +3,39 @@
  * Affiche les statistiques principales et les widgets
  */
 
-import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
-import * as gpsApi from '@/services/gps.api';
+import { useRealtimeStatistics } from '@/hooks/useRealtimeBuses';
 import type { DashboardStats } from '@/types/bus';
 
 export const DashboardPage = () => {
-  // Récupérer les statistiques
-  const {
-    data: stats,
-    isLoading,
-    error,
-  } = useQuery<DashboardStats>({
-    queryKey: ['dashboard-stats'],
-    queryFn: gpsApi.getDashboardStats,
-    refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
-  });
+  // Récupérer les statistiques en temps réel via Firestore
+  const { stats: realtimeStats, isLoading, error } = useRealtimeStatistics();
+
+  // Mapper les statistiques temps réel vers le format DashboardStats
+  const stats: DashboardStats | null = realtimeStats
+    ? {
+        busActifs: realtimeStats.active,
+        busTotaux: realtimeStats.total,
+        elevesTransportes: realtimeStats.totalPassengers,
+        busEnRetard: realtimeStats.delayed,
+        totalTrajets: realtimeStats.enRoute,
+        alertesMaintenance: 0, // À implémenter plus tard
+      }
+    : null;
 
   return (
     <div className="flex-1 bg-gray-50">
       <Header title="Tableau de bord" />
 
       <div className="p-8">
+        {/* Indicateur temps réel */}
+        <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          <span>Données mises à jour en temps réel</span>
+        </div>
+
         {isLoading && (
           <div className="flex justify-center py-12">
             <LoadingSpinner message="Chargement des statistiques..." />
