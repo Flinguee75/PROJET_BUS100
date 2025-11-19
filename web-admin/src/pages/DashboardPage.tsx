@@ -4,10 +4,11 @@
  * Focus: État du service, retards critiques, validation sécurité
  */
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Bus, 
-  Clock, 
+import {
+  Bus,
+  Clock,
   AlertTriangle,
   CheckCircle2,
   Activity,
@@ -15,15 +16,20 @@ import {
   Navigation,
   Gauge,
   Settings,
-  AlertOctagon
+  AlertOctagon,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import * as gpsApi from '@/services/gps.api';
-import type { DashboardStats } from '@/types/bus';
+import type { DashboardStats, Bus as BusType } from '@/types/bus';
 
 export const DashboardPage = () => {
+  const [showDelayedBuses, setShowDelayedBuses] = useState(false);
+  const [showMaintenanceBuses, setShowMaintenanceBuses] = useState(false);
+
   // Récupérer les statistiques
   const {
     data: stats,
@@ -34,6 +40,20 @@ export const DashboardPage = () => {
     queryFn: gpsApi.getDashboardStats,
     refetchInterval: 30000, // Rafraîchir toutes les 30 secondes
   });
+
+  // Récupérer la liste de tous les bus
+  const {
+    data: buses,
+    isLoading: busesLoading,
+  } = useQuery<BusType[]>({
+    queryKey: ['all-buses'],
+    queryFn: gpsApi.getAllBuses,
+    refetchInterval: 30000,
+  });
+
+  // Filtrer les bus en retard et ceux en maintenance
+  const delayedBuses = buses?.filter(bus => bus.status === 'EN_RETARD') || [];
+  const maintenanceBuses = buses?.filter(bus => bus.maintenanceStatus < 70 || bus.status === 'HORS_SERVICE') || [];
 
   // Calculer le statut global du système (Focus: Opérationnel > Financier)
   const getSystemStatus = () => {
