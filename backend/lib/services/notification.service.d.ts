@@ -28,6 +28,7 @@ export declare class NotificationService {
     private sendPushNotifications;
     private cleanupInvalidTokens;
     notifyParentsOfStudent(studentId: string, title: string, message: string, type: NotificationType, priority?: NotificationPriority, data?: Record<string, any>): Promise<Notification>;
+    notifyParentsRouteStarted(busId: string, driverId: string): Promise<void>;
     getUnreadCount(userId: string): Promise<number>;
 }
 declare const _default: NotificationService;

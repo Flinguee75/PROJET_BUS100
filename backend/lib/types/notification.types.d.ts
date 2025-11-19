@@ -16,6 +16,8 @@ export declare enum NotificationType {
     BUS_DELAYED = "bus_delayed",
     BUS_BREAKDOWN = "bus_breakdown",
     STUDENT_ABSENT = "student_absent",
+    STUDENT_BOARDED = "student_boarded",
+    STUDENT_EXITED = "student_exited",
     ROUTE_CHANGED = "route_changed",
     MAINTENANCE_DUE = "maintenance_due",
     GENERAL = "general"

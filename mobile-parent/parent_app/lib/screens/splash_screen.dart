@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
-import 'home_screen.dart';
+import 'main_map_screen.dart';
 
 /// Écran de démarrage (Splash Screen)
 class SplashScreen extends StatefulWidget {
@@ -30,9 +30,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final authProvider = context.read<AuthProvider>();
 
     if (authProvider.isAuthenticated) {
-      // Utilisateur connecté → aller vers Home
+      // Utilisateur connecté → aller vers la carte principale
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainMapScreen()),
       );
     } else {
       // Utilisateur non connecté → aller vers Login

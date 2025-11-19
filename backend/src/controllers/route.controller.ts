@@ -1,15 +1,21 @@
 /**
- * Controller Route - Gestion des requêtes HTTP pour les routes
- * Thin controller - toute la logique est dans le service
+ * Route Controller - Gestion des routes (itinéraires) et des trajets (démarrages/arrêts)
+ * Combine la gestion CRUD des routes et le contrôle en temps réel des trajets
  */
 
 import { Request, Response } from 'express';
 import routeService from '../services/route.service';
+import notificationService from '../services/notification.service';
+import { getDb, collections } from '../config/firebase.config';
 import routeGenerationService from '../services/route-generation.service';
 import { CommuneAbidjan, QUARTIERS_BY_COMMUNE } from '../types/route.types';
 import { routeGenerationRequestSchema } from '../utils/validation.schemas';
 
 export class RouteController {
+  // ========================================
+  // PARTIE 1: Gestion CRUD des routes (itinéraires)
+  // ========================================
+
   /**
    * GET /api/routes
    * Récupère toutes les routes avec filtres optionnels
@@ -97,7 +103,7 @@ export class RouteController {
   async getQuartiersByCommune(req: Request, res: Response): Promise<void> {
     try {
       const { commune } = req.params;
-      
+
       if (!commune) {
         res.status(400).json({
           success: false,
@@ -107,7 +113,7 @@ export class RouteController {
       }
 
       const quartiers = QUARTIERS_BY_COMMUNE[commune as CommuneAbidjan];
-      
+
       if (!quartiers) {
         res.status(404).json({
           success: false,
@@ -138,7 +144,7 @@ export class RouteController {
   async getRouteById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      
+
       if (!id) {
         res.status(400).json({
           success: false,
@@ -202,7 +208,7 @@ export class RouteController {
   async updateRoute(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      
+
       if (!id) {
         res.status(400).json({
           success: false,
@@ -243,7 +249,7 @@ export class RouteController {
   async deleteRoute(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      
+
       if (!id) {
         res.status(400).json({
           success: false,
@@ -325,7 +331,7 @@ export class RouteController {
   async removeBus(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      
+
       if (!id) {
         res.status(400).json({
           success: false,
@@ -392,6 +398,98 @@ export class RouteController {
       });
     }
   }
+
+  // ========================================
+  // PARTIE 2: Contrôle temps réel des trajets (start/stop)
+  // ========================================
+
+  /**
+   * Démarrer un trajet - Envoie une notification à tous les parents
+   * POST /api/routes/start
+   */
+  async startRoute(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId, driverId } = req.body;
+
+      if (!busId || !driverId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID and Driver ID are required',
+        });
+        return;
+      }
+
+      // Mettre à jour le statut du bus
+      const db = getDb();
+      await db.collection(collections.buses).doc(busId).update({
+        status: 'en_route',
+        updatedAt: new Date(),
+      });
+
+      // Envoyer les notifications aux parents
+      await notificationService.notifyParentsRouteStarted(busId, driverId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Route started and parents notified',
+        data: {
+          busId,
+          driverId,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error('❌ Error starting route:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to start route',
+      });
+    }
+  }
+
+  /**
+   * Arrêter un trajet
+   * POST /api/routes/stop
+   */
+  async stopRoute(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.body;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Bus ID is required',
+        });
+        return;
+      }
+
+      // Mettre à jour le statut du bus
+      const db = getDb();
+      await db.collection(collections.buses).doc(busId).update({
+        status: 'hors_service',
+        updatedAt: new Date(),
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Route stopped',
+        data: {
+          busId,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error('❌ Error stopping route:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to stop route',
+      });
+    }
+  }
+
+  // ========================================
+  // PARTIE 3: Génération automatique de routes
+  // ========================================
 
   /**
    * POST /api/routes/generate/:busId
@@ -617,4 +715,3 @@ export class RouteController {
 }
 
 export default new RouteController();
-

@@ -15,7 +15,10 @@
       "Bash(npm run test:coverage:*)",
       "Bash(lsof:*)",
       "Bash(npm run type-check:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(/tmp/dashboard_head.tsx)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

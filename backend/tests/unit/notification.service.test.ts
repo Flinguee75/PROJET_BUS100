@@ -721,4 +721,293 @@ describe('NotificationService', () => {
       expect(messageSent.notification.title).toBe('Test Notification');
     });
   });
+
+  describe('notifyParentsRouteStarted', () => {
+    it('should notify all parents when route starts', async () => {
+      const mockBusData = {
+        plate: 'AB-1234-CI',
+        capacity: 45,
+      };
+
+      const mockDriverData = {
+        firstName: 'Jean',
+        lastName: 'Dupont',
+      };
+
+      const mockStudents = [
+        {
+          id: 'student-1',
+          data: () => ({
+            firstName: 'Aya',
+            lastName: 'Kouassi',
+            parentIds: ['parent-1', 'parent-2'],
+          }),
+        },
+        {
+          id: 'student-2',
+          data: () => ({
+            firstName: 'Ibrahim',
+            lastName: 'Traoré',
+            parentIds: ['parent-2', 'parent-3'], // parent-2 est dédupliqué
+          }),
+        },
+      ];
+
+      const mockBusGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => mockBusData,
+      });
+
+      const mockDriverGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => mockDriverData,
+      });
+
+      const mockStudentsGet = jest.fn().mockResolvedValue({
+        empty: false,
+        docs: mockStudents,
+      });
+
+      const mockWhere = jest.fn(() => ({
+        get: mockStudentsGet,
+      }));
+
+      const mockAdd = jest.fn().mockResolvedValue({ id: 'notif-route-start' });
+
+      const mockCollection = jest.fn((name: string) => {
+        if (name === collections.buses) {
+          return { doc: jest.fn(() => ({ get: mockBusGet })) };
+        }
+        if (name === collections.users) {
+          return { doc: jest.fn(() => ({ get: mockDriverGet })) };
+        }
+        if (name === collections.students) {
+          return { where: mockWhere };
+        }
+        if (name === collections.notifications) {
+          return { add: mockAdd };
+        }
+        return {
+          where: jest.fn().mockReturnThis(),
+          get: jest.fn().mockResolvedValue({ docs: [] }),
+        };
+      });
+
+      mockDb.collection = mockCollection;
+      mockMessaging.sendEachForMulticast.mockResolvedValue({
+        successCount: 3,
+        failureCount: 0,
+        responses: [],
+      });
+
+      await notificationService.notifyParentsRouteStarted('bus-001', 'driver-001');
+
+      // Vérifier que la notification a été créée
+      expect(mockAdd).toHaveBeenCalled();
+      const notificationData = mockAdd.mock.calls[0]![0];
+
+      // Vérifier les destinataires (parent-1, parent-2, parent-3) - dédupliqués
+      expect(notificationData.recipientIds).toEqual(
+        expect.arrayContaining(['parent-1', 'parent-2', 'parent-3'])
+      );
+      expect(notificationData.recipientIds).toHaveLength(3);
+
+      // Vérifier le contenu de la notification
+      expect(notificationData.type).toBe(NotificationType.BUS_ARRIVING);
+      expect(notificationData.title).toContain('Trajet démarré');
+      expect(notificationData.message).toContain('AB-1234-CI');
+      expect(notificationData.message).toContain('Jean Dupont');
+      expect(notificationData.priority).toBe(NotificationPriority.HIGH);
+
+      // Vérifier les données additionnelles
+      expect(notificationData.data).toMatchObject({
+        busId: 'bus-001',
+        driverId: 'driver-001',
+        eventType: 'route_started',
+      });
+
+      // Vérifier que where a été appelé avec le bon busId
+      expect(mockWhere).toHaveBeenCalledWith('busId', '==', 'bus-001');
+    });
+
+    it('should throw error when bus not found', async () => {
+      const mockBusGet = jest.fn().mockResolvedValue({
+        exists: false,
+      });
+
+      const mockCollection = jest.fn(() => ({
+        doc: jest.fn(() => ({ get: mockBusGet })),
+      }));
+
+      mockDb.collection = mockCollection;
+
+      await expect(
+        notificationService.notifyParentsRouteStarted('bus-999', 'driver-001')
+      ).rejects.toThrow('Bus bus-999 not found');
+    });
+
+    it('should handle when no students found for bus', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      const mockBusGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({ plate: 'AB-1234-CI' }),
+      });
+
+      const mockDriverGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({ firstName: 'Jean', lastName: 'Dupont' }),
+      });
+
+      const mockStudentsGet = jest.fn().mockResolvedValue({
+        empty: true,
+        docs: [],
+      });
+
+      const mockWhere = jest.fn(() => ({ get: mockStudentsGet }));
+
+      const mockCollection = jest.fn((name: string) => {
+        if (name === collections.buses) {
+          return { doc: jest.fn(() => ({ get: mockBusGet })) };
+        }
+        if (name === collections.users) {
+          return { doc: jest.fn(() => ({ get: mockDriverGet })) };
+        }
+        if (name === collections.students) {
+          return { where: mockWhere };
+        }
+        return {};
+      });
+
+      mockDb.collection = mockCollection;
+
+      await notificationService.notifyParentsRouteStarted('bus-001', 'driver-001');
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '⚠️ Aucun élève trouvé pour le bus bus-001'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle when students have no parents', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      const mockBusData = { plate: 'AB-1234-CI' };
+      const mockDriverData = { firstName: 'Jean', lastName: 'Dupont' };
+
+      const mockStudents = [
+        {
+          id: 'student-1',
+          data: () => ({
+            firstName: 'Orphelin',
+            lastName: 'Test',
+            parentIds: [], // Pas de parents
+          }),
+        },
+      ];
+
+      const mockBusGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => mockBusData,
+      });
+
+      const mockDriverGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => mockDriverData,
+      });
+
+      const mockStudentsGet = jest.fn().mockResolvedValue({
+        empty: false,
+        docs: mockStudents,
+      });
+
+      const mockWhere = jest.fn(() => ({ get: mockStudentsGet }));
+
+      const mockCollection = jest.fn((name: string) => {
+        if (name === collections.buses) {
+          return { doc: jest.fn(() => ({ get: mockBusGet })) };
+        }
+        if (name === collections.users) {
+          return { doc: jest.fn(() => ({ get: mockDriverGet })) };
+        }
+        if (name === collections.students) {
+          return { where: mockWhere };
+        }
+        return {};
+      });
+
+      mockDb.collection = mockCollection;
+
+      await notificationService.notifyParentsRouteStarted('bus-001', 'driver-001');
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '⚠️ Aucun parent trouvé pour les élèves du bus bus-001'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should use default driver name when driver not found', async () => {
+      const mockBusData = { plate: 'AB-1234-CI' };
+
+      const mockStudents = [
+        {
+          id: 'student-1',
+          data: () => ({
+            firstName: 'Aya',
+            lastName: 'Kouassi',
+            parentIds: ['parent-1'],
+          }),
+        },
+      ];
+
+      const mockBusGet = jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => mockBusData,
+      });
+
+      const mockDriverGet = jest.fn().mockResolvedValue({
+        exists: false, // Chauffeur non trouvé
+      });
+
+      const mockStudentsGet = jest.fn().mockResolvedValue({
+        empty: false,
+        docs: mockStudents,
+      });
+
+      const mockWhere = jest.fn(() => ({ get: mockStudentsGet }));
+      const mockAdd = jest.fn().mockResolvedValue({ id: 'notif-123' });
+
+      const mockCollection = jest.fn((name: string) => {
+        if (name === collections.buses) {
+          return { doc: jest.fn(() => ({ get: mockBusGet })) };
+        }
+        if (name === collections.users) {
+          return { doc: jest.fn(() => ({ get: mockDriverGet })) };
+        }
+        if (name === collections.students) {
+          return { where: mockWhere };
+        }
+        if (name === collections.notifications) {
+          return { add: mockAdd };
+        }
+        return {
+          where: jest.fn().mockReturnThis(),
+          get: jest.fn().mockResolvedValue({ docs: [] }),
+        };
+      });
+
+      mockDb.collection = mockCollection;
+      mockMessaging.sendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+      });
+
+      await notificationService.notifyParentsRouteStarted('bus-001', 'driver-999');
+
+      const notificationData = mockAdd.mock.calls[0]![0];
+      expect(notificationData.message).toContain('Chauffeur'); // Nom par défaut
+    });
+  });
 });

@@ -11,6 +11,8 @@ export declare class RouteController {
     assignBus(req: Request, res: Response): Promise<void>;
     removeBus(req: Request, res: Response): Promise<void>;
     assignDriver(req: Request, res: Response): Promise<void>;
+    startRoute(req: Request, res: Response): Promise<void>;
+    stopRoute(req: Request, res: Response): Promise<void>;
     generateRouteForBus(req: Request, res: Response): Promise<void>;
     regenerateRoute(req: Request, res: Response): Promise<void>;
     getRouteByBus(req: Request, res: Response): Promise<void>;

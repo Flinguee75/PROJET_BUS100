@@ -21,6 +21,8 @@ export enum NotificationType {
   BUS_DELAYED = 'bus_delayed', // Retard
   BUS_BREAKDOWN = 'bus_breakdown', // Panne
   STUDENT_ABSENT = 'student_absent', // Élève absent
+  STUDENT_BOARDED = 'student_boarded', // Élève monté dans le bus
+  STUDENT_EXITED = 'student_exited', // Élève descendu du bus
   ROUTE_CHANGED = 'route_changed', // Changement de parcours
   MAINTENANCE_DUE = 'maintenance_due', // Maintenance requise
   GENERAL = 'general', // Notification générale
