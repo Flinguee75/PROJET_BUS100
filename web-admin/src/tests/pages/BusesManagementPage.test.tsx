@@ -7,11 +7,28 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
 import { BusesManagementPage } from '@/pages/BusesManagementPage';
+import { AuthProvider } from '@/contexts/AuthContext';
 import * as busApi from '@/services/bus.api';
 
 // Mock du service API
 vi.mock('@/services/bus.api');
+
+// Mock du module auth.service
+vi.mock('@/services/auth.service', () => ({
+  observeAuthState: vi.fn((callback) => {
+    callback({
+      uid: 'test-user-id',
+      email: 'admin@test.com',
+      displayName: 'Admin User',
+      role: 'admin',
+    });
+    return vi.fn(); // unsubscribe function
+  }),
+  login: vi.fn(),
+  logout: vi.fn(),
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -23,9 +40,13 @@ const createWrapper = () => {
   });
 
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 

@@ -90,8 +90,10 @@ describe('MaintenancePage', () => {
 
     render(<MaintenancePage />, { wrapper: createWrapper() });
 
-    expect(screen.getByText('Gestion des Maintenances')).toBeInTheDocument();
-    expect(screen.getByText('Suivre et gérer les opérations de maintenance')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Gestion des Maintenances')).toBeInTheDocument();
+      expect(screen.getByText('Suivre et gérer les opérations de maintenance')).toBeInTheDocument();
+    });
   });
 
   it('shows loading state', () => {
@@ -257,7 +259,15 @@ describe('MaintenancePage', () => {
     render(<MaintenancePage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Terminé')).toBeInTheDocument();
+      // Check that the status badge is displayed (not the select option)
+      const statusBadges = screen.getAllByText('Terminé');
+      expect(statusBadges.length).toBeGreaterThan(0);
+      // Verify at least one has the success styling class
+      const badgeElement = statusBadges.find(el =>
+        el.className.includes('bg-success-50') &&
+        el.className.includes('text-success-700')
+      );
+      expect(badgeElement).toBeDefined();
     });
   });
 });

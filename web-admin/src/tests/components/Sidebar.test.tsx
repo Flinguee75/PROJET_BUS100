@@ -2,16 +2,34 @@
  * Tests pour le composant Sidebar
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
+import { AuthProvider } from '@/contexts/AuthContext';
+
+// Mock du module auth.service
+vi.mock('@/services/auth.service', () => ({
+  observeAuthState: vi.fn((callback) => {
+    callback({
+      uid: 'test-user-id',
+      email: 'admin@test.com',
+      displayName: 'Admin User',
+      role: 'admin',
+    });
+    return vi.fn(); // unsubscribe function
+  }),
+  login: vi.fn(),
+  logout: vi.fn(),
+}));
 
 describe('Sidebar', () => {
   const renderSidebar = (initialRoute = '/') => {
     return render(
       <MemoryRouter initialEntries={[initialRoute]}>
-        <Sidebar />
+        <AuthProvider>
+          <Sidebar />
+        </AuthProvider>
       </MemoryRouter>
     );
   };

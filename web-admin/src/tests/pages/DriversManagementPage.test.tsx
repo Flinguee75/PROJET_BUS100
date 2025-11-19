@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
 import { DriversManagementPage } from '@/pages/DriversManagementPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 
@@ -43,9 +44,11 @@ describe('DriversManagementPage', () => {
     });
 
     return ({ children }: { children: React.ReactNode }) => (
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </AuthProvider>
+      </BrowserRouter>
     );
   };
 
@@ -169,7 +172,21 @@ describe('DriversManagementPage', () => {
   });
 
   it('renders table headers', async () => {
-    vi.mocked(driverApi.getAllDrivers).mockResolvedValue([]);
+    const mockDrivers = [
+      {
+        id: 'driver-1',
+        email: 'driver1@test.com',
+        displayName: 'John Doe',
+        phoneNumber: '+1234567890',
+        licenseNumber: 'LIC123456',
+        licenseExpiry: new Date('2025-12-31').toISOString(),
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    vi.mocked(driverApi.getAllDrivers).mockResolvedValue(mockDrivers);
 
     render(<DriversManagementPage />, { wrapper: createWrapper() });
 

@@ -6,11 +6,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
 import { RoutesManagementPage } from '@/pages/RoutesManagementPage';
+import { AuthProvider } from '@/contexts/AuthContext';
 import * as routeApi from '@/services/route.api';
 
 // Mock du module route.api
 vi.mock('@/services/route.api');
+
+// Mock du module auth.service
+vi.mock('@/services/auth.service', () => ({
+  observeAuthState: vi.fn((callback) => {
+    callback({
+      uid: 'test-user-id',
+      email: 'admin@test.com',
+      displayName: 'Admin User',
+      role: 'admin',
+    });
+    return vi.fn(); // unsubscribe function
+  }),
+  login: vi.fn(),
+  logout: vi.fn(),
+}));
 
 // Mock des composants
 vi.mock('@/components/Header', () => ({
@@ -121,7 +138,11 @@ describe('RoutesManagementPage', () => {
 
   const renderWithQueryClient = (component: React.ReactElement) => {
     return render(
-      <QueryClientProvider client={queryClient}>{component}</QueryClientProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>{component}</QueryClientProvider>
+        </AuthProvider>
+      </BrowserRouter>
     );
   };
 

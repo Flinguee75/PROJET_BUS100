@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
 import { StudentsManagementPage } from '@/pages/StudentsManagementPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 
@@ -48,9 +49,11 @@ describe('StudentsManagementPage', () => {
     });
 
     return ({ children }: { children: React.ReactNode }) => (
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </AuthProvider>
+      </BrowserRouter>
     );
   };
 
@@ -215,7 +218,31 @@ describe('StudentsManagementPage', () => {
   });
 
   it('renders table headers', async () => {
-    vi.mocked(studentApi.getAllStudents).mockResolvedValue([]);
+    const mockStudents = [
+      {
+        id: 'student-1',
+        firstName: 'Alice',
+        lastName: 'Dupont',
+        dateOfBirth: new Date('2010-05-15').toISOString(),
+        grade: 'CM2',
+        parentIds: ['parent-1'],
+        pickupLocation: {
+          address: '123 Main St',
+          lat: 5.36,
+          lng: -4.0083,
+        },
+        dropoffLocation: {
+          address: '456 School Ave',
+          lat: 5.37,
+          lng: -4.01,
+        },
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    vi.mocked(studentApi.getAllStudents).mockResolvedValue(mockStudents);
     vi.mocked(gpsApi.getAllBuses).mockResolvedValue([]);
 
     render(<StudentsManagementPage />, { wrapper: createWrapper() });
