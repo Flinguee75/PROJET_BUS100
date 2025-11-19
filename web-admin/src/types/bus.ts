@@ -52,10 +52,31 @@ export interface Bus {
 }
 
 export interface DashboardStats {
+  // Métriques de base
   busActifs: number;
   busTotaux: number;
   elevesTransportes: number;
   busEnRetard: number;
   totalTrajets: number;
   alertesMaintenance: number;
+  
+  // Nouvelles métriques opérationnelles (contexte Abidjan)
+  retardsCritiques: number; // Retards > 15 minutes
+  retardsGraves: number; // Retards > 20 minutes
+  busImmobilises: number; // Bus en panne/hors service
+  busDisponibles: number; // Bus disponibles (totaux - immobilisés)
+  tauxValidation: number; // Pourcentage élèves scannés (0-100)
+  elevesNonScannes: number; // Nombre élèves non scannés
+  
+  // État détaillé du service
+  busEnRoute: number; // Bus actuellement en déplacement
+  busArrives: number; // Bus arrivés à destination
+  busNonPartis: number; // Bus n'ayant pas encore démarré
+  busEnAttente: number; // Bus à l'arrêt (attente élèves)
+  
+  // Métriques de performance (trafic vs prévision)
+  retardMoyen: number; // Retard moyen en minutes
+  tauxPonctualite: number; // % de bus à l'heure (0-100)
+  tempsTrajetMoyen: number; // Temps de trajet moyen (minutes)
+  tempsTrajetPrevu: number; // Temps prévu initialement
 }
