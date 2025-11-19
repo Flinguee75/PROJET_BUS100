@@ -300,12 +300,7 @@ export const StudentsManagementPage = () => {
           <EmptyState
             icon={Users}
             title="Aucun élève enregistré"
-            description="Commencez par ajouter votre premier élève pour gérer les inscriptions"
-            action={{
-              label: "Ajouter un élève",
-              onClick: openCreateModal,
-              icon: Plus
-            }}
+            description="Utilisez le bouton 'Ajouter un élève' ci-dessus pour commencer à gérer les inscriptions"
           />
         )}
 

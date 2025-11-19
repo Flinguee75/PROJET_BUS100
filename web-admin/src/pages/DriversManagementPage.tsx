@@ -234,12 +234,7 @@ export const DriversManagementPage = () => {
           <EmptyState
             icon={UserCog}
             title="Aucun chauffeur enregistré"
-            description="Commencez par ajouter votre premier chauffeur pour gérer l'équipe"
-            action={{
-              label: "Ajouter un chauffeur",
-              onClick: openCreateModal,
-              icon: Plus
-            }}
+            description="Utilisez le bouton 'Ajouter un chauffeur' ci-dessus pour commencer à gérer l'équipe"
           />
         )}
 

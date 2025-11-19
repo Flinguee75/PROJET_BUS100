@@ -111,12 +111,7 @@ export const RoutesManagementPage = () => {
           <EmptyState
             icon={Map}
             title="Aucune route configurée"
-            description={selectedCommune ? `Aucune route pour la commune "${selectedCommune}"` : "Commencez par créer votre première route de bus"}
-            action={{
-              label: "Créer une route",
-              onClick: () => setIsModalOpen(true),
-              icon: Plus
-            }}
+            description={selectedCommune ? `Aucune route pour la commune "${selectedCommune}"` : "Utilisez le bouton 'Créer une route' ci-dessus pour commencer"}
           />
         )}
 

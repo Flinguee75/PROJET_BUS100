@@ -287,16 +287,9 @@ export const BusesManagementPage = () => {
             <h3 className="text-xl font-bold text-slate-900 mb-2 font-display">
               Aucun bus enregistré
             </h3>
-            <p className="text-slate-600 mb-6 max-w-md mx-auto">
-              Commencez par ajouter votre premier bus à la flotte pour gérer le transport scolaire
+            <p className="text-slate-600 max-w-md mx-auto">
+              Utilisez le bouton "Ajouter un bus" ci-dessus pour commencer à gérer votre flotte de transport scolaire
             </p>
-            <button
-              onClick={openCreateModal}
-              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all shadow-md hover:shadow-lg font-medium inline-flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" strokeWidth={2} />
-              <span>Ajouter un bus</span>
-            </button>
           </div>
         )}
       </div>
