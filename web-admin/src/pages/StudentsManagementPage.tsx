@@ -16,6 +16,8 @@ interface StudentFormData {
   dateOfBirth: string;
   grade: string;
   parentIds: string;
+  commune: string;
+  quartier: string;
   pickupAddress: string;
   pickupLat: string;
   pickupLng: string;
@@ -35,12 +37,14 @@ export const StudentsManagementPage = () => {
     dateOfBirth: '',
     grade: '',
     parentIds: '',
+    commune: '',
+    quartier: '',
     pickupAddress: '',
-    pickupLat: '36.8065',
-    pickupLng: '10.1815',
+    pickupLat: '5.3600',
+    pickupLng: '-4.0083',
     dropoffAddress: '',
-    dropoffLat: '36.8065',
-    dropoffLng: '10.1815',
+    dropoffLat: '5.3600',
+    dropoffLng: '-4.0083',
     specialNeeds: '',
   });
   const [formError, setFormError] = useState('');
@@ -96,12 +100,14 @@ export const StudentsManagementPage = () => {
       dateOfBirth: '',
       grade: '',
       parentIds: '',
+      commune: '',
+      quartier: '',
       pickupAddress: '',
-      pickupLat: '36.8065',
-      pickupLng: '10.1815',
+      pickupLat: '5.3600',
+      pickupLng: '-4.0083',
       dropoffAddress: '',
-      dropoffLat: '36.8065',
-      dropoffLng: '10.1815',
+      dropoffLat: '5.3600',
+      dropoffLng: '-4.0083',
       specialNeeds: '',
     });
     setFormError('');
@@ -116,6 +122,8 @@ export const StudentsManagementPage = () => {
       dateOfBirth: student.dateOfBirth.split('T')[0],
       grade: student.grade,
       parentIds: student.parentIds.join(', '),
+      commune: student.commune || '',
+      quartier: student.quartier || '',
       pickupAddress: student.pickupLocation.address,
       pickupLat: student.pickupLocation.lat.toString(),
       pickupLng: student.pickupLocation.lng.toString(),
@@ -206,6 +214,8 @@ export const StudentsManagementPage = () => {
         lastName: formData.lastName,
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
         grade: formData.grade,
+        commune: formData.commune || undefined,
+        quartier: formData.quartier || undefined,
         pickupLocation: {
           address: formData.pickupAddress,
           lat: parseFloat(formData.pickupLat),
@@ -227,6 +237,8 @@ export const StudentsManagementPage = () => {
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
         grade: formData.grade,
         parentIds: parentIdsArray,
+        commune: formData.commune || 'Non spécifiée',
+        quartier: formData.quartier || 'Non spécifié',
         pickupLocation: {
           address: formData.pickupAddress,
           lat: parseFloat(formData.pickupLat),

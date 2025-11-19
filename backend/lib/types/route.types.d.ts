@@ -1,0 +1,105 @@
+export declare enum CommuneAbidjan {
+    COCODY = "Cocody",
+    YOPOUGON = "Yopougon",
+    ABOBO = "Abobo",
+    ADJAME = "Adjam\u00E9",
+    PLATEAU = "Plateau",
+    MARCORY = "Marcory",
+    KOUMASSI = "Koumassi",
+    PORT_BOUET = "Port-Bou\u00EBt",
+    TREICHVILLE = "Treichville",
+    ATTÉCOUBÉ = "Att\u00E9coub\u00E9",
+    BINGERVILLE = "Bingerville",
+    SONGON = "Songon",
+    ANYAMA = "Anyama"
+}
+export interface RouteStop {
+    id: string;
+    name: string;
+    address: string;
+    location: {
+        lat: number;
+        lng: number;
+    };
+    order: number;
+    estimatedTimeMinutes: number;
+    type: 'pickup' | 'dropoff' | 'both';
+    quartier: string;
+    notes?: string;
+}
+export interface Route {
+    id: string;
+    name: string;
+    code: string;
+    description?: string;
+    commune: CommuneAbidjan;
+    quartiers: string[];
+    stops: RouteStop[];
+    schedule: {
+        morningDeparture: string;
+        morningArrival: string;
+        afternoonDeparture: string;
+        afternoonArrival: string;
+    };
+    totalDistanceKm: number;
+    estimatedDurationMinutes: number;
+    capacity: number;
+    currentOccupancy: number;
+    busId: string | null;
+    driverId: string | null;
+    activeDays: DayOfWeek[];
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+export declare enum DayOfWeek {
+    MONDAY = "monday",
+    TUESDAY = "tuesday",
+    WEDNESDAY = "wednesday",
+    THURSDAY = "thursday",
+    FRIDAY = "friday",
+    SATURDAY = "saturday",
+    SUNDAY = "sunday"
+}
+export interface RouteCreateInput {
+    name: string;
+    code: string;
+    description?: string;
+    commune: CommuneAbidjan;
+    quartiers: string[];
+    stops: Omit<RouteStop, 'id'>[];
+    schedule: {
+        morningDeparture: string;
+        morningArrival: string;
+        afternoonDeparture: string;
+        afternoonArrival: string;
+    };
+    totalDistanceKm: number;
+    estimatedDurationMinutes: number;
+    capacity: number;
+    activeDays: DayOfWeek[];
+}
+export interface RouteUpdateInput {
+    name?: string;
+    code?: string;
+    description?: string;
+    commune?: CommuneAbidjan;
+    quartiers?: string[];
+    stops?: Omit<RouteStop, 'id'>[];
+    schedule?: {
+        morningDeparture: string;
+        morningArrival: string;
+        afternoonDeparture: string;
+        afternoonArrival: string;
+    };
+    totalDistanceKm?: number;
+    estimatedDurationMinutes?: number;
+    capacity?: number;
+    currentOccupancy?: number;
+    busId?: string | null;
+    driverId?: string | null;
+    activeDays?: DayOfWeek[];
+    isActive?: boolean;
+}
+export declare const QUARTIERS_BY_COMMUNE: Record<CommuneAbidjan, string[]>;
+//# sourceMappingURL=route.types.d.ts.map

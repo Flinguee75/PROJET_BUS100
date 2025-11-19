@@ -14,6 +14,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import studentRoutes from './routes/student.routes';
 import driverRoutes from './routes/driver.routes';
 import maintenanceRoutes from './routes/maintenance.routes';
+import routeRoutes from './routes/route.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -46,6 +47,7 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/students', studentRoutes);
 app.use('/drivers', driverRoutes);
 app.use('/maintenances', maintenanceRoutes);
+app.use('/routes', routeRoutes);
 
 // Route 404
 app.use((req, res) => {

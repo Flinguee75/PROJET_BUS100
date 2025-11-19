@@ -112,6 +112,8 @@ export declare const studentCreateSchema: z.ZodObject<{
     dateOfBirth: z.ZodUnion<[z.ZodString, z.ZodDate]>;
     grade: z.ZodString;
     parentIds: z.ZodArray<z.ZodString, "many">;
+    commune: z.ZodOptional<z.ZodString>;
+    quartier: z.ZodOptional<z.ZodString>;
     pickupLocation: z.ZodObject<{
         address: z.ZodString;
         lat: z.ZodNumber;
@@ -163,6 +165,8 @@ export declare const studentCreateSchema: z.ZodObject<{
         address: string;
         notes?: string | undefined;
     };
+    commune?: string | undefined;
+    quartier?: string | undefined;
     specialNeeds?: string | undefined;
 }, {
     firstName: string;
@@ -182,6 +186,8 @@ export declare const studentCreateSchema: z.ZodObject<{
         address: string;
         notes?: string | undefined;
     };
+    commune?: string | undefined;
+    quartier?: string | undefined;
     specialNeeds?: string | undefined;
 }>;
 export declare const studentUpdateSchema: z.ZodObject<{
@@ -189,6 +195,8 @@ export declare const studentUpdateSchema: z.ZodObject<{
     lastName: z.ZodOptional<z.ZodString>;
     dateOfBirth: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodDate]>>;
     grade: z.ZodOptional<z.ZodString>;
+    commune: z.ZodOptional<z.ZodString>;
+    quartier: z.ZodOptional<z.ZodString>;
     busId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     routeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     pickupLocation: z.ZodOptional<z.ZodObject<{
@@ -232,6 +240,8 @@ export declare const studentUpdateSchema: z.ZodObject<{
     lastName?: string | undefined;
     dateOfBirth?: string | Date | undefined;
     grade?: string | undefined;
+    commune?: string | undefined;
+    quartier?: string | undefined;
     pickupLocation?: {
         lat: number;
         lng: number;
@@ -253,6 +263,8 @@ export declare const studentUpdateSchema: z.ZodObject<{
     lastName?: string | undefined;
     dateOfBirth?: string | Date | undefined;
     grade?: string | undefined;
+    commune?: string | undefined;
+    quartier?: string | undefined;
     pickupLocation?: {
         lat: number;
         lng: number;
