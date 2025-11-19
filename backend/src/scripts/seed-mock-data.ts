@@ -3,19 +3,40 @@
  * Routes typiques : Cocody, Yopougon, Abobo, Adjamé, Plateau, Treichville
  */
 
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { BusStatus, BusMaintenanceStatus } from '../types/bus.types';
 import { BusLiveStatus } from '../types/gps.types';
+import * as path from 'path';
+import * as fs from 'fs';
 
-// Initialiser Firebase Admin
-const serviceAccount = require('../../../projet-bus-60a3f-firebase-adminsdk-bqkqg-6e1f23e4eb.json');
+// Configuration pour les émulateurs Firebase
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 
-initializeApp({
-  credential: cert(serviceAccount),
-});
+// Initialiser Firebase Admin pour les émulateurs
+if (!admin.apps.length) {
+  // Chercher le fichier service account (optionnel pour émulateurs)
+  const serviceAccountPath = path.join(__dirname, '../../service-account-key.json');
+  
+  if (fs.existsSync(serviceAccountPath)) {
+    // Si le service account existe, l'utiliser
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: 'projet-bus-60a3f',
+    });
+    console.log('✅ Firebase Admin initialisé avec service account\n');
+  } else {
+    // Sinon, utiliser la config de base (émulateurs uniquement)
+    admin.initializeApp({
+      projectId: 'projet-bus-60a3f',
+    });
+    console.log('✅ Firebase Admin initialisé en mode émulateur (sans credentials)\n');
+  }
+}
 
-const db = getFirestore();
+const db = admin.firestore();
 
 // Zones d'Abidjan avec coordonnées approximatives
 const zones = {
@@ -117,9 +138,33 @@ function getRandomPositionOnRoute(route: typeof routes[0], progress: number) {
   };
 }
 
+// Vérifier que les émulateurs sont démarrés
+async function checkEmulators() {
+  try {
+    // Essayer de se connecter à Firestore
+    await db.collection('_test').doc('_test').set({ test: true });
+    await db.collection('_test').doc('_test').delete();
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur : Les émulateurs Firebase ne sont pas démarrés !\n');
+    console.log('📌 Pour démarrer les émulateurs :');
+    console.log('   1. Ouvrez un nouveau terminal');
+    console.log('   2. cd backend');
+    console.log('   3. npm run serve\n');
+    console.log('💡 Puis relancez ce script : npm run seed\n');
+    return false;
+  }
+}
+
 // Fonction principale de seeding
 async function seedMockData() {
   console.log('🚀 Début du seeding des données mock pour Abidjan...\n');
+
+  // Vérifier que les émulateurs sont accessibles
+  const emulatorsReady = await checkEmulators();
+  if (!emulatorsReady) {
+    process.exit(1);
+  }
 
   // 1. Créer les conducteurs
   console.log('👨‍✈️ Création des conducteurs...');
@@ -133,6 +178,41 @@ async function seedMockData() {
     });
   }
   console.log(`✅ ${drivers.length} conducteurs créés\n`);
+
+  // 1.5. Créer les élèves
+  console.log('👶 Création des élèves...');
+  const studentCount = 100;
+  for (let i = 1; i <= studentCount; i++) {
+    await db.collection('students').doc(`student-${i}`).set({
+      firstName: `Élève${i}`,
+      lastName: `Test`,
+      parentId: `parent-${Math.ceil(i / 2)}`, // 2 enfants par parent
+      grade: `CE${(i % 5) + 1}`,
+      school: 'École Primaire Cocody',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  }
+  console.log(`✅ ${studentCount} élèves créés\n`);
+
+  // 1.6. Créer les scans du jour (attendance)
+  console.log('📋 Création des scans d\'aujourd\'hui...');
+  const today = new Date().toISOString().split('T')[0];
+  const scannedCount = 90; // 90% de validation
+  for (let i = 1; i <= scannedCount; i++) {
+    await db.collection('attendance').add({
+      studentId: `student-${i}`,
+      busId: `bus-${(i % 6) + 1}`, // Distribuer sur 6 bus actifs
+      date: today,
+      type: 'boarding',
+      timestamp: Timestamp.now(),
+      location: {
+        lat: 5.35 + Math.random() * 0.05,
+        lng: -4.0 + Math.random() * 0.05,
+      },
+    });
+  }
+  console.log(`✅ ${scannedCount} scans créés (${scannedCount}% validation)\n`);
 
   // 2. Créer les routes
   console.log('🛣️  Création des routes...');
@@ -151,15 +231,16 @@ async function seedMockData() {
 
   // 3. Créer les bus avec positions GPS
   console.log('🚌 Création des bus...');
+  const now = Date.now();
   const busStatuses = [
-    { status: BusLiveStatus.EN_ROUTE, speed: 35, passengersCount: 25 },
-    { status: BusLiveStatus.EN_ROUTE, speed: 40, passengersCount: 30 },
-    { status: BusLiveStatus.EN_ROUTE, speed: 25, passengersCount: 18 },
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 15 },
-    { status: BusLiveStatus.EN_ROUTE, speed: 45, passengersCount: 28 },
-    { status: BusLiveStatus.IDLE, speed: 3, passengersCount: 12 },
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0 }, // Bus hors course
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0 }, // Bus hors course
+    { status: BusLiveStatus.EN_ROUTE, speed: 35, passengersCount: 25, minutesAgo: 2 }, // Normal
+    { status: BusLiveStatus.EN_ROUTE, speed: 40, passengersCount: 30, minutesAgo: 3 }, // Normal
+    { status: BusLiveStatus.EN_ROUTE, speed: 25, passengersCount: 18, minutesAgo: 18 }, // Retard critique
+    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 15, minutesAgo: 4 }, // En attente
+    { status: BusLiveStatus.EN_ROUTE, speed: 45, passengersCount: 28, minutesAgo: 23 }, // Retard grave
+    { status: BusLiveStatus.IDLE, speed: 3, passengersCount: 12, minutesAgo: 2 }, // Normal
+    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0, minutesAgo: 0 }, // Bus hors course
+    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0, minutesAgo: 0 }, // Bus hors course
   ];
 
   for (let i = 0; i < drivers.length; i++) {
@@ -187,6 +268,7 @@ async function seedMockData() {
     if (isActive) {
       const progress = (i * 0.15) % 1; // Position sur la route (0-100%)
       const position = getRandomPositionOnRoute(route, progress);
+      const gpsTimestamp = now - busInfo.minutesAgo * 60 * 1000; // Timestamp avec retard
 
       await db.collection('gps_live').doc(busId).set({
         busId,
@@ -196,7 +278,7 @@ async function seedMockData() {
           speed: busInfo.speed,
           heading: Math.floor(Math.random() * 360),
           accuracy: 10 + Math.random() * 5,
-          timestamp: Date.now(),
+          timestamp: gpsTimestamp,
         },
         driverId: driver.id,
         routeId: route.id,
@@ -205,8 +287,9 @@ async function seedMockData() {
         lastUpdate: Timestamp.now(),
       });
 
+      const retardInfo = busInfo.minutesAgo > 15 ? ` 🚨 RETARD ${busInfo.minutesAgo} min` : '';
       console.log(
-        `  ✓ Bus ${busId} - ${route.name} - ${busInfo.status} - ${busInfo.passengersCount} élèves`
+        `  ✓ Bus ${busId} - ${route.name} - ${busInfo.status} - ${busInfo.passengersCount} élèves${retardInfo}`
       );
     } else {
       console.log(`  ✓ Bus ${busId} - HORS COURSE`);
@@ -215,16 +298,19 @@ async function seedMockData() {
 
   console.log(`\n✅ ${drivers.length} bus créés avec positions GPS\n`);
   console.log('🎉 Seeding terminé avec succès !');
-  console.log('\nRésumé :');
+  console.log('\n📊 Résumé des données créées :');
   console.log(`  - ${drivers.length} conducteurs`);
   console.log(`  - ${routes.length} routes`);
   console.log(`  - ${drivers.length} bus`);
-  console.log(
-    `  - ${busStatuses.filter((s) => s.passengersCount > 0).length} bus en course`
-  );
-  console.log(
-    `  - ${busStatuses.filter((s) => s.passengersCount === 0).length} bus hors course`
-  );
+  console.log(`  - ${studentCount} élèves`);
+  console.log(`  - ${scannedCount} scans aujourd'hui (${scannedCount}% validation)`);
+  console.log(`  - ${busStatuses.filter((s) => s.passengersCount > 0).length} bus en course`);
+  console.log(`  - ${busStatuses.filter((s) => s.passengersCount === 0).length} bus hors course`);
+  console.log(`  - ${busStatuses.filter((s) => s.minutesAgo > 15).length} bus en retard critique`);
+  console.log(`  - ${busStatuses.filter((s) => s.minutesAgo > 20).length} bus en retard grave`);
+  console.log('\n✨ Vous pouvez maintenant tester le Dashboard avec ces données !');
+  console.log('🌐 Démarrez le backend : npm run serve');
+  console.log('🖥️  Démarrez le web-admin : cd ../web-admin && npm run dev');
 }
 
 // Exécuter le script

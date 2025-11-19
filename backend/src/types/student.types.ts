@@ -11,6 +11,11 @@ export interface Student {
   parentIds: string[]; // IDs des parents
   busId: string | null; // Bus assigné
   routeId: string | null; // Parcours assigné
+  
+  // Informations géographiques (Abidjan)
+  commune: string; // Commune d'Abidjan (ex: "Cocody", "Yopougon")
+  quartier: string; // Quartier précis (ex: "Riviera", "II Plateaux")
+  
   pickupLocation: Location;
   dropoffLocation: Location;
   photoUrl?: string;
@@ -25,6 +30,8 @@ export interface Location {
   lat: number;
   lng: number;
   notes?: string; // Instructions spéciales
+  commune?: string; // Commune pour cette adresse
+  quartier?: string; // Quartier pour cette adresse
 }
 
 export interface StudentCreateInput {
@@ -33,6 +40,8 @@ export interface StudentCreateInput {
   dateOfBirth: Date;
   grade: string;
   parentIds: string[];
+  commune: string; // Commune d'Abidjan
+  quartier: string; // Quartier précis
   pickupLocation: Location;
   dropoffLocation: Location;
   specialNeeds?: string;
@@ -43,6 +52,8 @@ export interface StudentUpdateInput {
   lastName?: string;
   dateOfBirth?: Date;
   grade?: string;
+  commune?: string;
+  quartier?: string;
   busId?: string | null;
   routeId?: string | null;
   pickupLocation?: Location;

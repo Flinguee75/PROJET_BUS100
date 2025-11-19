@@ -97,6 +97,9 @@ export class StudentController {
         dateOfBirth: validatedData.dateOfBirth instanceof Date 
           ? validatedData.dateOfBirth 
           : new Date(validatedData.dateOfBirth),
+        // Valeurs temporaires pour commune et quartier si non fournies
+        commune: (validatedData as any).commune || 'Non spécifiée',
+        quartier: (validatedData as any).quartier || 'Non spécifié',
       };
 
       const student = await studentService.createStudent(inputData);

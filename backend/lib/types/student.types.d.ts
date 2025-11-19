@@ -7,6 +7,8 @@ export interface Student {
     parentIds: string[];
     busId: string | null;
     routeId: string | null;
+    commune: string;
+    quartier: string;
     pickupLocation: Location;
     dropoffLocation: Location;
     photoUrl?: string;
@@ -20,6 +22,8 @@ export interface Location {
     lat: number;
     lng: number;
     notes?: string;
+    commune?: string;
+    quartier?: string;
 }
 export interface StudentCreateInput {
     firstName: string;
@@ -27,6 +31,8 @@ export interface StudentCreateInput {
     dateOfBirth: Date;
     grade: string;
     parentIds: string[];
+    commune: string;
+    quartier: string;
     pickupLocation: Location;
     dropoffLocation: Location;
     specialNeeds?: string;
@@ -36,6 +42,8 @@ export interface StudentUpdateInput {
     lastName?: string;
     dateOfBirth?: Date;
     grade?: string;
+    commune?: string;
+    quartier?: string;
     busId?: string | null;
     routeId?: string | null;
     pickupLocation?: Location;
