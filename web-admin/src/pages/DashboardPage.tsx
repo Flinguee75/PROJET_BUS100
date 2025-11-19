@@ -351,6 +351,130 @@ export const DashboardPage = () => {
 
             </div>
 
+            {/* Section - Bus en retard (expandable) */}
+            {delayedBuses.length > 0 && (
+              <div className="bg-white rounded-xl shadow-card border border-warning-200/60 overflow-hidden mb-6">
+                <button
+                  onClick={() => setShowDelayedBuses(!showDelayedBuses)}
+                  className="w-full flex items-center justify-between p-5 hover:bg-warning-50/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-warning-600" strokeWidth={2} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-base font-semibold text-slate-900">
+                        Bus en Retard
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {delayedBuses.length} bus actuellement en retard
+                      </p>
+                    </div>
+                  </div>
+                  {showDelayedBuses ? (
+                    <ChevronUp className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                  )}
+                </button>
+
+                {showDelayedBuses && (
+                  <div className="border-t border-warning-100 p-5 bg-warning-50/20">
+                    {busesLoading ? (
+                      <p className="text-sm text-slate-500 text-center py-4">Chargement...</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {delayedBuses.map((bus) => (
+                          <div
+                            key={bus.id}
+                            className="flex items-center gap-3 p-3 bg-white border border-warning-200 rounded-lg"
+                          >
+                            <div className="w-8 h-8 bg-warning-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Bus className="w-4 h-4 text-warning-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-900 text-sm">{bus.number}</p>
+                              <p className="text-xs text-slate-600 truncate">{bus.chauffeur}</p>
+                              <p className="text-xs text-warning-600 font-medium">{bus.statusLabel}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section - Bus en maintenance (expandable) */}
+            {maintenanceBuses.length > 0 && (
+              <div className="bg-white rounded-xl shadow-card border border-orange-200/60 overflow-hidden mb-6">
+                <button
+                  onClick={() => setShowMaintenanceBuses(!showMaintenanceBuses)}
+                  className="w-full flex items-center justify-between p-5 hover:bg-orange-50/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-orange-600" strokeWidth={2} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-base font-semibold text-slate-900">
+                        Alertes Maintenance
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {maintenanceBuses.length} bus nécessitant une attention
+                      </p>
+                    </div>
+                  </div>
+                  {showMaintenanceBuses ? (
+                    <ChevronUp className="w-5 h-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                  )}
+                </button>
+
+                {showMaintenanceBuses && (
+                  <div className="border-t border-orange-100 p-5 bg-orange-50/20">
+                    {busesLoading ? (
+                      <p className="text-sm text-slate-500 text-center py-4">Chargement...</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {maintenanceBuses.map((bus) => (
+                          <div
+                            key={bus.id}
+                            className="flex items-center gap-3 p-3 bg-white border border-orange-200 rounded-lg"
+                          >
+                            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Settings className="w-4 h-4 text-orange-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-900 text-sm">{bus.number}</p>
+                              <p className="text-xs text-slate-600 truncate">{bus.immatriculation}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      bus.maintenanceStatus >= 70 ? 'bg-success-500' :
+                                      bus.maintenanceStatus >= 50 ? 'bg-warning-500' :
+                                      'bg-danger-500'
+                                    }`}
+                                    style={{ width: `${bus.maintenanceStatus}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-medium text-slate-600">
+                                  {bus.maintenanceStatus}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Section secondaire - Métriques Opérationnelles Secondaires */}
             <div className="bg-white rounded-xl shadow-card p-6 border border-slate-200/60">
               <div className="flex items-center justify-between mb-4">
