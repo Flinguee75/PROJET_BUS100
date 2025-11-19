@@ -97,6 +97,47 @@ export const studentCreateSchema = z.object({
 });
 
 /**
+ * Schéma Student Update
+ */
+export const studentUpdateSchema = z.object({
+  firstName: z.string().min(2, 'Prénom trop court').optional(),
+  lastName: z.string().min(2, 'Nom trop court').optional(),
+  dateOfBirth: z.string().datetime().or(z.date()).optional(),
+  grade: z.string().min(1).optional(),
+  busId: z.string().nullable().optional(),
+  routeId: z.string().nullable().optional(),
+  pickupLocation: locationSchema.optional(),
+  dropoffLocation: locationSchema.optional(),
+  specialNeeds: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+/**
+ * Schéma Driver Create
+ */
+export const driverCreateSchema = z.object({
+  email: z.string().email('Email invalide'),
+  displayName: z.string().min(2, 'Nom trop court'),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide'),
+  licenseNumber: z.string().min(5, 'Numéro de permis invalide'),
+  licenseExpiry: z.string().datetime().or(z.date()),
+  photoUrl: z.string().url().optional(),
+});
+
+/**
+ * Schéma Driver Update
+ */
+export const driverUpdateSchema = z.object({
+  displayName: z.string().min(2, 'Nom trop court').optional(),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide').optional(),
+  licenseNumber: z.string().min(5, 'Numéro de permis invalide').optional(),
+  licenseExpiry: z.string().datetime().or(z.date()).optional(),
+  busId: z.string().nullable().optional(),
+  photoUrl: z.string().url().optional(),
+  isActive: z.boolean().optional(),
+});
+
+/**
  * Schéma User Create
  */
 export const userCreateSchema = z.object({
@@ -134,5 +175,8 @@ export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
 export type BusCreateInput = z.infer<typeof busCreateSchema>;
 export type BusUpdateInput = z.infer<typeof busUpdateSchema>;
 export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
+export type StudentUpdateInput = z.infer<typeof studentUpdateSchema>;
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type NotificationCreateInput = z.infer<typeof notificationCreateSchema>;
+export type DriverCreateInput = z.infer<typeof driverCreateSchema>;
+export type DriverUpdateInput = z.infer<typeof driverUpdateSchema>;

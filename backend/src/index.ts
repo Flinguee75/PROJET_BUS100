@@ -11,6 +11,8 @@ import cors from 'cors';
 import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import studentRoutes from './routes/student.routes';
+import driverRoutes from './routes/driver.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -40,6 +42,8 @@ app.get('/health', (_req, res) => {
 app.use('/gps', gpsRoutes);
 app.use('/buses', busRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/students', studentRoutes);
+app.use('/drivers', driverRoutes);
 
 // Route 404
 app.use((req, res) => {
