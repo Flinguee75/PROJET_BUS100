@@ -1,3 +1,5 @@
+import 'bus.dart';
+
 /// Modèle de données pour un enfant
 class Enfant {
   final String id;
@@ -8,6 +10,7 @@ class Enfant {
   final String busId;
   final String parentId;
   final String? photoUrl;
+  final GPSPosition? arret; // Point d'arrêt assigné à l'enfant
 
   Enfant({
     required this.id,
@@ -18,6 +21,7 @@ class Enfant {
     required this.busId,
     required this.parentId,
     this.photoUrl,
+    this.arret,
   });
 
   factory Enfant.fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,9 @@ class Enfant {
       busId: json['busId'] as String,
       parentId: json['parentId'] as String,
       photoUrl: json['photoUrl'] as String?,
+      arret: json['arret'] != null
+          ? GPSPosition.fromJson(json['arret'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -43,6 +50,7 @@ class Enfant {
       'busId': busId,
       'parentId': parentId,
       'photoUrl': photoUrl,
+      'arret': arret?.toJson(),
     };
   }
 

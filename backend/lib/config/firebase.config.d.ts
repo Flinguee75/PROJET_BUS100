@@ -13,6 +13,7 @@ export declare const collections: {
     drivers: string;
     parents: string;
     admins: string;
+    users: string;
     gpsLive: string;
     gpsHistory: string;
     notifications: string;

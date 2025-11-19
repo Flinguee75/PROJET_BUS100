@@ -589,6 +589,56 @@ export declare const busUpdateWithAutoGenSchema: z.ZodObject<{
     assignedQuartiers?: string[] | undefined;
     preferredDepartureTime?: string | undefined;
 }>;
+export declare const boardingEventSchema: z.ZodObject<{
+    busId: z.ZodString;
+    studentId: z.ZodString;
+    driverId: z.ZodString;
+    eventType: z.ZodEnum<["board", "exit"]>;
+    timestamp: z.ZodOptional<z.ZodNumber>;
+    location: z.ZodOptional<z.ZodObject<{
+        lat: z.ZodNumber;
+        lng: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        lat: number;
+        lng: number;
+    }, {
+        lat: number;
+        lng: number;
+    }>>;
+    notes: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    busId: string;
+    driverId: string;
+    studentId: string;
+    eventType: "board" | "exit";
+    timestamp?: number | undefined;
+    notes?: string | undefined;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+}, {
+    busId: string;
+    driverId: string;
+    studentId: string;
+    eventType: "board" | "exit";
+    timestamp?: number | undefined;
+    notes?: string | undefined;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+}>;
+export declare const attendanceQuerySchema: z.ZodObject<{
+    startDate: z.ZodString;
+    endDate: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    startDate: string;
+    endDate: string;
+}, {
+    startDate: string;
+    endDate: string;
+}>;
 export type GPSPositionInput = z.infer<typeof gpsPositionSchema>;
 export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
 export type BusCreateInput = z.infer<typeof busCreateSchema>;

@@ -293,6 +293,72 @@ export class NotificationService {
   }
 
   /**
+   * Notifie tous les parents des élèves d'un bus que le trajet a démarré
+   */
+  async notifyParentsRouteStarted(busId: string, driverId: string): Promise<void> {
+    const db = getDb();
+
+    // Récupérer le bus
+    const busDoc = await db.collection(collections.buses).doc(busId).get();
+    if (!busDoc.exists) {
+      throw new Error(`Bus ${busId} not found`);
+    }
+    const bus = busDoc.data();
+
+    // Récupérer le chauffeur
+    const driverDoc = await db.collection(collections.users).doc(driverId).get();
+    const driverName = driverDoc.exists
+      ? `${driverDoc.data()?.firstName} ${driverDoc.data()?.lastName}`
+      : 'Chauffeur';
+
+    // Récupérer tous les élèves du bus
+    const studentsSnapshot = await db
+      .collection(collections.students)
+      .where('busId', '==', busId)
+      .get();
+
+    if (studentsSnapshot.empty) {
+      console.log(`⚠️ Aucun élève trouvé pour le bus ${busId}`);
+      return;
+    }
+
+    // Collecter tous les IDs de parents (sans doublons)
+    const parentIdsSet = new Set<string>();
+    studentsSnapshot.docs.forEach((doc) => {
+      const student = doc.data();
+      if (student.parentIds && Array.isArray(student.parentIds)) {
+        student.parentIds.forEach((parentId: string) => parentIdsSet.add(parentId));
+      }
+    });
+
+    const parentIds = Array.from(parentIdsSet);
+
+    if (parentIds.length === 0) {
+      console.log(`⚠️ Aucun parent trouvé pour les élèves du bus ${busId}`);
+      return;
+    }
+
+    // Envoyer la notification à tous les parents
+    await this.createAndSend({
+      type: NotificationType.BUS_ARRIVING,
+      title: '🚌 Trajet démarré',
+      message: `Le bus ${bus?.plate || busId} a démarré son trajet avec ${driverName}. Vous pouvez suivre sa position en temps réel.`,
+      recipientIds: parentIds,
+      priority: NotificationPriority.HIGH,
+      data: {
+        busId,
+        driverId,
+        eventType: 'route_started',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    console.log(
+      `📲 Notification de démarrage envoyée à ${parentIds.length} parent(s) pour le bus ${busId}`
+    );
+  }
+
+  /**
    * Compte les notifications non lues pour un utilisateur
    */
   async getUnreadCount(userId: string): Promise<number> {

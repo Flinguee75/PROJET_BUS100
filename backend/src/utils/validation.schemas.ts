@@ -262,6 +262,36 @@ export const busUpdateWithAutoGenSchema = busUpdateSchema.extend({
   preferredDepartureTime: timeFormatSchema.optional(),
 });
 
+/**
+ * Schéma Boarding Event
+ * Validation pour événements de montée/descente d'élèves
+ */
+export const boardingEventSchema = z.object({
+  busId: z.string().min(1, 'Bus ID requis'),
+  studentId: z.string().min(1, 'Student ID requis'),
+  driverId: z.string().min(1, 'Driver ID requis'),
+  eventType: z.enum(['board', 'exit'], {
+    required_error: 'Event type requis (board ou exit)',
+  }),
+  timestamp: z.number().positive().optional(), // Timestamp Unix optionnel (généré par défaut)
+  location: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
+  notes: z.string().max(500).optional(),
+});
+
+/**
+ * Schéma Attendance Query
+ * Validation pour requêtes d'historique
+ */
+export const attendanceQuerySchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+});
+
 // Types inférés depuis les schémas Zod
 export type GPSPositionInput = z.infer<typeof gpsPositionSchema>;
 export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
