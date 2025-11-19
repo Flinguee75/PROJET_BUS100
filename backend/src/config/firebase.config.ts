@@ -131,6 +131,7 @@ export const collections = {
   drivers: 'drivers',
   parents: 'parents',
   admins: 'admins',
+  users: 'users', // Collection unifiée pour tous les utilisateurs (avec champ role)
   gpsLive: 'gps_live',
   gpsHistory: 'gps_history',
   notifications: 'notifications',

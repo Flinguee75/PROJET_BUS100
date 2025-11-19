@@ -155,7 +155,7 @@ class StudentsProvider with ChangeNotifier {
 
   /// Arrêter le suivi GPS
   Future<void> stopGPSTracking(String busId) async {
-    _gpsService.stopTracking();
+    await _gpsService.stopTracking(busId);
 
     // Mettre le bus hors service
     if (_bus != null) {

@@ -72,6 +72,9 @@ class GPSService {
 
     _isTracking = true;
 
+    // Appeler l'endpoint de démarrage de trajet (notifie les parents)
+    await _notifyRouteStarted(busId, driverId);
+
     // Envoyer la position immédiatement
     await _sendPosition(busId, driverId);
 
@@ -87,11 +90,58 @@ class GPSService {
   }
 
   /// Arrêter le suivi GPS
-  void stopTracking() {
+  Future<void> stopTracking(String busId) async {
     _locationTimer?.cancel();
     _locationTimer = null;
     _isTracking = false;
+
+    // Appeler l'endpoint d'arrêt de trajet
+    await _notifyRouteStopped(busId);
+
     print('Suivi GPS arrêté');
+  }
+
+  /// Notifier le démarrage du trajet (envoie des notifications aux parents)
+  Future<void> _notifyRouteStarted(String busId, String driverId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/routes/start'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'busId': busId,
+          'driverId': driverId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('📲 Parents notifiés du démarrage du trajet');
+      } else {
+        print('⚠️ Erreur notification démarrage: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erreur _notifyRouteStarted: $e');
+    }
+  }
+
+  /// Notifier l'arrêt du trajet
+  Future<void> _notifyRouteStopped(String busId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/routes/stop'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'busId': busId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Trajet arrêté');
+      } else {
+        print('⚠️ Erreur arrêt trajet: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erreur _notifyRouteStopped: $e');
+    }
   }
 
   /// Envoyer la position au backend
@@ -135,6 +185,8 @@ class GPSService {
 
   /// Nettoyer les ressources
   void dispose() {
-    stopTracking();
+    _locationTimer?.cancel();
+    _locationTimer = null;
+    _isTracking = false;
   }
 }
