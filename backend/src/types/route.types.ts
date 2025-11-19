@@ -38,6 +38,11 @@ export interface RouteStop {
   type: 'pickup' | 'dropoff' | 'both'; // Type d'arrêt
   quartier: string; // Quartier précis
   notes?: string; // Instructions spéciales
+
+  // Champs pour génération automatique
+  studentId?: string; // ID de l'élève associé à cet arrêt
+  estimatedArrivalTime?: string; // Heure d'arrivée absolue (ex: "07:15")
+  relativeTimeMinutes?: number; // Temps depuis le départ en minutes (alias de estimatedTimeMinutes)
 }
 
 /**
@@ -48,14 +53,14 @@ export interface Route {
   name: string; // Ex: "Route Riviera-École"
   code: string; // Code court (ex: "R-RIV-001")
   description?: string;
-  
+
   // Informations géographiques
   commune: CommuneAbidjan;
   quartiers: string[]; // Liste des quartiers desservis
-  
+
   // Points de passage
   stops: RouteStop[];
-  
+
   // Horaires
   schedule: {
     morningDeparture: string; // HH:mm (ex: "07:00")
@@ -63,22 +68,30 @@ export interface Route {
     afternoonDeparture: string; // HH:mm (ex: "15:30")
     afternoonArrival: string; // HH:mm (ex: "16:30")
   };
-  
+
   // Métadonnées
   totalDistanceKm: number; // Distance totale en km
   estimatedDurationMinutes: number; // Durée estimée totale
   capacity: number; // Nombre max d'élèves sur cette route
   currentOccupancy: number; // Nombre actuel d'élèves
-  
+
   // Assignations
   busId: string | null; // Bus assigné à cette route
   driverId: string | null; // Chauffeur assigné
-  
+
   // Jours actifs
   activeDays: DayOfWeek[];
-  
+
   // Statut
   isActive: boolean;
+
+  // Champs pour génération automatique de routes
+  isManual: boolean; // true = créée manuellement, false = auto-générée
+  generatedAt?: Date; // Timestamp de génération (pour routes auto uniquement)
+  isOptimized?: boolean; // true si API d'optimisation a réussi
+  optimizationEngine?: string; // ex: "mapbox", "manual", "google"
+  departureTime?: string; // Heure de départ fixe (ex: "07:00")
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -113,6 +126,8 @@ export interface RouteCreateInput {
   estimatedDurationMinutes: number;
   capacity: number;
   activeDays: DayOfWeek[];
+  isManual?: boolean; // Par défaut true si non spécifié
+  departureTime?: string;
 }
 
 /**
@@ -139,6 +154,8 @@ export interface RouteUpdateInput {
   driverId?: string | null;
   activeDays?: DayOfWeek[];
   isActive?: boolean;
+  isManual?: boolean;
+  departureTime?: string;
 }
 
 /**

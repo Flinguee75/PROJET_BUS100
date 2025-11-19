@@ -26,6 +26,9 @@ export interface RouteStop {
     type: 'pickup' | 'dropoff' | 'both';
     quartier: string;
     notes?: string;
+    studentId?: string;
+    estimatedArrivalTime?: string;
+    relativeTimeMinutes?: number;
 }
 export interface Route {
     id: string;
@@ -49,6 +52,11 @@ export interface Route {
     driverId: string | null;
     activeDays: DayOfWeek[];
     isActive: boolean;
+    isManual: boolean;
+    generatedAt?: Date;
+    isOptimized?: boolean;
+    optimizationEngine?: string;
+    departureTime?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -78,6 +86,8 @@ export interface RouteCreateInput {
     estimatedDurationMinutes: number;
     capacity: number;
     activeDays: DayOfWeek[];
+    isManual?: boolean;
+    departureTime?: string;
 }
 export interface RouteUpdateInput {
     name?: string;
@@ -100,6 +110,8 @@ export interface RouteUpdateInput {
     driverId?: string | null;
     activeDays?: DayOfWeek[];
     isActive?: boolean;
+    isManual?: boolean;
+    departureTime?: string;
 }
 export declare const QUARTIERS_BY_COMMUNE: Record<CommuneAbidjan, string[]>;
 //# sourceMappingURL=route.types.d.ts.map
