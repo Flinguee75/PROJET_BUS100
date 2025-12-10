@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
@@ -69,6 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true && mounted) {
+      // Supprimer le token FCM avant déconnexion
+      final notificationProvider = context.read<NotificationProvider>();
+      await notificationProvider.unregisterToken();
+      notificationProvider.reset();
+
       final authProvider = context.read<AuthProvider>();
       await authProvider.signOut();
 
@@ -207,17 +213,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // Paramètres
                     const _SectionHeader(title: 'Paramètres'),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.notifications, color: AppColors.primary),
-                      title: const Text('Notifications'),
-                      subtitle: const Text('Activer les notifications'),
-                      value: _userProfile!.notificationsEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          _userProfile = _userProfile!.copyWith(
-                            notificationsEnabled: value,
-                          );
-                        });
+                    Consumer<NotificationProvider>(
+                      builder: (context, notificationProvider, _) {
+                        return SwitchListTile(
+                          secondary: const Icon(Icons.notifications, color: AppColors.primary),
+                          title: const Text('Notifications'),
+                          subtitle: Text(
+                            notificationProvider.notificationsEnabled
+                                ? 'Notifications activées'
+                                : 'Notifications désactivées',
+                          ),
+                          value: notificationProvider.notificationsEnabled,
+                          onChanged: (value) async {
+                            await notificationProvider.setNotificationsEnabled(
+                              value,
+                              _userProfile?.uid,
+                            );
+                            // Mettre à jour aussi le profil local
+                            if (_userProfile != null) {
+                              setState(() {
+                                _userProfile = _userProfile!.copyWith(
+                                  notificationsEnabled: value,
+                                );
+                              });
+                            }
+                          },
+                        );
                       },
                     ),
                     const Divider(height: 32),

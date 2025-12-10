@@ -17,6 +17,7 @@ import driverRoutes from './routes/driver.routes';
 import maintenanceRoutes from './routes/maintenance.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import routeRoutes from './routes/route.routes';
+import notificationRoutes from './routes/notification.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -52,6 +53,7 @@ app.use('/drivers', driverRoutes);
 app.use('/maintenances', maintenanceRoutes);
 app.use('/attendance', attendanceRoutes);
 app.use('/routes', routeRoutes);
+app.use('/notifications', notificationRoutes);
 
 // Route 404
 app.use((req, res) => {

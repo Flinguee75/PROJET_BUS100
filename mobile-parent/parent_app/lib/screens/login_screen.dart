@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/app_colors.dart';
 import 'main_map_screen.dart';
 
@@ -38,6 +39,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      // Enregistrer le token FCM pour les notifications push
+      final notificationProvider = context.read<NotificationProvider>();
+      final user = authProvider.user;
+      if (user != null) {
+        await notificationProvider.registerToken(user.uid);
+      }
+
+      if (!mounted) return;
+
       // Connexion réussie → aller vers la carte principale
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainMapScreen()),
