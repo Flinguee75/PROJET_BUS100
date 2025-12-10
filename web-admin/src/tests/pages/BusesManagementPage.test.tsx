@@ -67,7 +67,7 @@ describe('BusesManagementPage', () => {
 
     it('affiche un état de chargement', () => {
       vi.mocked(busApi.getAllBuses).mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => { }) // Never resolves
       );
 
       render(<BusesManagementPage />, { wrapper: createWrapper() });
@@ -294,7 +294,7 @@ describe('BusesManagementPage', () => {
           model: 'Mercedes Sprinter',
           year: 2024,
           capacity: 50,
-        });
+        }, expect.anything());
       });
     });
 
@@ -353,12 +353,12 @@ describe('BusesManagementPage', () => {
         expect(screen.getByText('TU 111 TN 111')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getByText('Supprimer');
+      const deleteButton = await screen.findByTitle('Supprimer');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalled();
       await waitFor(() => {
-        expect(busApi.deleteBus).toHaveBeenCalledWith('bus-1');
+        expect(busApi.deleteBus).toHaveBeenCalledWith('bus-1', expect.anything());
       });
 
       confirmSpy.mockRestore();
@@ -393,7 +393,7 @@ describe('BusesManagementPage', () => {
         expect(screen.getByText('TU 111 TN 111')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getByText('Supprimer');
+      const deleteButton = await screen.findByTitle('Supprimer');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalled();

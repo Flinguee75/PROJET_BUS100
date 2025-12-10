@@ -48,8 +48,21 @@ api.interceptors.response.use(
  */
 export const getAllBuses = async (): Promise<Bus[]> => {
   try {
-    const response = await api.get<Bus[]>('/api/buses');
-    return response.data;
+    const response = await api.get<Bus[] | { success: boolean; data: Bus[] }>('/api/buses');
+
+    // Vérifier si la réponse est encapsulée dans { success: true, data: [...] }
+    if ('data' in response.data && Array.isArray((response.data as { data: Bus[] }).data)) {
+      return (response.data as { data: Bus[] }).data;
+    }
+
+    // Si c'est directement un tableau
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+
+    // Fallback: retourner un tableau vide si le format n'est pas reconnu
+    console.warn('Format de réponse inattendu pour getAllBuses:', response.data);
+    return [];
   } catch (error) {
     console.error('Erreur lors de la récupération des bus:', error);
     throw new Error('Impossible de récupérer la liste des bus');

@@ -8,16 +8,16 @@ import { BusService } from '../../../src/services/bus.service';
 import { BusStatus, BusMaintenanceStatus } from '../../../src/types/bus.types';
 
 // Mock Firestore
-const mockAdd = jest.fn();
-const mockGet = jest.fn();
-const mockDoc = jest.fn();
-const mockUpdate = jest.fn();
-const mockDelete = jest.fn();
-const mockCollection = jest.fn();
+const mockAdd = jest.fn<any, any>();
+const mockGet = jest.fn<any, any>();
+const mockDoc = jest.fn<any, any>();
+const mockUpdate = jest.fn<any, any>();
+const mockDelete = jest.fn<any, any>();
+const mockCollection = jest.fn<any, any>();
 
 jest.mock('../../../src/config/firebase.config', () => ({
   db: {
-    collection: vi.fn((name: string) => ({
+    collection: jest.fn((name: string) => ({
       add: mockAdd,
       get: mockGet,
       doc: mockDoc,

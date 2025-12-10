@@ -73,7 +73,7 @@ describe('StudentsManagementPage', () => {
 
   it('shows loading state', () => {
     vi.mocked(studentApi.getAllStudents).mockImplementation(
-      () => new Promise(() => {}) // Never resolves
+      () => new Promise(() => { }) // Never resolves
     );
     vi.mocked(gpsApi.getAllBuses).mockResolvedValue([]);
 
@@ -129,9 +129,6 @@ describe('StudentsManagementPage', () => {
         dateOfBirth: new Date('2010-05-15').toISOString(),
         grade: 'CM2',
         parentIds: ['parent-1'],
-        commune: 'Cocody',
-        quartier: 'Riviera',
-        busId: 'bus-1',
         pickupLocation: {
           address: '123 Main St',
           lat: 5.36,
@@ -142,9 +139,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
+        isActive: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
       {
         id: 'student-2',
@@ -153,8 +154,6 @@ describe('StudentsManagementPage', () => {
         dateOfBirth: new Date('2011-08-20').toISOString(),
         grade: 'CM1',
         parentIds: ['parent-2'],
-        commune: 'Yopougon',
-        quartier: 'Zone 4',
         pickupLocation: {
           address: '789 Oak St',
           lat: 5.35,
@@ -165,9 +164,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Yopougon',
+        quartier: 'Zone 4',
+        busId: null,
+        routeId: 'route-2',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -200,9 +203,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -236,9 +243,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -276,9 +287,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -311,9 +326,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -347,9 +366,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -388,9 +411,12 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -400,6 +426,11 @@ describe('StudentsManagementPage', () => {
         number: 'Bus 101',
         immatriculation: 'ABC-123',
         chauffeur: 'John Doe',
+        capacite: 50,
+        itineraire: 'Route A',
+        status: 'EN_ROUTE' as const,
+        statusLabel: 'En service',
+        maintenanceStatus: 100,
       },
     ];
 
@@ -434,9 +465,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: null,
+        routeId: null,
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -469,9 +504,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 
@@ -550,7 +589,7 @@ describe('StudentsManagementPage', () => {
         id: 'student-1',
         firstName: 'Alice',
         lastName: 'Dupont',
-        dateOfBirth: new Date('2010-05-15').toISOString(),
+        dateOfBirth: new Date('2010-05-15T12:00:00Z').toISOString(),
         grade: 'CM2',
         parentIds: ['parent-1'],
         pickupLocation: {
@@ -563,9 +602,13 @@ describe('StudentsManagementPage', () => {
           lat: 5.37,
           lng: -4.01,
         },
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        busId: 'bus-1',
+        routeId: 'route-1',
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ];
 

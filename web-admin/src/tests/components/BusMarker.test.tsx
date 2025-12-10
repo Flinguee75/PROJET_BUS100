@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { BusMarker } from '@/components/BusMarker';
 import type { Bus } from '@/types/bus';
 import mapboxgl from 'mapbox-gl';
@@ -157,7 +157,9 @@ describe('BusMarker', () => {
     const element = markerCall[0].element as HTMLDivElement;
 
     // Simuler un clic sur le marqueur - l'event listener a été ajouté par addEventListener
-    element.click();
+    document.body.appendChild(element);
+    fireEvent.click(element);
+    document.body.removeChild(element);
 
     expect(mockOnClick).toHaveBeenCalledWith(mockBus);
   });

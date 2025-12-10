@@ -41,9 +41,9 @@ describe('Auth Flow Integration', () => {
     vi.clearAllMocks();
   });
 
-  const renderApp = () => {
+  const renderApp = (initialEntries = ['/login']) => {
     return render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -57,7 +57,7 @@ describe('Auth Flow Integration', () => {
             />
           </Routes>
         </AuthProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     );
   };
 

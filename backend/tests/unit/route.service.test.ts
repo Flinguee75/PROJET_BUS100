@@ -3,6 +3,7 @@
  * Teste la logique métier de gestion des routes
  */
 
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { RouteService } from '../../src/services/route.service';
 import { CommuneAbidjan, DayOfWeek } from '../../src/types/route.types';
 import * as admin from 'firebase-admin';
@@ -222,7 +223,7 @@ describe('RouteService', () => {
     });
   });
 
-  describe('assignBusToRoute', () => {
+  describe('assignBus', () => {
     it('devrait assigner un bus à une route', async () => {
       const mockSnapshot = {
         exists: true,
@@ -241,7 +242,7 @@ describe('RouteService', () => {
       mockGet.mockResolvedValue(mockSnapshot);
       mockUpdate.mockResolvedValue(undefined);
 
-      const result = await routeService.assignBusToRoute('route-123', 'bus-123');
+      const result = await routeService.assignBus('route-123', 'bus-123');
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -252,7 +253,7 @@ describe('RouteService', () => {
     });
   });
 
-  describe('assignDriverToRoute', () => {
+  describe('assignDriver', () => {
     it('devrait assigner un chauffeur à une route', async () => {
       const mockSnapshot = {
         exists: true,
@@ -271,7 +272,7 @@ describe('RouteService', () => {
       mockGet.mockResolvedValue(mockSnapshot);
       mockUpdate.mockResolvedValue(undefined);
 
-      const result = await routeService.assignDriverToRoute('route-123', 'driver-123');
+      const result = await routeService.assignDriver('route-123', 'driver-123');
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({

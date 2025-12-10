@@ -52,7 +52,28 @@ export const LoginPage = () => {
         {/* Logo et titre */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-            <span className="text-4xl">🚌</span>
+            <svg
+              className="w-10 h-10 text-primary-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H17C17 21.5523 16.5523 22 16 22H15C14.4477 22 14 21.5523 14 21H10C10 21.5523 9.55228 22 9 22H8C7.44772 22 7 21.5523 7 21H6C4.89543 21 4 20.1046 4 19V6Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M8 8H16M8 12H16"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <circle cx="7.5" cy="17.5" r="1.5" fill="currentColor" />
+              <circle cx="16.5" cy="17.5" r="1.5" fill="currentColor" />
+            </svg>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Transport Scolaire</h1>
           <p className="text-primary-100">Plateforme d'administration</p>
@@ -68,7 +89,7 @@ export const LoginPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Champ Email */}
             <div>
               <label

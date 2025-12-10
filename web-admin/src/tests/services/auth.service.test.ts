@@ -15,6 +15,14 @@ import {
 import * as authService from '@/services/auth.service';
 import { UserRole } from '@/types/auth';
 
+// Mock du service firebase local
+vi.mock('@/services/firebase', () => ({
+  auth: {
+    currentUser: null,
+  },
+  db: {},
+}));
+
 describe('AuthService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +102,7 @@ describe('AuthService', () => {
   describe('getUserProfile', () => {
     it('récupère le profil utilisateur depuis Firestore', async () => {
       mockDoc.mockReturnValue({ id: 'user-123' });
-      
+
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({
@@ -126,6 +134,7 @@ describe('AuthService', () => {
       expect(result).toEqual({
         uid: 'user-123',
         email: '',
+        displayName: 'Admin',
         role: UserRole.ADMIN,
       });
     });

@@ -3,9 +3,10 @@
  * Test de la logique d'enrichissement des données bus en temps réel
  */
 
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { RealtimeService } from '../../src/services/realtime.service';
 import { getDb } from '../../src/config/firebase.config';
-import { BusStatus, MaintenanceStatus } from '../../src/types/bus.types';
+import { BusStatus, BusMaintenanceStatus } from '../../src/types/bus.types';
 import { BusLiveStatus } from '../../src/types/gps.types';
 
 // Mock Firebase
@@ -43,7 +44,7 @@ describe('RealtimeService', () => {
             driverId: 'driver-1',
             routeId: 'route-1',
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
         },
       ];
@@ -156,7 +157,7 @@ describe('RealtimeService', () => {
             driverId: null,
             routeId: null,
             status: BusStatus.INACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
         },
       ];
@@ -214,7 +215,7 @@ describe('RealtimeService', () => {
             driverId: 'driver-1',
             routeId: 'route-1',
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
         },
         {
@@ -227,7 +228,7 @@ describe('RealtimeService', () => {
             driverId: null,
             routeId: null,
             status: BusStatus.INACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
         },
       ];
@@ -283,7 +284,7 @@ describe('RealtimeService', () => {
             driverId: 'driver-1',
             routeId: 'route-1',
             status: BusStatus.ACTIVE,
-            maintenanceStatus: MaintenanceStatus.OK,
+            maintenanceStatus: BusMaintenanceStatus.OK,
           }),
         },
       ];

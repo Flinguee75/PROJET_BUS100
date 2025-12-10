@@ -3,6 +3,7 @@
  * Teste les endpoints HTTP des routes géographiques
  */
 
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import routeRoutes from '../../src/routes/route.routes';
@@ -219,7 +220,7 @@ describe('API Routes - /routes', () => {
 
   describe('POST /routes/:id/assign-bus', () => {
     it('devrait assigner un bus à une route', async () => {
-      mockRouteService.assignBusToRoute = jest.fn().mockResolvedValue({
+      mockRouteService.assignBus = jest.fn().mockResolvedValue({
         ...mockRoute,
         busId: 'bus-123',
       });
@@ -245,7 +246,7 @@ describe('API Routes - /routes', () => {
 
   describe('POST /routes/:id/assign-driver', () => {
     it('devrait assigner un chauffeur à une route', async () => {
-      mockRouteService.assignDriverToRoute = jest.fn().mockResolvedValue({
+      mockRouteService.assignDriver = jest.fn().mockResolvedValue({
         ...mockRoute,
         driverId: 'driver-123',
       });

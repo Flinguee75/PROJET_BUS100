@@ -52,53 +52,53 @@ export const DashboardPage = () => {
   });
 
   // Filtrer les bus en retard et ceux en maintenance
-  const delayedBuses = buses?.filter(bus => bus.status === 'EN_RETARD') || [];
-  const maintenanceBuses = buses?.filter(bus => bus.maintenanceStatus < 70 || bus.status === 'HORS_SERVICE') || [];
+  const delayedBuses = (Array.isArray(buses) ? buses : []).filter(bus => bus.status === 'EN_RETARD');
+  const maintenanceBuses = (Array.isArray(buses) ? buses : []).filter(bus => bus.maintenanceStatus < 70 || bus.status === 'HORS_SERVICE');
 
   // Calculer le statut global du système (Focus: Opérationnel > Financier)
   const getSystemStatus = () => {
     if (!stats) return { label: 'Chargement...', color: 'slate', icon: Activity };
-    
+
     // Priorité 1: Bus immobilisés (crise - pas de service)
     if (stats.busImmobilises && stats.busImmobilises > 0) {
-      return { 
-        label: 'Crise Opérationnelle', 
+      return {
+        label: 'Crise Opérationnelle',
         color: 'danger',
-        icon: AlertOctagon 
+        icon: AlertOctagon
       };
     }
-    
+
     // Priorité 2: Retards graves (>20 min) - impact fort sur les écoles
     if (stats.retardsGraves && stats.retardsGraves > 0) {
-      return { 
-        label: 'Retards Critiques', 
+      return {
+        label: 'Retards Critiques',
         color: 'danger',
-        icon: AlertTriangle 
+        icon: AlertTriangle
       };
     }
-    
+
     // Priorité 3: Retards critiques (>15min)
     if (stats.retardsCritiques && stats.retardsCritiques > 0) {
-      return { 
-        label: 'Surveillance Requise', 
+      return {
+        label: 'Surveillance Requise',
         color: 'warning',
-        icon: Clock 
+        icon: Clock
       };
     }
-    
+
     // Priorité 4: Maintenance préventive
     if (stats.alertesMaintenance > 0) {
-      return { 
-        label: 'Maintenance à Prévoir', 
+      return {
+        label: 'Maintenance à Prévoir',
         color: 'warning',
-        icon: Settings 
+        icon: Settings
       };
     }
-    
-    return { 
-      label: 'Service Opérationnel', 
+
+    return {
+      label: 'Service Opérationnel',
       color: 'success',
-      icon: CheckCircle2 
+      icon: CheckCircle2
     };
   };
 
@@ -180,7 +180,7 @@ export const DashboardPage = () => {
                     Est-ce que tous les élèves vont arriver à l'heure ? Y a-t-il un bus en difficulté ?
                   </p>
                 </div>
-                
+
                 {/* Badge de statut global */}
                 <div className={`
                   flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm shadow-sm
@@ -200,37 +200,37 @@ export const DashboardPage = () => {
 
             {/* KPIs OPÉRATIONNELS - 3 colonnes */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 mb-8">
-              
+
               {/* CARTE 1 - ÉTAT DU SERVICE (Remplace "Bus actifs") */}
               <div className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-250 p-6 border border-slate-200/60">
                 <div className="flex items-start justify-between mb-5">
                   <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center">
                     <Navigation className="w-6 h-6 text-primary-600" strokeWidth={2} />
                   </div>
-                  
+
                   {(stats.busEnRoute ?? 0) > 0 && (
                     <span className="px-2.5 py-1 bg-success-50 text-success-700 text-xs font-semibold rounded-md">
                       En direct
                     </span>
                   )}
                 </div>
-                
+
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-3">
                     État du Service
                   </p>
-                  
+
                   {/* Détail des états */}
                   <div className="space-y-2 mb-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></div>
                         En route
-                    </span>
+                      </span>
                       <span className="font-semibold text-slate-900">
                         {stats.busEnRoute ?? 0}
-                    </span>
-                  </div>
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -239,7 +239,7 @@ export const DashboardPage = () => {
                       <span className="font-semibold text-slate-900">
                         {stats.busArrives ?? 0}
                       </span>
-                </div>
+                    </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
@@ -248,9 +248,9 @@ export const DashboardPage = () => {
                       <span className="font-semibold text-slate-900">
                         {stats.busNonPartis ?? 0}
                       </span>
+                    </div>
                   </div>
-                </div>
-                
+
                   <div className="pt-2 border-t border-slate-100">
                     <p className="text-xs text-slate-500 flex items-center gap-1.5">
                       <Bus className="w-3.5 h-3.5" />
@@ -263,16 +263,14 @@ export const DashboardPage = () => {
               {/* CARTE 2 - RETARDS CRITIQUES (>15min) avec seuil rouge si >20min */}
               <div className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-250 p-6 border border-slate-200/60">
                 <div className="flex items-start justify-between mb-5">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    (stats.retardsGraves ?? 0) > 0 ? 'bg-danger-50' : 
-                    (stats.retardsCritiques ?? 0) > 0 ? 'bg-warning-50' : 'bg-success-50'
-                  }`}>
-                    <Clock className={`w-6 h-6 ${
-                      (stats.retardsGraves ?? 0) > 0 ? 'text-danger-600' : 
-                      (stats.retardsCritiques ?? 0) > 0 ? 'text-warning-600' : 'text-success-600'
-                    }`} strokeWidth={2} />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${(stats.retardsGraves ?? 0) > 0 ? 'bg-danger-50' :
+                      (stats.retardsCritiques ?? 0) > 0 ? 'bg-warning-50' : 'bg-success-50'
+                    }`}>
+                    <Clock className={`w-6 h-6 ${(stats.retardsGraves ?? 0) > 0 ? 'text-danger-600' :
+                        (stats.retardsCritiques ?? 0) > 0 ? 'text-warning-600' : 'text-success-600'
+                      }`} strokeWidth={2} />
                   </div>
-                  
+
                   {(stats.retardsGraves ?? 0) > 0 && (
                     <span className="px-2.5 py-1 bg-danger-50 text-danger-700 text-xs font-semibold rounded-md animate-pulse">
                       🚨 Urgent
@@ -284,23 +282,22 @@ export const DashboardPage = () => {
                     </span>
                   )}
                 </div>
-                
+
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-2">
                     Retards Critiques
                   </p>
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className={`text-4xl font-bold tracking-tight ${
-                      (stats.retardsGraves ?? 0) > 0 ? 'text-danger-600' : 
-                      (stats.retardsCritiques ?? 0) > 0 ? 'text-warning-600' : 'text-success-600'
-                    }`}>
+                    <span className={`text-4xl font-bold tracking-tight ${(stats.retardsGraves ?? 0) > 0 ? 'text-danger-600' :
+                        (stats.retardsCritiques ?? 0) > 0 ? 'text-warning-600' : 'text-success-600'
+                      }`}>
                       {stats.retardsCritiques ?? 0}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    {(stats.retardsGraves ?? 0) > 0 
+                    {(stats.retardsGraves ?? 0) > 0
                       ? `${stats.retardsGraves} retard${stats.retardsGraves > 1 ? 's' : ''} > 20 min 🔴`
-                      : (stats.retardsCritiques ?? 0) > 0 
+                      : (stats.retardsCritiques ?? 0) > 0
                         ? '> 15 minutes de retard'
                         : 'Aucun retard significatif ✓'
                     }
@@ -311,37 +308,34 @@ export const DashboardPage = () => {
               {/* CARTE 3 - TAUX DE VALIDATION (Scan) - Remplace "Élèves transportés" */}
               <div className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-250 p-6 border border-slate-200/60">
                 <div className="flex items-start justify-between mb-5">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    (stats.tauxValidation ?? 0) >= 95 ? 'bg-success-50' : 
-                    (stats.tauxValidation ?? 0) >= 85 ? 'bg-warning-50' : 'bg-danger-50'
-                  }`}>
-                    <ShieldCheck className={`w-6 h-6 ${
-                      (stats.tauxValidation ?? 0) >= 95 ? 'text-success-600' : 
-                      (stats.tauxValidation ?? 0) >= 85 ? 'text-warning-600' : 'text-danger-600'
-                    }`} strokeWidth={2} />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${(stats.tauxValidation ?? 0) >= 95 ? 'bg-success-50' :
+                      (stats.tauxValidation ?? 0) >= 85 ? 'bg-warning-50' : 'bg-danger-50'
+                    }`}>
+                    <ShieldCheck className={`w-6 h-6 ${(stats.tauxValidation ?? 0) >= 95 ? 'text-success-600' :
+                        (stats.tauxValidation ?? 0) >= 85 ? 'text-warning-600' : 'text-danger-600'
+                      }`} strokeWidth={2} />
                   </div>
-                  
+
                   {(stats.tauxValidation ?? 0) >= 95 && (
                     <span className="px-2.5 py-1 bg-success-50 text-success-700 text-xs font-semibold rounded-md">
                       ✓ Sécurisé
                     </span>
                   )}
                 </div>
-                
+
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-2">
                     Validation Sécurité
                   </p>
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className={`text-4xl font-bold tracking-tight ${
-                      (stats.tauxValidation ?? 0) >= 95 ? 'text-success-600' : 
-                      (stats.tauxValidation ?? 0) >= 85 ? 'text-warning-600' : 'text-danger-600'
-                    }`}>
+                    <span className={`text-4xl font-bold tracking-tight ${(stats.tauxValidation ?? 0) >= 95 ? 'text-success-600' :
+                        (stats.tauxValidation ?? 0) >= 85 ? 'text-warning-600' : 'text-danger-600'
+                      }`}>
                       {stats.tauxValidation ?? 0}%
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    {(stats.elevesNonScannes ?? 0) > 0 
+                    {(stats.elevesNonScannes ?? 0) > 0
                       ? `${stats.elevesNonScannes} élève${stats.elevesNonScannes > 1 ? 's' : ''} non scanné${stats.elevesNonScannes > 1 ? 's' : ''}`
                       : `${stats.elevesTransportes ?? 0} élèves scannés ✓`
                     }
@@ -453,11 +447,10 @@ export const DashboardPage = () => {
                               <div className="flex items-center gap-2 mt-1">
                                 <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${
-                                      bus.maintenanceStatus >= 70 ? 'bg-success-500' :
-                                      bus.maintenanceStatus >= 50 ? 'bg-warning-500' :
-                                      'bg-danger-500'
-                                    }`}
+                                    className={`h-full rounded-full ${bus.maintenanceStatus >= 70 ? 'bg-success-500' :
+                                        bus.maintenanceStatus >= 50 ? 'bg-warning-500' :
+                                          'bg-danger-500'
+                                      }`}
                                     style={{ width: `${bus.maintenanceStatus}%` }}
                                   />
                                 </div>
@@ -485,30 +478,28 @@ export const DashboardPage = () => {
                   ⏱️ Mis à jour en temps réel
                 </span>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
+
                 {/* NOUVEAU - Trafic vs Prévision */}
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
                   <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Gauge className={`w-5 h-5 ${
-                      (stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0) 
-                        ? 'text-success-600' 
+                    <Gauge className={`w-5 h-5 ${(stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0)
+                        ? 'text-success-600'
                         : (stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0) * 1.2
                           ? 'text-warning-600'
                           : 'text-danger-600'
-                    }`} strokeWidth={2} />
+                      }`} strokeWidth={2} />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-600 mb-1">Trafic vs Prévision</p>
                     <div className="flex items-baseline gap-2">
-                      <p className={`text-2xl font-bold ${
-                        (stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0) 
-                          ? 'text-success-600' 
+                      <p className={`text-2xl font-bold ${(stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0)
+                          ? 'text-success-600'
                           : (stats.tempsTrajetMoyen ?? 0) <= (stats.tempsTrajetPrevu ?? 0) * 1.2
                             ? 'text-warning-600'
                             : 'text-danger-600'
-                      }`}>
+                        }`}>
                         {stats.tempsTrajetMoyen ?? 0} min
                       </p>
                       <span className="text-xs text-slate-500">
@@ -527,16 +518,14 @@ export const DashboardPage = () => {
                 {/* NOUVEAU - Disponibilité Flotte */}
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
                   <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Bus className={`w-5 h-5 ${
-                      (stats.busImmobilises ?? 0) === 0 ? 'text-success-600' : 'text-danger-600'
-                    }`} strokeWidth={2} />
+                    <Bus className={`w-5 h-5 ${(stats.busImmobilises ?? 0) === 0 ? 'text-success-600' : 'text-danger-600'
+                      }`} strokeWidth={2} />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-600 mb-1">Disponibilité Flotte</p>
                     <div className="flex items-baseline gap-2">
-                    <p className={`text-2xl font-bold ${
-                        (stats.busImmobilises ?? 0) === 0 ? 'text-success-600' : 'text-danger-600'
-                    }`}>
+                      <p className={`text-2xl font-bold ${(stats.busImmobilises ?? 0) === 0 ? 'text-success-600' : 'text-danger-600'
+                        }`}>
                         {stats.busDisponibles ?? stats.busTotaux ?? 0}
                       </p>
                       <span className="text-xs text-slate-500">
@@ -555,41 +544,39 @@ export const DashboardPage = () => {
                 {/* Statut Maintenance (Conservé mais avec alerte bus bloquants) */}
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
                   <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                    <AlertTriangle className={`w-5 h-5 ${
-                      (stats.busImmobilises ?? 0) > 0 
-                        ? 'text-danger-600' 
-                        : stats.alertesMaintenance > 0 
-                          ? 'text-warning-600' 
+                    <AlertTriangle className={`w-5 h-5 ${(stats.busImmobilises ?? 0) > 0
+                        ? 'text-danger-600'
+                        : stats.alertesMaintenance > 0
+                          ? 'text-warning-600'
                           : 'text-success-600'
-                    }`} strokeWidth={2} />
+                      }`} strokeWidth={2} />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-600 mb-1">Maintenance</p>
-                    <p className={`text-2xl font-bold ${
-                      (stats.busImmobilises ?? 0) > 0 
-                        ? 'text-danger-600' 
-                        : stats.alertesMaintenance > 0 
-                          ? 'text-warning-600' 
+                    <p className={`text-2xl font-bold ${(stats.busImmobilises ?? 0) > 0
+                        ? 'text-danger-600'
+                        : stats.alertesMaintenance > 0
+                          ? 'text-warning-600'
                           : 'text-success-600'
-                    }`}>
-                      {(stats.busImmobilises ?? 0) > 0 
-                        ? `${stats.busImmobilises} bloquant${stats.busImmobilises > 1 ? 's' : ''}` 
-                        : stats.alertesMaintenance > 0 
+                      }`}>
+                      {(stats.busImmobilises ?? 0) > 0
+                        ? `${stats.busImmobilises} bloquant${stats.busImmobilises > 1 ? 's' : ''}`
+                        : stats.alertesMaintenance > 0
                           ? `${stats.alertesMaintenance} préventive${stats.alertesMaintenance > 1 ? 's' : ''}`
                           : 'À jour ✓'
                       }
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {(stats.busImmobilises ?? 0) > 0 
+                      {(stats.busImmobilises ?? 0) > 0
                         ? 'Action immédiate requise'
-                        : stats.alertesMaintenance > 0 
+                        : stats.alertesMaintenance > 0
                           ? 'À planifier prochainement'
                           : 'Aucune intervention urgente'
                       }
                     </p>
                   </div>
                 </div>
-                
+
               </div>
             </div>
           </>

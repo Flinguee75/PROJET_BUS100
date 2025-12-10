@@ -8,16 +8,16 @@ import { DriverService } from '../../../src/services/driver.service';
 import { UserRole } from '../../../src/types/user.types';
 
 // Mock Firestore
-const mockAdd = jest.fn();
-const mockGet = jest.fn();
-const mockDoc = jest.fn();
-const mockUpdate = jest.fn();
-const mockWhere = jest.fn();
-const mockLimit = jest.fn();
+const mockAdd = jest.fn<any, any>();
+const mockGet = jest.fn<any, any>();
+const mockDoc = jest.fn<any, any>();
+const mockUpdate = jest.fn<any, any>();
+const mockWhere = jest.fn<any, any>();
+const mockLimit = jest.fn<any, any>();
 
 jest.mock('../../../src/config/firebase.config', () => ({
-  getDb: vi.fn(() => ({
-    collection: vi.fn(() => ({
+  getDb: jest.fn(() => ({
+    collection: jest.fn(() => ({
       add: mockAdd,
       get: mockGet,
       doc: mockDoc,
@@ -32,7 +32,7 @@ describe('DriverService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     driverService = new DriverService();
-    
+
     // Mock chaîné pour where et limit
     mockWhere.mockReturnValue({
       get: mockGet,

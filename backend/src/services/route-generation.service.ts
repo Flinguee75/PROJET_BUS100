@@ -3,7 +3,7 @@
  * Utilise l'API Mapbox Optimization pour optimiser les trajets des bus
  */
 
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { getDb } from '../config/firebase.config';
 import {
   Route,
@@ -311,11 +311,12 @@ export class RouteGenerationService {
       const optimizedOrder = response.data.waypoints.map((wp: any) => wp.waypoint_index);
 
       // Réorganiser les locations selon l'ordre optimisé
-      return optimizedOrder.map((index: number) => locations[index]).filter((loc): loc is Location => loc !== undefined);
+      return optimizedOrder.map((index: number) => locations[index]).filter((loc: Location | undefined): loc is Location => loc !== undefined);
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error('Mapbox API error:', error.response?.data);
-        throw new Error(`Mapbox API request failed: ${error.message}`);
+        const axiosError = error as AxiosError;
+        console.error('Mapbox API error:', axiosError.response?.data);
+        throw new Error(`Mapbox API request failed: ${axiosError.message}`);
       }
       throw error;
     }
@@ -533,9 +534,9 @@ export class RouteGenerationService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(loc1.lat)) *
-        Math.cos(this.toRadians(loc2.lat)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(this.toRadians(loc2.lat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;

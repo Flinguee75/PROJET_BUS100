@@ -7,11 +7,11 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { StudentService } from '../../../src/services/student.service';
 
 // Mock Firestore
-const mockAdd = jest.fn();
-const mockGet = jest.fn();
-const mockDoc = jest.fn();
-const mockUpdate = jest.fn();
-const mockWhere = jest.fn();
+const mockAdd = jest.fn<any, any>();
+const mockGet = jest.fn<any, any>();
+const mockDoc = jest.fn<any, any>();
+const mockUpdate = jest.fn<any, any>();
+const mockWhere = jest.fn<any, any>();
 
 jest.mock('../../../src/config/firebase.config', () => ({
   getDb: jest.fn(() => ({

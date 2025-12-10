@@ -27,11 +27,11 @@ const TestComponent = () => {
       <div data-testid="error">{error || 'No error'}</div>
       <div data-testid="isAuthenticated">{isAuthenticated ? 'Authenticated' : 'Not Authenticated'}</div>
       <button
-        onClick={() => login({ email: 'test@example.com', password: 'password' })}
+        onClick={() => login({ email: 'test@example.com', password: 'password' }).catch(() => {})}
       >
         Login
       </button>
-      <button onClick={() => logout()}>Logout</button>
+      <button onClick={() => logout().catch(() => {})}>Logout</button>
     </div>
   );
 };
