@@ -170,9 +170,14 @@ async function seedMockData() {
   console.log('👨‍✈️ Création des conducteurs...');
   for (const driver of drivers) {
     await db.collection('users').doc(driver.id).set({
-      name: driver.name,
-      phone: driver.phone,
+      email: `${driver.id}@bus-abidjan.ci`,
+      displayName: driver.name,
+      phoneNumber: driver.phone,
       role: 'driver',
+      licenseNumber: `CI-DL-${1000 + drivers.indexOf(driver)}`,
+      licenseExpiry: Timestamp.fromDate(new Date(2026, 11, 31)), // 31 décembre 2026
+      busId: null,
+      isActive: true,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
@@ -252,6 +257,7 @@ async function seedMockData() {
 
     // Créer le bus
     await db.collection('buses').doc(busId).set({
+      busNumber: i + 1,
       plateNumber: `CI ${1000 + i} AB ${10 + i}`,
       capacity: 35,
       model: i % 2 === 0 ? 'Mercedes Sprinter' : 'Toyota Coaster',
@@ -260,6 +266,7 @@ async function seedMockData() {
       routeId: isActive ? route.id : null,
       status: isActive ? BusStatus.ACTIVE : BusStatus.INACTIVE,
       maintenanceStatus: BusMaintenanceStatus.OK,
+      assignedCommune: route.from.name,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });

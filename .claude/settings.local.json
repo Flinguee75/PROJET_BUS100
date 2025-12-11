@@ -19,7 +19,12 @@
       "Bash(/tmp/dashboard_head.tsx)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(npm run test:integration:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

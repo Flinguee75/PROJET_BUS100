@@ -5,11 +5,13 @@
 
 export interface Bus {
   id: string;
+  busNumber: number; // Numéro du bus (1, 2, 3, 4...)
   plateNumber: string; // Numéro d'immatriculation
   capacity: number; // Capacité totale de passagers
   model: string; // Modèle du bus
   year: number; // Année de fabrication
   driverId: string | null; // ID du chauffeur assigné
+  driverName?: string | null; // Nom du chauffeur (enrichi)
   routeId: string | null; // ID du parcours assigné
   status: BusStatus;
   maintenanceStatus: BusMaintenanceStatus;
@@ -37,6 +39,7 @@ export enum BusMaintenanceStatus {
 }
 
 export interface BusCreateInput {
+  busNumber: number;
   plateNumber: string;
   capacity: number;
   model: string;
@@ -44,6 +47,7 @@ export interface BusCreateInput {
 }
 
 export interface BusUpdateInput {
+  busNumber?: number;
   plateNumber?: string;
   capacity?: number;
   model?: string;

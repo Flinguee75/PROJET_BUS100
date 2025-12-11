@@ -61,10 +61,36 @@ export class DriverService {
     return {
       id: docRef.id,
       ...data,
-      licenseExpiry: data?.licenseExpiry?.toDate() || new Date(),
+      licenseExpiry: this.convertLicenseExpiry(data?.licenseExpiry),
       createdAt: doc.createTime?.toDate() || new Date(),
       updatedAt: doc.updateTime?.toDate() || new Date(),
     } as Driver;
+  }
+
+  /**
+   * Convertit licenseExpiry en Date, qu'il soit Timestamp ou string
+   */
+  private convertLicenseExpiry(licenseExpiry: any): Date {
+    if (!licenseExpiry) {
+      return new Date();
+    }
+
+    // Si c'est un Timestamp Firestore
+    if (typeof licenseExpiry.toDate === 'function') {
+      return licenseExpiry.toDate();
+    }
+
+    // Si c'est une string ISO
+    if (typeof licenseExpiry === 'string') {
+      return new Date(licenseExpiry);
+    }
+
+    // Si c'est déjà une Date
+    if (licenseExpiry instanceof Date) {
+      return licenseExpiry;
+    }
+
+    return new Date();
   }
 
   /**
@@ -75,13 +101,13 @@ export class DriverService {
     const snapshot = await this.getCollection()
       .where('role', '==', UserRole.DRIVER)
       .get();
-    
+
     return snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
         ...data,
-        licenseExpiry: data.licenseExpiry?.toDate() || new Date(),
+        licenseExpiry: this.convertLicenseExpiry(data.licenseExpiry),
         createdAt: data.createdAt?.toDate() || doc.createTime?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
       } as Driver;
@@ -100,7 +126,7 @@ export class DriverService {
     }
 
     const data = doc.data();
-    
+
     // Vérifier que c'est bien un chauffeur
     if (data?.role !== UserRole.DRIVER) {
       return null;
@@ -109,7 +135,7 @@ export class DriverService {
     return {
       id: doc.id,
       ...data,
-      licenseExpiry: data?.licenseExpiry?.toDate() || new Date(),
+      licenseExpiry: this.convertLicenseExpiry(data?.licenseExpiry),
       createdAt: data?.createdAt?.toDate() || doc.createTime?.toDate() || new Date(),
       updatedAt: data?.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
     } as Driver;
@@ -126,7 +152,7 @@ export class DriverService {
       .where('busId', '==', busId)
       .limit(1)
       .get();
-    
+
     if (snapshot.empty) {
       return null;
     }
@@ -141,7 +167,7 @@ export class DriverService {
     return {
       id: doc.id,
       ...data,
-      licenseExpiry: data.licenseExpiry?.toDate() || new Date(),
+      licenseExpiry: this.convertLicenseExpiry(data.licenseExpiry),
       createdAt: data.createdAt?.toDate() || doc.createTime?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
     } as Driver;
@@ -157,13 +183,13 @@ export class DriverService {
       .where('busId', '==', null)
       .where('isActive', '==', true)
       .get();
-    
+
     return snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
         ...data,
-        licenseExpiry: data.licenseExpiry?.toDate() || new Date(),
+        licenseExpiry: this.convertLicenseExpiry(data.licenseExpiry),
         createdAt: data.createdAt?.toDate() || doc.createTime?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
       } as Driver;
@@ -210,7 +236,7 @@ export class DriverService {
     return {
       id: updated.id,
       ...updatedData,
-      licenseExpiry: updatedData?.licenseExpiry?.toDate() || new Date(),
+      licenseExpiry: this.convertLicenseExpiry(updatedData?.licenseExpiry),
       createdAt: updatedData?.createdAt?.toDate() || updated.createTime?.toDate() || new Date(),
       updatedAt: updatedData?.updatedAt?.toDate() || updated.updateTime?.toDate() || new Date(),
     } as Driver;

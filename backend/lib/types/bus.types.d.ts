@@ -1,10 +1,12 @@
 export interface Bus {
     id: string;
+    busNumber: number;
     plateNumber: string;
     capacity: number;
     model: string;
     year: number;
     driverId: string | null;
+    driverName?: string | null;
     routeId: string | null;
     status: BusStatus;
     maintenanceStatus: BusMaintenanceStatus;
@@ -26,12 +28,14 @@ export declare enum BusMaintenanceStatus {
     CRITICAL = "critical"
 }
 export interface BusCreateInput {
+    busNumber: number;
     plateNumber: string;
     capacity: number;
     model: string;
     year: number;
 }
 export interface BusUpdateInput {
+    busNumber?: number;
     plateNumber?: string;
     capacity?: number;
     model?: string;

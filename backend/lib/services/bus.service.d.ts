@@ -1,6 +1,9 @@
 import { Bus, BusCreateInput, BusUpdateInput } from '../types/bus.types';
 export declare class BusService {
     private getCollection;
+    private getUsersCollection;
+    private enrichWithDriverName;
+    private enrichBusesWithDriverNames;
     createBus(input: BusCreateInput): Promise<Bus>;
     getAllBuses(): Promise<Bus[]>;
     getBusById(busId: string): Promise<Bus | null>;

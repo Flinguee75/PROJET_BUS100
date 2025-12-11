@@ -21,7 +21,9 @@
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
     "seed": "ts-node src/scripts/seed-mock-data.ts",
-    "create-user-emulator": "ts-node scripts/create-user-emulator.ts"
+    "create-user-emulator": "ts-node scripts/create-user-emulator.ts",
+    "dev:init": "./scripts/dev-init.sh",
+    "dev:init:js": "node scripts/dev-init.js"
   },
   "dependencies": {
     "axios": "^1.13.2",

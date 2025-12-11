@@ -5,17 +5,21 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Bus as BusIcon, Calendar, Users as UsersIcon, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Bus as BusIcon, Users as UsersIcon, X } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import * as busApi from '@/services/bus.api';
+import * as driverApi from '@/services/driver.api';
 
 interface BusFormData {
+  busNumber: string;
   plateNumber: string;
+  capacity: string;
   model: string;
   year: string;
-  capacity: string;
+  driverId: string;
+  assignedCommune: string;
 }
 
 export const BusesManagementPage = () => {
@@ -23,10 +27,13 @@ export const BusesManagementPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusId, setEditingBusId] = useState<string | null>(null);
   const [formData, setFormData] = useState<BusFormData>({
+    busNumber: '',
     plateNumber: '',
-    model: '',
-    year: '',
     capacity: '',
+    model: 'Bus Standard',
+    year: new Date().getFullYear().toString(),
+    driverId: '',
+    assignedCommune: '',
   });
   const [formError, setFormError] = useState('');
 
@@ -38,6 +45,16 @@ export const BusesManagementPage = () => {
   } = useQuery({
     queryKey: ['buses'],
     queryFn: () => busApi.getAllBuses(false),
+  });
+
+  // Récupérer la liste des chauffeurs
+  const {
+    data: drivers = [],
+    isLoading: driversLoading,
+    error: driversError
+  } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: () => driverApi.getAllDrivers(),
   });
 
   // Mutation pour créer un bus
@@ -76,10 +93,13 @@ export const BusesManagementPage = () => {
   const openCreateModal = () => {
     setEditingBusId(null);
     setFormData({
+      busNumber: '',
       plateNumber: '',
-      model: '',
-      year: '',
       capacity: '',
+      model: 'Bus Standard',
+      year: new Date().getFullYear().toString(),
+      driverId: '',
+      assignedCommune: '',
     });
     setFormError('');
     setIsModalOpen(true);
@@ -88,10 +108,13 @@ export const BusesManagementPage = () => {
   const openEditModal = (bus: busApi.BusBackend) => {
     setEditingBusId(bus.id);
     setFormData({
+      busNumber: bus.busNumber.toString(),
       plateNumber: bus.plateNumber,
-      model: bus.model,
-      year: bus.year.toString(),
       capacity: bus.capacity.toString(),
+      model: bus.model || 'Bus Standard',
+      year: bus.year?.toString() || new Date().getFullYear().toString(),
+      driverId: bus.driverId || '',
+      assignedCommune: bus.assignedCommune || '',
     });
     setFormError('');
     setIsModalOpen(true);
@@ -108,35 +131,57 @@ export const BusesManagementPage = () => {
     setFormError('');
 
     // Validation
-    const year = parseInt(formData.year);
+    const busNumber = parseInt(formData.busNumber);
     const capacity = parseInt(formData.capacity);
+    const year = parseInt(formData.year);
 
-    if (!formData.plateNumber || !formData.model || !year || !capacity) {
-      setFormError('Tous les champs sont requis');
+    if (!formData.busNumber || !formData.plateNumber || !formData.capacity) {
+      setFormError('Le numéro, la plaque et la capacité sont requis');
       return;
     }
 
-    if (year < 1900 || year > new Date().getFullYear() + 1) {
-      setFormError('Année invalide');
+    if (isNaN(busNumber) || busNumber < 1) {
+      setFormError('Le numéro de bus doit être un nombre positif');
       return;
     }
 
-    if (capacity < 1 || capacity > 100) {
-      setFormError('La capacité doit être entre 1 et 100');
+    if (isNaN(capacity) || capacity < 1 || capacity > 100) {
+      setFormError('La capacité doit être un nombre entre 1 et 100');
       return;
     }
 
-    const data = {
-      plateNumber: formData.plateNumber,
-      model: formData.model,
-      year,
-      capacity,
-    };
+    if (!formData.model.trim()) {
+      setFormError('Le modèle est requis');
+      return;
+    }
+
+    if (isNaN(year) || year < 1990 || year > new Date().getFullYear() + 1) {
+      setFormError('L\'année doit être valide');
+      return;
+    }
 
     if (editingBusId) {
-      updateMutation.mutate({ id: editingBusId, data });
+      // Mode édition - on peut mettre à jour tous les champs
+      const updateData: busApi.BusUpdateInput = {
+        busNumber,
+        plateNumber: formData.plateNumber,
+        capacity,
+        model: formData.model,
+        year,
+        driverId: formData.driverId || null,
+        assignedCommune: formData.assignedCommune || undefined,
+      };
+      updateMutation.mutate({ id: editingBusId, data: updateData });
     } else {
-      createMutation.mutate(data);
+      // Mode création
+      const createData: busApi.BusCreateInput = {
+        busNumber,
+        plateNumber: formData.plateNumber,
+        capacity,
+        model: formData.model,
+        year,
+      };
+      createMutation.mutate(createData);
     }
   };
 
@@ -144,22 +189,6 @@ export const BusesManagementPage = () => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce bus ?')) {
       deleteMutation.mutate(busId);
     }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; color: string }> = {
-      active: { label: 'Actif', color: 'bg-success-50 text-success-700 border-success-200' },
-      inactive: { label: 'Inactif', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-      in_maintenance: { label: 'En maintenance', color: 'bg-warning-50 text-warning-700 border-warning-200' },
-      out_of_service: { label: 'Hors service', color: 'bg-danger-50 text-danger-700 border-danger-200' },
-    };
-
-    const statusInfo = statusMap[status] || statusMap.active;
-    return (
-      <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${statusInfo.color}`}>
-        {statusInfo.label}
-      </span>
-    );
   };
 
   return (
@@ -204,19 +233,16 @@ export const BusesManagementPage = () => {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Immatriculation
+                    Numéro de Bus
                   </th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Modèle
+                    Chauffeur
                   </th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Année
+                    Zone
                   </th>
                   <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Capacité
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Statut
                   </th>
                   <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Actions
@@ -230,17 +256,18 @@ export const BusesManagementPage = () => {
                       <div className="flex items-center gap-2">
                         <BusIcon className="w-4 h-4 text-slate-400" strokeWidth={2} />
                         <span className="text-sm font-semibold text-slate-900">
-                          {bus.plateNumber}
+                          Bus {bus.busNumber}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-700">{bus.model}</div>
+                      <div className="text-sm text-slate-700">
+                        {bus.driverName || bus.driverId || 'Non assigné'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-sm text-slate-700">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
-                        {bus.year}
+                      <div className="text-sm text-slate-700">
+                        {bus.assignedCommune || 'Non assignée'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -248,9 +275,6 @@ export const BusesManagementPage = () => {
                         <UsersIcon className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
                         {bus.capacity} places
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(bus.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -318,53 +342,20 @@ export const BusesManagementPage = () => {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Immatriculation *
-                </label>
-                <input
-                  type="text"
-                  value={formData.plateNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, plateNumber: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="Ex: TU 123 TN 456"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Modèle *
-                </label>
-                <input
-                  type="text"
-                  value={formData.model}
-                  onChange={(e) =>
-                    setFormData({ ...formData, model: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="Ex: Mercedes-Benz Sprinter"
-                  required
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Année *
+                    Numéro de bus *
                   </label>
                   <input
                     type="number"
-                    value={formData.year}
+                    value={formData.busNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, year: e.target.value })
+                      setFormData({ ...formData, busNumber: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                    placeholder="2024"
-                    min="1900"
-                    max={new Date().getFullYear() + 1}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                    placeholder="Ex: 1, 2, 3..."
+                    min="1"
                     required
                   />
                 </div>
@@ -379,13 +370,119 @@ export const BusesManagementPage = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, capacity: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
                     placeholder="50"
                     min="1"
                     max="100"
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Plaque d'immatriculation *
+                </label>
+                <input
+                  type="text"
+                  value={formData.plateNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, plateNumber: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                  placeholder="Ex: TU 123 TN 456"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Modèle *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.model}
+                    onChange={(e) =>
+                      setFormData({ ...formData, model: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                    placeholder="Ex: Bus Standard, Mercedes..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Année *
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.year}
+                    onChange={(e) =>
+                      setFormData({ ...formData, year: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                    placeholder={new Date().getFullYear().toString()}
+                    min="1990"
+                    max={new Date().getFullYear() + 1}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Chauffeur {editingBusId && '(optionnel)'}
+                </label>
+                <select
+                  value={formData.driverId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, driverId: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                  disabled={driversLoading}
+                >
+                  <option value="">
+                    {driversLoading
+                      ? 'Chargement des chauffeurs...'
+                      : driversError
+                      ? 'Erreur de chargement des chauffeurs'
+                      : drivers.length === 0
+                      ? 'Aucun chauffeur disponible'
+                      : 'Aucun chauffeur assigné'}
+                  </option>
+                  {drivers.map((driver) => (
+                    <option key={driver.id} value={driver.id}>
+                      {driver.displayName} - {driver.phoneNumber}
+                    </option>
+                  ))}
+                </select>
+                {driversError && (
+                  <p className="text-sm text-danger-600 mt-1">
+                    Impossible de charger les chauffeurs. Vérifiez que le backend est démarré.
+                  </p>
+                )}
+                {!driversLoading && !driversError && drivers.length === 0 && (
+                  <p className="text-sm text-amber-600 mt-1">
+                    Aucun chauffeur trouvé. Lancez le seed : <code className="bg-slate-100 px-1 rounded">npm run seed</code>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Zone (optionnel)
+                </label>
+                <input
+                  type="text"
+                  value={formData.assignedCommune}
+                  onChange={(e) =>
+                    setFormData({ ...formData, assignedCommune: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-slate-900 bg-white"
+                  placeholder="Ex: Cocody, Yopougon..."
+                />
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">

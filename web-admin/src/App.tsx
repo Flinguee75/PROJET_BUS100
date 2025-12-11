@@ -12,6 +12,7 @@ import {
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 import { Layout } from '@/components/Layout';
 import { FirebaseConfigError } from '@/components/FirebaseConfigError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -62,7 +63,9 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <Layout />
+            <SidebarProvider>
+              <Layout />
+            </SidebarProvider>
           </ProtectedRoute>
         }
         >

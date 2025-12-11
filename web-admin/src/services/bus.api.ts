@@ -6,6 +6,7 @@
 import api from './gps.api';
 
 export interface BusCreateInput {
+  busNumber: number;
   plateNumber: string;
   capacity: number;
   model: string;
@@ -13,6 +14,7 @@ export interface BusCreateInput {
 }
 
 export interface BusUpdateInput {
+  busNumber?: number;
   plateNumber?: string;
   capacity?: number;
   model?: string;
@@ -21,10 +23,14 @@ export interface BusUpdateInput {
   routeId?: string | null;
   status?: string;
   maintenanceStatus?: string;
+  assignedCommune?: string;
+  assignedQuartiers?: string[];
+  preferredDepartureTime?: string;
 }
 
 export interface BusBackend {
   id: string;
+  busNumber: number;
   plateNumber: string;
   capacity: number;
   model: string;
@@ -32,7 +38,11 @@ export interface BusBackend {
   status: string;
   maintenanceStatus: string;
   driverId: string | null;
+  driverName?: string | null;
   routeId: string | null;
+  assignedCommune?: string;
+  assignedQuartiers?: string[];
+  preferredDepartureTime?: string;
   createdAt: Date;
   updatedAt: Date;
 }

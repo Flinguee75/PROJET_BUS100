@@ -19,6 +19,7 @@ export interface DriverUpdateInput {
 export declare class DriverService {
     private getCollection;
     createDriver(input: DriverCreateInput): Promise<Driver>;
+    private convertLicenseExpiry;
     getAllDrivers(): Promise<Driver[]>;
     getDriverById(driverId: string): Promise<Driver | null>;
     getDriverByBus(busId: string): Promise<Driver | null>;

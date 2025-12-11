@@ -11,9 +11,11 @@ import { BrowserRouter } from 'react-router-dom';
 import { BusesManagementPage } from '@/pages/BusesManagementPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import * as busApi from '@/services/bus.api';
+import * as driverApi from '@/services/driver.api';
 
 // Mock du service API
 vi.mock('@/services/bus.api');
+vi.mock('@/services/driver.api');
 
 // Mock du module auth.service
 vi.mock('@/services/auth.service', () => ({
@@ -53,6 +55,8 @@ const createWrapper = () => {
 describe('BusesManagementPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock par défaut pour les chauffeurs
+    vi.mocked(driverApi.getAllDrivers).mockResolvedValue([]);
   });
 
   describe('Affichage initial', () => {
@@ -91,27 +95,74 @@ describe('BusesManagementPage', () => {
   });
 
   describe('Liste des bus', () => {
-    it('affiche la liste des bus', async () => {
+    it('affiche la liste des bus avec les bonnes colonnes', async () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes Sprinter',
           year: 2024,
           capacity: 50,
           status: 'active',
           maintenanceStatus: 'ok',
-          driverId: null,
-          routeId: null,
+          driverId: 'driver-123',
+          driverName: 'Jean Dupont',
+          routeId: 'route-abc',
+          assignedCommune: 'Cocody',
           createdAt: new Date(),
           updatedAt: new Date(),
         },
         {
           id: 'bus-2',
+          busNumber: 2,
           plateNumber: 'TU 222 TN 222',
           model: 'Volvo Bus',
           year: 2023,
           capacity: 40,
+          status: 'active',
+          maintenanceStatus: 'ok',
+          driverId: null,
+          driverName: null,
+          routeId: null,
+          assignedCommune: undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      vi.mocked(busApi.getAllBuses).mockResolvedValue(mockBuses);
+
+      render(<BusesManagementPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => {
+        // Vérifier les numéros de bus
+        expect(screen.getByText('Bus 1')).toBeInTheDocument();
+        expect(screen.getByText('Bus 2')).toBeInTheDocument();
+
+        // Vérifier les chauffeurs
+        expect(screen.getByText('Jean Dupont')).toBeInTheDocument();
+        expect(screen.getByText('Non assigné')).toBeInTheDocument();
+
+        // Vérifier les zones
+        expect(screen.getByText('Cocody')).toBeInTheDocument();
+        expect(screen.getByText('Non assignée')).toBeInTheDocument();
+
+        // Vérifier les capacités
+        expect(screen.getByText('50 places')).toBeInTheDocument();
+        expect(screen.getByText('40 places')).toBeInTheDocument();
+      });
+    });
+
+    it('affiche les bons en-têtes de colonnes', async () => {
+      const mockBuses = [
+        {
+          id: 'bus-1',
+          busNumber: 1,
+          plateNumber: 'TU 111 TN 111',
+          model: 'Mercedes',
+          year: 2024,
+          capacity: 50,
           status: 'active',
           maintenanceStatus: 'ok',
           driverId: null,
@@ -126,10 +177,11 @@ describe('BusesManagementPage', () => {
       render(<BusesManagementPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('TU 111 TN 111')).toBeInTheDocument();
-        expect(screen.getByText('TU 222 TN 222')).toBeInTheDocument();
-        expect(screen.getByText('Mercedes Sprinter')).toBeInTheDocument();
-        expect(screen.getByText('Volvo Bus')).toBeInTheDocument();
+        expect(screen.getByText('Numéro de Bus')).toBeInTheDocument();
+        expect(screen.getByText('Chauffeur')).toBeInTheDocument();
+        expect(screen.getByText('Zone')).toBeInTheDocument();
+        expect(screen.getByText('Capacité')).toBeInTheDocument();
+        expect(screen.getByText('Actions')).toBeInTheDocument();
       });
     });
 
@@ -137,6 +189,7 @@ describe('BusesManagementPage', () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes',
           year: 2024,
@@ -167,36 +220,8 @@ describe('BusesManagementPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Aucun bus enregistré')).toBeInTheDocument();
         expect(
-          screen.getByText('Commencez par ajouter votre premier bus')
+          screen.getByText(/Utilisez le bouton "Ajouter un bus" ci-dessus pour commencer/)
         ).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Badges de statut', () => {
-    it('affiche le bon badge pour statut actif', async () => {
-      const mockBuses = [
-        {
-          id: 'bus-1',
-          plateNumber: 'TU 111 TN 111',
-          model: 'Mercedes',
-          year: 2024,
-          capacity: 50,
-          status: 'active',
-          maintenanceStatus: 'ok',
-          driverId: null,
-          routeId: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-
-      vi.mocked(busApi.getAllBuses).mockResolvedValue(mockBuses);
-
-      render(<BusesManagementPage />, { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(screen.getByText('Actif')).toBeInTheDocument();
       });
     });
   });
@@ -215,10 +240,13 @@ describe('BusesManagementPage', () => {
       const addButton = screen.getAllByText('Ajouter un bus')[0];
       await user.click(addButton);
 
-      expect(screen.getByText('Immatriculation *')).toBeInTheDocument();
+      expect(screen.getByText('Numéro de bus *')).toBeInTheDocument();
+      expect(screen.getByText('Plaque d\'immatriculation *')).toBeInTheDocument();
+      expect(screen.getByText('Capacité *')).toBeInTheDocument();
       expect(screen.getByText('Modèle *')).toBeInTheDocument();
       expect(screen.getByText('Année *')).toBeInTheDocument();
-      expect(screen.getByText('Capacité *')).toBeInTheDocument();
+      expect(screen.getByText(/Chauffeur/)).toBeInTheDocument();
+      expect(screen.getByText('Zone (optionnel)')).toBeInTheDocument();
     });
 
     it('ferme le modal au clic sur Annuler', async () => {
@@ -240,7 +268,7 @@ describe('BusesManagementPage', () => {
       await user.click(cancelButton);
 
       await waitFor(() => {
-        expect(screen.queryByText('Immatriculation *')).not.toBeInTheDocument();
+        expect(screen.queryByText('Numéro de bus *')).not.toBeInTheDocument();
       });
     });
   });
@@ -250,8 +278,9 @@ describe('BusesManagementPage', () => {
       vi.mocked(busApi.getAllBuses).mockResolvedValue([]);
       vi.mocked(busApi.createBus).mockResolvedValue({
         id: 'bus-new',
+        busNumber: 3,
         plateNumber: 'TU 123 TN 456',
-        model: 'Mercedes Sprinter',
+        model: 'Bus Standard',
         year: 2024,
         capacity: 50,
         status: 'active',
@@ -274,14 +303,12 @@ describe('BusesManagementPage', () => {
       await user.click(addButton);
 
       // Remplir le formulaire
+      const busNumberInput = screen.getByPlaceholderText('Ex: 1, 2, 3...');
       const plateNumberInput = screen.getByPlaceholderText('Ex: TU 123 TN 456');
-      const modelInput = screen.getByPlaceholderText('Ex: Mercedes-Benz Sprinter');
-      const yearInput = screen.getByPlaceholderText('2024');
       const capacityInput = screen.getByPlaceholderText('50');
 
+      await user.type(busNumberInput, '3');
       await user.type(plateNumberInput, 'TU 123 TN 456');
-      await user.type(modelInput, 'Mercedes Sprinter');
-      await user.type(yearInput, '2024');
       await user.type(capacityInput, '50');
 
       // Soumettre
@@ -289,12 +316,15 @@ describe('BusesManagementPage', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(busApi.createBus).toHaveBeenCalledWith({
+        expect(busApi.createBus).toHaveBeenCalled();
+        const callArgs = vi.mocked(busApi.createBus).mock.calls[0][0];
+        expect(callArgs).toMatchObject({
+          busNumber: 3,
           plateNumber: 'TU 123 TN 456',
-          model: 'Mercedes Sprinter',
-          year: 2024,
           capacity: 50,
-        }, expect.anything());
+          model: 'Bus Standard',
+          year: new Date().getFullYear(),
+        });
       });
     });
 
@@ -317,7 +347,7 @@ describe('BusesManagementPage', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Tous les champs sont requis')).toBeInTheDocument();
+        expect(screen.getByText('Le numéro, la plaque et la capacité sont requis')).toBeInTheDocument();
       });
     });
   });
@@ -327,6 +357,7 @@ describe('BusesManagementPage', () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes',
           year: 2024,
@@ -350,7 +381,7 @@ describe('BusesManagementPage', () => {
       render(<BusesManagementPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('TU 111 TN 111')).toBeInTheDocument();
+        expect(screen.getByText('Bus 1')).toBeInTheDocument();
       });
 
       const deleteButton = await screen.findByTitle('Supprimer');
@@ -358,7 +389,9 @@ describe('BusesManagementPage', () => {
 
       expect(confirmSpy).toHaveBeenCalled();
       await waitFor(() => {
-        expect(busApi.deleteBus).toHaveBeenCalledWith('bus-1', expect.anything());
+        expect(busApi.deleteBus).toHaveBeenCalled();
+        const callArgs = vi.mocked(busApi.deleteBus).mock.calls[0];
+        expect(callArgs[0]).toBe('bus-1');
       });
 
       confirmSpy.mockRestore();
@@ -368,6 +401,7 @@ describe('BusesManagementPage', () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes',
           year: 2024,
@@ -390,7 +424,7 @@ describe('BusesManagementPage', () => {
       render(<BusesManagementPage />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText('TU 111 TN 111')).toBeInTheDocument();
+        expect(screen.getByText('Bus 1')).toBeInTheDocument();
       });
 
       const deleteButton = await screen.findByTitle('Supprimer');

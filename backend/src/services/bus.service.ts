@@ -11,11 +11,79 @@ import {
   BusStatus,
   BusMaintenanceStatus,
 } from '../types/bus.types';
+import { UserRole } from '../types/user.types';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export class BusService {
   private getCollection() {
     return getDb().collection('buses');
+  }
+
+  private getUsersCollection() {
+    return getDb().collection('users');
+  }
+
+  /**
+   * Enrichit un bus avec le nom du chauffeur
+   * @param bus - Bus à enrichir
+   * @returns Bus enrichi avec driverName
+   */
+  private async enrichWithDriverName(bus: Bus): Promise<Bus> {
+    if (!bus.driverId) {
+      return { ...bus, driverName: null };
+    }
+
+    try {
+      const driverDoc = await this.getUsersCollection().doc(bus.driverId).get();
+      if (!driverDoc.exists) {
+        return { ...bus, driverName: null };
+      }
+
+      const driverData = driverDoc.data();
+      if (driverData?.role !== UserRole.DRIVER) {
+        return { ...bus, driverName: null };
+      }
+
+      return { ...bus, driverName: driverData.displayName || null };
+    } catch (error) {
+      // En cas d'erreur, retourner le bus sans le nom du chauffeur
+      console.error(`Error enriching bus ${bus.id} with driver name:`, error);
+      return { ...bus, driverName: null };
+    }
+  }
+
+  /**
+   * Enrichit plusieurs bus avec les noms des chauffeurs
+   * @param buses - Liste des bus à enrichir
+   * @returns Buses enrichis avec driverName
+   */
+  private async enrichBusesWithDriverNames(buses: Bus[]): Promise<Bus[]> {
+    // Récupérer tous les IDs de chauffeurs uniques
+    const driverIds = [...new Set(buses.map(b => b.driverId).filter(id => id !== null))] as string[];
+
+    if (driverIds.length === 0) {
+      return buses.map(bus => ({ ...bus, driverName: null }));
+    }
+
+    // Récupérer tous les chauffeurs en une seule requête
+    const driversSnapshot = await this.getUsersCollection()
+      .where('role', '==', UserRole.DRIVER)
+      .get();
+
+    // Créer une map ID -> nom
+    const driverNamesMap = new Map<string, string>();
+    driversSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.displayName) {
+        driverNamesMap.set(doc.id, data.displayName);
+      }
+    });
+
+    // Enrichir les bus
+    return buses.map(bus => ({
+      ...bus,
+      driverName: bus.driverId ? (driverNamesMap.get(bus.driverId) || null) : null,
+    }));
   }
 
   /**
@@ -48,11 +116,11 @@ export class BusService {
 
   /**
    * Récupère tous les bus
-   * @returns Liste de tous les bus
+   * @returns Liste de tous les bus enrichis avec les noms des chauffeurs
    */
   async getAllBuses(): Promise<Bus[]> {
     const snapshot = await this.getCollection().get();
-    return snapshot.docs.map((doc) => {
+    const buses = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -61,12 +129,15 @@ export class BusService {
         updatedAt: data.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
       } as Bus;
     });
+
+    // Enrichir avec les noms des chauffeurs
+    return this.enrichBusesWithDriverNames(buses);
   }
 
   /**
    * Récupère un bus par son ID
    * @param busId - ID du bus à récupérer
-   * @returns Le bus trouvé ou null
+   * @returns Le bus trouvé enrichi avec le nom du chauffeur, ou null
    */
   async getBusById(busId: string): Promise<Bus | null> {
     const doc = await this.getCollection().doc(busId).get();
@@ -75,19 +146,22 @@ export class BusService {
     }
 
     const data = doc.data();
-    return {
+    const bus = {
       id: doc.id,
       ...data,
       createdAt: data?.createdAt?.toDate() || doc.createTime?.toDate() || new Date(),
       updatedAt: data?.updatedAt?.toDate() || doc.updateTime?.toDate() || new Date(),
     } as Bus;
+
+    // Enrichir avec le nom du chauffeur
+    return this.enrichWithDriverName(bus);
   }
 
   /**
    * Met à jour un bus existant
    * @param busId - ID du bus à mettre à jour
    * @param input - Données à mettre à jour
-   * @returns Le bus mis à jour
+   * @returns Le bus mis à jour enrichi avec le nom du chauffeur
    */
   async updateBus(busId: string, input: BusUpdateInput): Promise<Bus> {
     const docRef = this.getCollection().doc(busId);
@@ -106,12 +180,15 @@ export class BusService {
     const updated = await docRef.get();
     const data = updated.data();
 
-    return {
+    const bus = {
       id: updated.id,
       ...data,
       createdAt: data?.createdAt?.toDate() || updated.createTime?.toDate() || new Date(),
       updatedAt: data?.updatedAt?.toDate() || updated.updateTime?.toDate() || new Date(),
     } as Bus;
+
+    // Enrichir avec le nom du chauffeur
+    return this.enrichWithDriverName(bus);
   }
 
   /**
@@ -129,10 +206,10 @@ export class BusService {
 
   /**
    * Récupère les bus avec leurs positions GPS en temps réel
-   * @returns Liste des bus avec positions
+   * @returns Liste des bus avec positions enrichis avec les noms des chauffeurs
    */
   async getBusesWithLivePosition(): Promise<Bus[]> {
-    const buses = await this.getAllBuses();
+    const buses = await this.getAllBuses(); // Déjà enrichis avec les noms
     const gpsSnapshot = await getDb().collection('gps_live').get();
     const gpsMap = new Map(gpsSnapshot.docs.map((doc) => [doc.id, doc.data()]));
 
