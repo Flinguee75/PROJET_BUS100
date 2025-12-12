@@ -26,26 +26,26 @@ jobs:
           channel: 'stable'
 
       - name: 📦 Install dependencies
-        working-directory: mobile-parent
+        working-directory: mobile-parent/parent_app
         run: flutter pub get
 
       - name: 🔍 Analyze code
-        working-directory: mobile-parent
+        working-directory: mobile-parent/parent_app
         run: flutter analyze
 
       - name: 🧪 Run tests
-        working-directory: mobile-parent
+        working-directory: mobile-parent/parent_app
         run: flutter test
 
       - name: 🏗️ Build APK (debug)
-        working-directory: mobile-parent
+        working-directory: mobile-parent/parent_app
         run: flutter build apk --debug
 
       - name: 📤 Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: mobile-parent-debug-apk
-          path: mobile-parent/build/app/outputs/flutter-apk/app-debug.apk
+          path: mobile-parent/parent_app/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
 
       - name: ✅ Build success

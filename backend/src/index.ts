@@ -96,5 +96,6 @@ if (process.env.FUNCTIONS_EMULATOR === 'true') {
 // Export fonction de test
 export { helloWorld } from './test-function';
 
-// Export trigger de création d'utilisateur
+// Export triggers
 export { onUserCreated } from './triggers/user-created.trigger';
+export { onStudentChanged } from './triggers/student-changed.trigger';
