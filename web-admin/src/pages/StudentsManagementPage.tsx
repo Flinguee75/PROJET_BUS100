@@ -3,7 +3,7 @@
  * Interface CRUD complète pour la gestion des élèves
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -59,6 +59,10 @@ export const StudentsManagementPage = () => {
     specialNeeds: '',
   });
   const [formError, setFormError] = useState('');
+  const [zoneFilter, setZoneFilter] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
+  const [busFilter, setBusFilter] = useState('');
+  const [studentToDelete, setStudentToDelete] = useState<studentApi.Student | null>(null);
 
   // Récupérer la liste des élèves
   const {
@@ -75,6 +79,37 @@ export const StudentsManagementPage = () => {
     queryKey: ['all-buses'],
     queryFn: gpsApi.getAllBuses,
   });
+
+  const gradeOptions = useMemo(() => {
+    if (!students) {
+      return [];
+    }
+    const grades = new Set<string>();
+    students.forEach((student) => {
+      if (student.grade) {
+        grades.add(student.grade);
+      }
+    });
+    return Array.from(grades).sort();
+  }, [students]);
+
+  const filteredStudents = useMemo(() => {
+    if (!students) {
+      return [];
+    }
+    const zoneValue = zoneFilter.trim().toLowerCase();
+    return students.filter((student) => {
+      const commune = student.commune?.toLowerCase() || '';
+      const quartier = student.quartier?.toLowerCase() || '';
+      const matchesZone =
+        !zoneValue ||
+        commune.includes(zoneValue) ||
+        quartier.includes(zoneValue);
+      const matchesGrade = !gradeFilter || student.grade === gradeFilter;
+      const matchesBus = !busFilter || student.busId === busFilter;
+      return matchesZone && matchesGrade && matchesBus;
+    });
+  }, [students, zoneFilter, gradeFilter, busFilter]);
 
   // Mutation pour créer un élève
   const createMutation = useMutation({
@@ -165,6 +200,28 @@ export const StudentsManagementPage = () => {
     setIsModalOpen(false);
     setEditingStudentId(null);
     setFormError('');
+  };
+
+  const resetFilters = () => {
+    setZoneFilter('');
+    setGradeFilter('');
+    setBusFilter('');
+  };
+
+  const openDeleteModal = (student: studentApi.Student) => {
+    setStudentToDelete(student);
+  };
+
+  const closeDeleteModal = () => {
+    setStudentToDelete(null);
+  };
+
+  const confirmDelete = () => {
+    if (!studentToDelete) {
+      return;
+    }
+    deleteMutation.mutate(studentToDelete.id);
+    closeDeleteModal();
   };
 
   const handleInputChange = (
@@ -299,15 +356,6 @@ export const StudentsManagementPage = () => {
     }
   };
 
-  const handleDelete = async (studentId: string, studentName: string) => {
-    const confirmDelete = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer l'élève "${studentName}" ?`
-    );
-    if (confirmDelete) {
-      deleteMutation.mutate(studentId);
-    }
-  };
-
   return (
     <div className="flex-1 bg-neutral-50">
       <Header title="Gestion des Élèves" subtitle="Interface complète pour gérer les élèves" />
@@ -330,6 +378,71 @@ export const StudentsManagementPage = () => {
           </button>
         </div>
 
+        <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="zone-filter">
+                Zone (Commune ou Quartier)
+              </label>
+              <input
+                id="zone-filter"
+                type="text"
+                value={zoneFilter}
+                onChange={(e) => setZoneFilter(e.target.value)}
+                placeholder="Commune, quartier..."
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder:text-slate-400 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="grade-filter">
+                Classe
+              </label>
+              <select
+                id="grade-filter"
+                name="gradeFilter"
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm"
+              >
+                <option value="">Toutes les classes</option>
+                {gradeOptions.map((grade) => (
+                  <option key={grade} value={grade}>
+                    {grade}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="bus-filter">
+                Bus
+              </label>
+              <select
+                id="bus-filter"
+                name="busFilter"
+                value={busFilter}
+                onChange={(e) => setBusFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-sm"
+              >
+                <option value="">Tous les bus</option>
+                {buses?.map((bus) => (
+                  <option key={bus.id} value={bus.id}>
+                    {bus.number} - {bus.chauffeur}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                Réinitialiser les filtres
+              </button>
+            </div>
+          </div>
+        </div>
+
         {isLoading && (
           <div className="flex justify-center py-12">
             <LoadingSpinner message="Chargement des élèves..." />
@@ -347,114 +460,132 @@ export const StudentsManagementPage = () => {
         )}
 
         {!isLoading && !error && students && students.length > 0 && (
-          <div className="bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Nom Complet
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Classe
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Date de naissance
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Bus assigné
-                  </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {students.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">
-                        {student.firstName} {student.lastName}
-                      </div>
-                      {student.specialNeeds && (
-                        <div className="flex items-center gap-1 text-xs text-warning-700 mt-1">
-                          <AlertTriangle className="w-3 h-3" strokeWidth={2} />
-                          <span>Besoins spéciaux</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{student.grade}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">
-                      {new Date(student.dateOfBirth).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-6 py-4">
-                      {student.busId ? (
-                        <div>
-                          <div className="text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md inline-block">
-                            {buses?.find(b => b.id === student.busId)?.number || `Bus ${student.busId.substring(0, 8)}`}
-                          </div>
-                          {student.busSchedule && (
-                            <div className="flex gap-1 mt-1">
-                              {student.busSchedule.morning && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
-                                  Matin
-                                </span>
-                              )}
-                              {student.busSchedule.midday && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded">
-                                  Midi
-                                </span>
-                              )}
-                              {student.busSchedule.evening && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded">
-                                  Soir
-                                </span>
-                              )}
+          <>
+            {filteredStudents.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
+                <div className="px-6 py-10 text-sm text-center text-slate-500">
+                  Aucun élève ne correspond aux filtres appliqués pour le moment.
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Bus
+                      </th>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Élève
+                      </th>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Classe
+                      </th>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Date de naissance
+                      </th>
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Adresse
+                      </th>
+                      <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredStudents.map((student) => {
+                      const bus = buses?.find((b) => b.id === student.busId);
+                      return (
+                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 align-top">
+                            {student.busId ? (
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-1 rounded-md inline-block">
+                                  {bus?.number || `Bus ${student.busId.substring(0, 8)}`}
+                                </div>
+                                {student.busSchedule && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {student.busSchedule.morning && (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                                        Matin
+                                      </span>
+                                    )}
+                                    {student.busSchedule.midday && (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded">
+                                        Midi
+                                      </span>
+                                    )}
+                                    {student.busSchedule.evening && (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded">
+                                        Soir
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-slate-500">Non assigné</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 align-top">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-slate-900">
+                                {student.firstName} {student.lastName}
+                              </span>
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  student.isActive
+                                    ? 'bg-success-50 text-success-700 border-success-200'
+                                    : 'bg-danger-50 text-danger-700 border-danger-200'
+                                }`}
+                              >
+                                {student.isActive ? 'Actif' : 'Inactif'}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-500">Non assigné</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${
-                          student.isActive
-                            ? 'bg-success-50 text-success-700 border-success-200'
-                            : 'bg-danger-50 text-danger-700 border-danger-200'
-                        }`}
-                      >
-                        {student.isActive ? 'Actif' : 'Inactif'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(student)}
-                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
-                          title="Modifier"
-                        >
-                          <Edit2 className="w-4 h-4" strokeWidth={2} />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDelete(student.id, `${student.firstName} ${student.lastName}`)
-                          }
-                          className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-all"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" strokeWidth={2} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {student.commune || 'Commune non renseignée'}
+                              {student.quartier ? ` · ${student.quartier}` : ''}
+                            </div>
+                            {student.specialNeeds && (
+                              <div className="flex items-center gap-1 text-xs text-warning-700 mt-2">
+                                <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                                <span>Besoins spéciaux</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-700">{student.grade}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">
+                            {new Date(student.dateOfBirth).toLocaleDateString('fr-FR')}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-700">
+                            {student.pickupLocation?.address || 'Adresse non renseignée'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => openEditModal(student)}
+                                className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
+                                title="Modifier"
+                              >
+                                <Edit2 className="w-4 h-4" strokeWidth={2} />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(student)}
+                                className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-all"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-4 h-4" strokeWidth={2} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
 
         {/* Modal de création/édition */}
@@ -798,8 +929,44 @@ export const StudentsManagementPage = () => {
             </div>
           </div>
         )}
+
+        {studentToDelete && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-200">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-danger-500" strokeWidth={2} />
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Confirmer la suppression de {studentToDelete.firstName} {studentToDelete.lastName}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      Cette action est irréversible et supprimera définitivement les données de l'élève.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    className="px-4 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
+                  >
+                    Annuler la suppression
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    disabled={deleteMutation.isPending}
+                    className="px-4 py-2.5 bg-danger-600 text-white rounded-lg hover:bg-danger-700 transition-all text-sm font-medium shadow-md disabled:opacity-50"
+                  >
+                    {deleteMutation.isPending ? 'Suppression...' : 'Supprimer l\'élève'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
