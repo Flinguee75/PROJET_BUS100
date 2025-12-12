@@ -11,12 +11,19 @@ export interface User {
 export declare enum UserRole {
     ADMIN = "admin",
     DRIVER = "driver",
+    ESCORT = "escort",
     PARENT = "parent"
 }
 export interface Driver extends User {
     role: UserRole.DRIVER;
     licenseNumber: string;
     licenseExpiry: Date;
+    busId: string | null;
+    photoUrl?: string;
+}
+export interface Escort extends User {
+    role: UserRole.ESCORT;
+    idCardNumber: string;
     busId: string | null;
     photoUrl?: string;
 }

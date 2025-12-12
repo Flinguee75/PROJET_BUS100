@@ -1,3 +1,4 @@
+import { TimeOfDay } from './route.types';
 export interface Student {
     id: string;
     firstName: string;
@@ -9,8 +10,15 @@ export interface Student {
     routeId: string | null;
     commune: string;
     quartier: string;
-    pickupLocation: Location;
-    dropoffLocation: Location;
+    locations: {
+        morningPickup?: Location;
+        middayDropoff?: Location;
+        middayPickup?: Location;
+        eveningDropoff?: Location;
+    };
+    activeTrips: TimeOfDay[];
+    pickupLocation?: Location;
+    dropoffLocation?: Location;
     photoUrl?: string;
     specialNeeds?: string;
     createdAt: Date;
@@ -33,8 +41,13 @@ export interface StudentCreateInput {
     parentIds: string[];
     commune: string;
     quartier: string;
-    pickupLocation: Location;
-    dropoffLocation: Location;
+    locations: {
+        morningPickup?: Location;
+        middayDropoff?: Location;
+        middayPickup?: Location;
+        eveningDropoff?: Location;
+    };
+    activeTrips: TimeOfDay[];
     specialNeeds?: string;
 }
 export interface StudentUpdateInput {
@@ -46,8 +59,13 @@ export interface StudentUpdateInput {
     quartier?: string;
     busId?: string | null;
     routeId?: string | null;
-    pickupLocation?: Location;
-    dropoffLocation?: Location;
+    locations?: {
+        morningPickup?: Location;
+        middayDropoff?: Location;
+        middayPickup?: Location;
+        eveningDropoff?: Location;
+    };
+    activeTrips?: TimeOfDay[];
     specialNeeds?: string;
     isActive?: boolean;
 }

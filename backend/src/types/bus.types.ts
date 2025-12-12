@@ -12,7 +12,10 @@ export interface Bus {
   year: number; // Année de fabrication
   driverId: string | null; // ID du chauffeur assigné
   driverName?: string | null; // Nom du chauffeur (enrichi)
+  escortId: string | null; // ID du convoyeur assigné
+  escortName?: string | null; // Nom du convoyeur (enrichi)
   routeId: string | null; // ID du parcours assigné
+  studentIds: string[]; // Liste des élèves assignés
   status: BusStatus;
   maintenanceStatus: BusMaintenanceStatus;
 
@@ -53,7 +56,9 @@ export interface BusUpdateInput {
   model?: string;
   year?: number;
   driverId?: string | null;
+  escortId?: string | null;
   routeId?: string | null;
+  studentIds?: string[];
   status?: BusStatus;
   maintenanceStatus?: BusMaintenanceStatus;
   assignedCommune?: string;

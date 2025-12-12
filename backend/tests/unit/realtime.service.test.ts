@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour RealtimeService
  * Test de la logique d'enrichissement des données bus en temps réel
@@ -9,8 +10,15 @@ import { getDb } from '../../src/config/firebase.config';
 import { BusStatus, BusMaintenanceStatus } from '../../src/types/bus.types';
 import { BusLiveStatus } from '../../src/types/gps.types';
 
-// Mock Firebase
-jest.mock('../../src/config/firebase.config');
+// Mock Firebase while keeping collections constants
+jest.mock('../../src/config/firebase.config', () => {
+  const actual = jest.requireActual('../../src/config/firebase.config');
+  return {
+    __esModule: true,
+    ...actual,
+    getDb: jest.fn(),
+  };
+});
 
 describe('RealtimeService', () => {
   let service: RealtimeService;

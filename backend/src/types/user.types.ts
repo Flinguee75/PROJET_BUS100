@@ -17,6 +17,7 @@ export interface User {
 export enum UserRole {
   ADMIN = 'admin',
   DRIVER = 'driver',
+  ESCORT = 'escort',
   PARENT = 'parent',
 }
 
@@ -24,6 +25,13 @@ export interface Driver extends User {
   role: UserRole.DRIVER;
   licenseNumber: string; // Numéro de permis
   licenseExpiry: Date; // Date d'expiration du permis
+  busId: string | null; // Bus assigné
+  photoUrl?: string;
+}
+
+export interface Escort extends User {
+  role: UserRole.ESCORT;
+  idCardNumber: string; // Numéro de carte d'identité
   busId: string | null; // Bus assigné
   photoUrl?: string;
 }

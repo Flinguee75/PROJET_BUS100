@@ -92,14 +92,11 @@ export class StudentController {
       const validatedData = studentCreateSchema.parse(req.body);
 
       // Convertir dateOfBirth en Date si c'est une string
-      const inputData = {
+      const inputData: any = {
         ...validatedData,
-        dateOfBirth: validatedData.dateOfBirth instanceof Date 
-          ? validatedData.dateOfBirth 
+        dateOfBirth: validatedData.dateOfBirth instanceof Date
+          ? validatedData.dateOfBirth
           : new Date(validatedData.dateOfBirth),
-        // Valeurs temporaires pour commune et quartier si non fournies
-        commune: (validatedData as any).commune || 'Non spécifiée',
-        quartier: (validatedData as any).quartier || 'Non spécifié',
       };
 
       const student = await studentService.createStudent(inputData);
@@ -147,7 +144,7 @@ export class StudentController {
       const validatedData = studentUpdateSchema.parse(req.body);
 
       // Convertir dateOfBirth en Date si présent et c'est une string
-      const inputData = {
+      const inputData: any = {
         ...validatedData,
         dateOfBirth: validatedData.dateOfBirth
           ? validatedData.dateOfBirth instanceof Date

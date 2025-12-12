@@ -1,3 +1,9 @@
+export declare enum TimeOfDay {
+    MORNING_OUTBOUND = "morning_outbound",
+    MIDDAY_OUTBOUND = "midday_outbound",
+    MIDDAY_RETURN = "midday_return",
+    EVENING_RETURN = "evening_return"
+}
 export declare enum CommuneAbidjan {
     COCODY = "Cocody",
     YOPOUGON = "Yopougon",
@@ -26,6 +32,7 @@ export interface RouteStop {
     type: 'pickup' | 'dropoff' | 'both';
     quartier: string;
     notes?: string;
+    activeTimeSlots: TimeOfDay[];
     studentId?: string;
     estimatedArrivalTime?: string;
     relativeTimeMinutes?: number;
@@ -39,10 +46,22 @@ export interface Route {
     quartiers: string[];
     stops: RouteStop[];
     schedule: {
-        morningDeparture: string;
-        morningArrival: string;
-        afternoonDeparture: string;
-        afternoonArrival: string;
+        morningOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayReturn?: {
+            departure: string;
+            arrival: string;
+        };
+        eveningReturn?: {
+            departure: string;
+            arrival: string;
+        };
     };
     totalDistanceKm: number;
     estimatedDurationMinutes: number;
@@ -77,10 +96,22 @@ export interface RouteCreateInput {
     quartiers: string[];
     stops: Omit<RouteStop, 'id'>[];
     schedule: {
-        morningDeparture: string;
-        morningArrival: string;
-        afternoonDeparture: string;
-        afternoonArrival: string;
+        morningOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayReturn?: {
+            departure: string;
+            arrival: string;
+        };
+        eveningReturn?: {
+            departure: string;
+            arrival: string;
+        };
     };
     totalDistanceKm: number;
     estimatedDurationMinutes: number;
@@ -97,10 +128,22 @@ export interface RouteUpdateInput {
     quartiers?: string[];
     stops?: Omit<RouteStop, 'id'>[];
     schedule?: {
-        morningDeparture: string;
-        morningArrival: string;
-        afternoonDeparture: string;
-        afternoonArrival: string;
+        morningOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayOutbound?: {
+            departure: string;
+            arrival: string;
+        };
+        middayReturn?: {
+            departure: string;
+            arrival: string;
+        };
+        eveningReturn?: {
+            departure: string;
+            arrival: string;
+        };
     };
     totalDistanceKm?: number;
     estimatedDurationMinutes?: number;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour MaintenanceService
  * Teste toutes les opérations CRUD sur les maintenances

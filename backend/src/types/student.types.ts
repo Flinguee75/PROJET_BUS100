@@ -2,6 +2,8 @@
  * Types pour la gestion des étudiants
  */
 
+import { TimeOfDay } from './route.types';
+
 export interface Student {
   id: string;
   firstName: string;
@@ -11,13 +13,26 @@ export interface Student {
   parentIds: string[]; // IDs des parents
   busId: string | null; // Bus assigné
   routeId: string | null; // Parcours assigné
-  
+
   // Informations géographiques (Abidjan)
   commune: string; // Commune d'Abidjan (ex: "Cocody", "Yopougon")
   quartier: string; // Quartier précis (ex: "Riviera", "II Plateaux")
-  
-  pickupLocation: Location;
-  dropoffLocation: Location;
+
+  // Locations selon le moment de la journée
+  locations: {
+    morningPickup?: Location;      // Ramassage le matin
+    middayDropoff?: Location;      // Dépose à midi
+    middayPickup?: Location;       // Ramassage à midi
+    eveningDropoff?: Location;     // Dépose le soir
+  };
+
+  // Moments où l'élève utilise le bus
+  activeTrips: TimeOfDay[];
+
+  // Anciennes propriétés (deprecated mais conservées pour rétrocompatibilité)
+  pickupLocation?: Location;
+  dropoffLocation?: Location;
+
   photoUrl?: string;
   specialNeeds?: string; // Besoins spéciaux
   createdAt: Date;
@@ -42,8 +57,13 @@ export interface StudentCreateInput {
   parentIds: string[];
   commune: string; // Commune d'Abidjan
   quartier: string; // Quartier précis
-  pickupLocation: Location;
-  dropoffLocation: Location;
+  locations: {
+    morningPickup?: Location;
+    middayDropoff?: Location;
+    middayPickup?: Location;
+    eveningDropoff?: Location;
+  };
+  activeTrips: TimeOfDay[];
   specialNeeds?: string;
 }
 
@@ -56,8 +76,13 @@ export interface StudentUpdateInput {
   quartier?: string;
   busId?: string | null;
   routeId?: string | null;
-  pickupLocation?: Location;
-  dropoffLocation?: Location;
+  locations?: {
+    morningPickup?: Location;
+    middayDropoff?: Location;
+    middayPickup?: Location;
+    eveningDropoff?: Location;
+  };
+  activeTrips?: TimeOfDay[];
   specialNeeds?: string;
   isActive?: boolean;
 }

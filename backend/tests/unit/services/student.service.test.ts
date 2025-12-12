@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour StudentService
  * Teste toutes les opérations CRUD sur les élèves
@@ -6,12 +7,12 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { StudentService } from '../../../src/services/student.service';
 
-// Mock Firestore
-const mockAdd = jest.fn<any, any>();
-const mockGet = jest.fn<any, any>();
-const mockDoc = jest.fn<any, any>();
-const mockUpdate = jest.fn<any, any>();
-const mockWhere = jest.fn<any, any>();
+// Mock Firestore helpers
+const mockAdd = jest.fn() as jest.Mock;
+const mockGet = jest.fn() as jest.Mock;
+const mockDoc = jest.fn() as jest.Mock;
+const mockUpdate = jest.fn() as jest.Mock;
+const mockWhere = jest.fn() as jest.Mock;
 
 jest.mock('../../../src/config/firebase.config', () => ({
   getDb: jest.fn(() => ({
@@ -449,23 +450,36 @@ describe('StudentService', () => {
 
   describe('removeFromBus', () => {
     it('retire un élève d\'un bus', async () => {
+      const baseStudentData = {
+        firstName: 'Jean',
+        lastName: 'Dupont',
+        dateOfBirth: { toDate: () => new Date('2010-05-15') },
+        grade: 'CM2',
+        parentIds: ['parent-1'],
+        busId: 'bus-1',
+        routeId: 'route-1',
+        pickupLocation: { address: 'Test', lat: 36.8065, lng: 10.1815 },
+        dropoffLocation: { address: 'Test', lat: 36.8065, lng: 10.1815 },
+        isActive: true,
+      };
+
       const mockDocRef: any = {
         get: (jest.fn() as any)
+          .mockResolvedValueOnce({
+            exists: true,
+            id: 'student-123',
+            data: () => baseStudentData,
+            createTime: { toDate: () => new Date() },
+            updateTime: { toDate: () => new Date() },
+          })
           .mockResolvedValueOnce({ exists: true })
           .mockResolvedValueOnce({
             exists: true,
             id: 'student-123',
             data: () => ({
-              firstName: 'Jean',
-              lastName: 'Dupont',
-              dateOfBirth: { toDate: () => new Date('2010-05-15') },
-              grade: 'CM2',
-              parentIds: ['parent-1'],
+              ...baseStudentData,
               busId: null,
               routeId: null,
-              pickupLocation: { address: 'Test', lat: 36.8065, lng: 10.1815 },
-              dropoffLocation: { address: 'Test', lat: 36.8065, lng: 10.1815 },
-              isActive: true,
             }),
             createTime: { toDate: () => new Date() },
             updateTime: { toDate: () => new Date() },
@@ -481,5 +495,212 @@ describe('StudentService', () => {
       expect(result.routeId).toBeNull();
     });
   });
-});
 
+  describe('Multi-location and activeTrips management', () => {
+    it('crée un élève avec plusieurs locations selon le moment', async () => {
+      const mockDocRef = {
+        id: 'student-multi-loc',
+        get: (jest.fn() as any).mockResolvedValue({
+          id: 'student-multi-loc',
+          data: () => ({
+            firstName: 'Sophie',
+            lastName: 'Martin',
+            dateOfBirth: { toDate: () => new Date('2012-03-10') },
+            grade: 'CE2',
+            parentIds: ['parent-1'],
+            commune: 'Cocody',
+            quartier: 'Riviera',
+            locations: {
+              morningPickup: {
+                address: '123 Rue Riviera',
+                lat: 5.3600,
+                lng: -4.0083,
+              },
+              middayDropoff: {
+                address: '456 Rue II Plateaux',
+                lat: 5.3650,
+                lng: -4.0100,
+              },
+              middayPickup: {
+                address: '456 Rue II Plateaux',
+                lat: 5.3650,
+                lng: -4.0100,
+              },
+              eveningDropoff: {
+                address: '789 Rue Angré',
+                lat: 5.3700,
+                lng: -4.0120,
+              },
+            },
+            activeTrips: ['morning_outbound', 'midday_outbound', 'midday_return', 'evening_return'],
+            busId: null,
+            routeId: null,
+            isActive: true,
+          }),
+          createTime: { toDate: () => new Date() },
+          updateTime: { toDate: () => new Date() },
+        }),
+      };
+
+      mockAdd.mockResolvedValue(mockDocRef);
+
+      const input = {
+        firstName: 'Sophie',
+        lastName: 'Martin',
+        dateOfBirth: new Date('2012-03-10'),
+        grade: 'CE2',
+        parentIds: ['parent-1'],
+        commune: 'Cocody',
+        quartier: 'Riviera',
+        locations: {
+          morningPickup: {
+            address: '123 Rue Riviera',
+            lat: 5.3600,
+            lng: -4.0083,
+          },
+          middayDropoff: {
+            address: '456 Rue II Plateaux',
+            lat: 5.3650,
+            lng: -4.0100,
+          },
+          middayPickup: {
+            address: '456 Rue II Plateaux',
+            lat: 5.3650,
+            lng: -4.0100,
+          },
+          eveningDropoff: {
+            address: '789 Rue Angré',
+            lat: 5.3700,
+            lng: -4.0120,
+          },
+        },
+        activeTrips: ['morning_outbound', 'midday_outbound', 'midday_return', 'evening_return'],
+      };
+
+      const result = await studentService.createStudent(input as any);
+
+      expect(result.locations.morningPickup).toBeDefined();
+      expect(result.locations.middayDropoff).toBeDefined();
+      expect(result.locations.middayPickup).toBeDefined();
+      expect(result.locations.eveningDropoff).toBeDefined();
+      expect(result.activeTrips).toHaveLength(4);
+      expect(result.activeTrips).toContain('morning_outbound');
+      expect(result.activeTrips).toContain('evening_return');
+    });
+
+    it('crée un élève avec seulement matin et soir (pas de trajet midi)', async () => {
+      const mockDocRef = {
+        id: 'student-morning-evening',
+        get: (jest.fn() as any).mockResolvedValue({
+          id: 'student-morning-evening',
+          data: () => ({
+            firstName: 'Pierre',
+            lastName: 'Durand',
+            dateOfBirth: { toDate: () => new Date('2011-07-20') },
+            grade: 'CM1',
+            parentIds: ['parent-2'],
+            commune: 'Yopougon',
+            quartier: 'Niangon',
+            locations: {
+              morningPickup: {
+                address: '100 Rue Niangon',
+                lat: 5.3500,
+                lng: -4.0500,
+              },
+              eveningDropoff: {
+                address: '100 Rue Niangon',
+                lat: 5.3500,
+                lng: -4.0500,
+              },
+            },
+            activeTrips: ['morning_outbound', 'evening_return'],
+            busId: null,
+            routeId: null,
+            isActive: true,
+          }),
+          createTime: { toDate: () => new Date() },
+          updateTime: { toDate: () => new Date() },
+        }),
+      };
+
+      mockAdd.mockResolvedValue(mockDocRef);
+
+      const input = {
+        firstName: 'Pierre',
+        lastName: 'Durand',
+        dateOfBirth: new Date('2011-07-20'),
+        grade: 'CM1',
+        parentIds: ['parent-2'],
+        commune: 'Yopougon',
+        quartier: 'Niangon',
+        locations: {
+          morningPickup: {
+            address: '100 Rue Niangon',
+            lat: 5.3500,
+            lng: -4.0500,
+          },
+          eveningDropoff: {
+            address: '100 Rue Niangon',
+            lat: 5.3500,
+            lng: -4.0500,
+          },
+        },
+        activeTrips: ['morning_outbound', 'evening_return'],
+      };
+
+      const result = await studentService.createStudent(input as any);
+
+      expect(result.locations.morningPickup).toBeDefined();
+      expect(result.locations.eveningDropoff).toBeDefined();
+      expect(result.locations.middayDropoff).toBeUndefined();
+      expect(result.locations.middayPickup).toBeUndefined();
+      expect(result.activeTrips).toHaveLength(2);
+      expect(result.activeTrips).toContain('morning_outbound');
+      expect(result.activeTrips).toContain('evening_return');
+      expect(result.activeTrips).not.toContain('midday_outbound');
+    });
+
+    it('met à jour les activeTrips d\'un élève', async () => {
+      const mockDocRef = {
+        get: (jest.fn() as any)
+          .mockResolvedValueOnce({ exists: true })
+          .mockResolvedValueOnce({
+            exists: true,
+            id: 'student-123',
+            data: () => ({
+              firstName: 'Marie',
+              lastName: 'Kouassi',
+              dateOfBirth: { toDate: () => new Date('2013-02-14') },
+              grade: 'CP',
+              parentIds: ['parent-3'],
+              commune: 'Cocody',
+              quartier: 'Riviera',
+              locations: {
+                morningPickup: {
+                  address: '200 Rue test',
+                  lat: 5.36,
+                  lng: -4.01,
+                },
+              },
+              activeTrips: ['morning_outbound', 'evening_return', 'midday_outbound'],
+              busId: null,
+              routeId: null,
+              isActive: true,
+            }),
+            createTime: { toDate: () => new Date() },
+            updateTime: { toDate: () => new Date() },
+          }),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
+      };
+
+      mockDoc.mockReturnValue(mockDocRef);
+
+      const result = await studentService.updateStudent('student-123', {
+        activeTrips: ['morning_outbound', 'evening_return', 'midday_outbound'],
+      });
+
+      expect(result.activeTrips).toHaveLength(3);
+      expect(result.activeTrips).toContain('midday_outbound');
+    });
+  });
+});

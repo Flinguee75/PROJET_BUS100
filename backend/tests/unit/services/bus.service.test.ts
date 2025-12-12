@@ -8,21 +8,24 @@ import { BusService } from '../../../src/services/bus.service';
 import { BusStatus, BusMaintenanceStatus } from '../../../src/types/bus.types';
 
 // Mock Firestore
-const mockAdd = jest.fn<any, any>();
-const mockGet = jest.fn<any, any>();
-const mockDoc = jest.fn<any, any>();
-const mockUpdate = jest.fn<any, any>();
-const mockDelete = jest.fn<any, any>();
-const mockCollection = jest.fn<any, any>();
+// @ts-ignore - Mock types
+const mockAdd = jest.fn();
+// @ts-ignore - Mock types
+const mockGet = jest.fn();
+// @ts-ignore - Mock types
+const mockDoc = jest.fn();
 
 jest.mock('../../../src/config/firebase.config', () => ({
-  db: {
-    collection: jest.fn((name: string) => ({
+  getDb: jest.fn(() => ({
+    collection: jest.fn(() => ({
       add: mockAdd,
       get: mockGet,
       doc: mockDoc,
+      where: jest.fn(() => ({
+        get: mockGet,
+      })),
     })),
-  },
+  })),
 }));
 
 describe('BusService', () => {
@@ -52,9 +55,11 @@ describe('BusService', () => {
         }),
       };
 
+      // @ts-ignore - Mock return value
       mockAdd.mockResolvedValue(mockDocRef);
 
       const input = {
+        busNumber: 1,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes Sprinter',
         year: 2024,
@@ -82,16 +87,20 @@ describe('BusService', () => {
             status: BusStatus.ACTIVE,
             maintenanceStatus: BusMaintenanceStatus.OK,
             driverId: null,
+            escortId: null,
             routeId: null,
+            studentIds: [],
           }),
           createTime: { toDate: () => new Date() },
           updateTime: { toDate: () => new Date() },
         }),
       };
 
+      // @ts-ignore - Mock return value
       mockAdd.mockResolvedValue(mockDocRef);
 
       const input = {
+        busNumber: 1,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes Sprinter',
         year: 2024,
@@ -101,13 +110,16 @@ describe('BusService', () => {
       const result = await busService.createBus(input);
 
       expect(result.driverId).toBeNull();
+      expect(result.escortId).toBeNull();
       expect(result.routeId).toBeNull();
+      expect(result.studentIds).toEqual([]);
       expect(result.maintenanceStatus).toBe(BusMaintenanceStatus.OK);
     });
   });
 
   describe('getAllBuses', () => {
     it('retourne une liste vide quand aucun bus', async () => {
+      // @ts-ignore - Mock return value
       mockGet.mockResolvedValue({
         docs: [],
       });
@@ -148,13 +160,14 @@ describe('BusService', () => {
         },
       ];
 
+      // @ts-ignore - Mock return value
       mockGet.mockResolvedValue({ docs: mockDocs });
 
       const result = await busService.getAllBuses();
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('bus-1');
-      expect(result[1].id).toBe('bus-2');
+      expect(result[0]!.id).toBe('bus-1');
+      expect(result[1]!.id).toBe('bus-2');
     });
   });
 
@@ -273,6 +286,115 @@ describe('BusService', () => {
       await expect(busService.deleteBus('bus-inexistant')).rejects.toThrow(
         'Bus with ID bus-inexistant not found'
       );
+    });
+  });
+
+  describe('Bus escort and students management', () => {
+    it('permet d\'assigner un convoyeur à un bus', async () => {
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
+          .mockResolvedValueOnce({ exists: true })
+          .mockResolvedValueOnce({
+            exists: true,
+            id: 'bus-123',
+            data: () => ({
+              plateNumber: 'TU 123 TN 456',
+              model: 'Mercedes',
+              year: 2024,
+              capacity: 50,
+              status: BusStatus.ACTIVE,
+              escortId: 'escort-456',
+              driverId: null,
+              routeId: null,
+              studentIds: [],
+            }),
+            createTime: { toDate: () => new Date() },
+            updateTime: { toDate: () => new Date() },
+          }),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
+      };
+
+      mockDoc.mockReturnValue(mockDocRef);
+
+      const result = await busService.updateBus('bus-123', {
+        escortId: 'escort-456',
+      });
+
+      expect(result.escortId).toBe('escort-456');
+      expect(mockDocRef.update).toHaveBeenCalled();
+    });
+
+    it('permet d\'assigner une liste d\'élèves à un bus', async () => {
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
+          .mockResolvedValueOnce({ exists: true })
+          .mockResolvedValueOnce({
+            exists: true,
+            id: 'bus-123',
+            data: () => ({
+              plateNumber: 'TU 123 TN 456',
+              model: 'Mercedes',
+              year: 2024,
+              capacity: 50,
+              status: BusStatus.ACTIVE,
+              escortId: null,
+              driverId: null,
+              routeId: null,
+              studentIds: ['student-1', 'student-2', 'student-3'],
+            }),
+            createTime: { toDate: () => new Date() },
+            updateTime: { toDate: () => new Date() },
+          }),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
+      };
+
+      mockDoc.mockReturnValue(mockDocRef);
+
+      const result = await busService.updateBus('bus-123', {
+        studentIds: ['student-1', 'student-2', 'student-3'],
+      });
+
+      expect(result.studentIds).toEqual(['student-1', 'student-2', 'student-3']);
+      expect(result.studentIds).toHaveLength(3);
+    });
+
+    it('permet d\'assigner chauffeur, convoyeur et élèves en une seule opération', async () => {
+      const mockDocRef: any = {
+        get: (jest.fn() as any)
+          .mockResolvedValueOnce({ exists: true })
+          .mockResolvedValueOnce({
+            exists: true,
+            id: 'bus-123',
+            data: () => ({
+              plateNumber: 'TU 123 TN 456',
+              model: 'Mercedes',
+              year: 2024,
+              capacity: 50,
+              status: BusStatus.ACTIVE,
+              driverId: 'driver-789',
+              escortId: 'escort-456',
+              routeId: 'route-001',
+              studentIds: ['student-1', 'student-2'],
+            }),
+            createTime: { toDate: () => new Date() },
+            updateTime: { toDate: () => new Date() },
+          }),
+        update: (jest.fn() as any).mockResolvedValue(undefined),
+      };
+
+      mockDoc.mockReturnValue(mockDocRef);
+
+      const result = await busService.updateBus('bus-123', {
+        driverId: 'driver-789',
+        escortId: 'escort-456',
+        routeId: 'route-001',
+        studentIds: ['student-1', 'student-2'],
+      });
+
+      expect(result.driverId).toBe('driver-789');
+      expect(result.escortId).toBe('escort-456');
+      expect(result.routeId).toBe('route-001');
+      expect(result.studentIds).toEqual(['student-1', 'student-2']);
     });
   });
 });

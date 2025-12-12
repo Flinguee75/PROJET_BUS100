@@ -77,10 +77,22 @@ export const busUpdateSchema = z.object({
     .max(new Date().getFullYear() + 1)
     .optional(),
   driverId: z.string().nullable().optional(),
+  escortId: z.string().nullable().optional(),
   routeId: z.string().nullable().optional(),
+  studentIds: z.array(z.string()).optional(),
   status: z.enum(['active', 'inactive', 'in_maintenance', 'out_of_service']).optional(),
   maintenanceStatus: z.enum(['ok', 'warning', 'critical']).optional(),
 });
+
+/**
+ * Schéma TimeOfDay
+ */
+export const timeOfDaySchema = z.enum([
+  'morning_outbound',
+  'midday_outbound',
+  'midday_return',
+  'evening_return',
+]);
 
 /**
  * Schéma Student Create
@@ -91,10 +103,15 @@ export const studentCreateSchema = z.object({
   dateOfBirth: z.string().datetime().or(z.date()),
   grade: z.string().min(1),
   parentIds: z.array(z.string()).min(1, 'Au moins un parent requis'),
-  commune: z.string().min(1, 'Commune requise').optional(),
-  quartier: z.string().min(1, 'Quartier requis').optional(),
-  pickupLocation: locationSchema,
-  dropoffLocation: locationSchema,
+  commune: z.string().min(1, 'Commune requise'),
+  quartier: z.string().min(1, 'Quartier requis'),
+  locations: z.object({
+    morningPickup: locationSchema.optional(),
+    middayDropoff: locationSchema.optional(),
+    middayPickup: locationSchema.optional(),
+    eveningDropoff: locationSchema.optional(),
+  }),
+  activeTrips: z.array(timeOfDaySchema),
   specialNeeds: z.string().optional(),
 });
 
@@ -110,8 +127,13 @@ export const studentUpdateSchema = z.object({
   quartier: z.string().min(1).optional(),
   busId: z.string().nullable().optional(),
   routeId: z.string().nullable().optional(),
-  pickupLocation: locationSchema.optional(),
-  dropoffLocation: locationSchema.optional(),
+  locations: z.object({
+    morningPickup: locationSchema.optional(),
+    middayDropoff: locationSchema.optional(),
+    middayPickup: locationSchema.optional(),
+    eveningDropoff: locationSchema.optional(),
+  }).optional(),
+  activeTrips: z.array(timeOfDaySchema).optional(),
   specialNeeds: z.string().optional(),
   isActive: z.boolean().optional(),
 });
@@ -148,7 +170,7 @@ export const userCreateSchema = z.object({
   email: z.string().email('Email invalide'),
   displayName: z.string().min(2, 'Nom trop court'),
   phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide'),
-  role: z.enum(['admin', 'driver', 'parent']),
+  role: z.enum(['admin', 'driver', 'escort', 'parent']),
 });
 
 /**

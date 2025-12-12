@@ -78,13 +78,13 @@ export class RouteGenerationService {
       throw new Error(`No students assigned to bus ${busId}`);
     }
 
-    // Extraire les pickup locations des élèves
-    const pickupLocations: Array<{ location: Location; student: Student }> = students.map(
-      (student) => ({
-        location: student.pickupLocation,
+    // Extraire les pickup locations des élèves (matin par défaut)
+    const pickupLocations: Array<{ location: Location; student: Student }> = students
+      .filter((student) => student.locations?.morningPickup || student.pickupLocation)
+      .map((student) => ({
+        location: (student.locations?.morningPickup || student.pickupLocation)!,
         student,
-      })
-    );
+      }));
 
     // Déterminer l'heure de départ
     const departureTime = bus.preferredDepartureTime || '07:00';
@@ -143,10 +143,14 @@ export class RouteGenerationService {
       quartiers,
       stops: optimizedStops,
       schedule: {
-        morningDeparture: departureTime,
-        morningArrival: arrivalTime,
-        afternoonDeparture: '15:30', // Par défaut
-        afternoonArrival: '16:30', // Par défaut
+        morningOutbound: {
+          departure: departureTime,
+          arrival: arrivalTime,
+        },
+        eveningReturn: {
+          departure: '15:30', // Par défaut
+          arrival: '16:30', // Par défaut
+        },
       },
       totalDistanceKm: totalStats.distanceKm,
       estimatedDurationMinutes: totalStats.durationMinutes,
@@ -195,6 +199,7 @@ export class RouteGenerationService {
           studentId: s.studentId,
           estimatedArrivalTime: s.estimatedArrivalTime,
           relativeTimeMinutes: s.relativeTimeMinutes,
+          activeTimeSlots: s.activeTimeSlots,
         })),
         schedule: routeData.schedule,
         totalDistanceKm: routeData.totalDistanceKm,
@@ -234,6 +239,7 @@ export class RouteGenerationService {
           studentId: s.studentId,
           estimatedArrivalTime: s.estimatedArrivalTime,
           relativeTimeMinutes: s.relativeTimeMinutes,
+          activeTimeSlots: s.activeTimeSlots,
         })),
         schedule: routeData.schedule,
         totalDistanceKm: routeData.totalDistanceKm,
@@ -466,6 +472,7 @@ export class RouteGenerationService {
         studentId: student?.id,
         estimatedArrivalTime: eta.absoluteTime,
         relativeTimeMinutes: eta.relativeMinutes,
+        activeTimeSlots: student?.activeTrips || ['morning_outbound', 'evening_return'],
       };
     });
 
@@ -514,6 +521,7 @@ export class RouteGenerationService {
         studentId: item.student.id,
         estimatedArrivalTime: eta.absoluteTime,
         relativeTimeMinutes: eta.relativeMinutes,
+        activeTimeSlots: item.student.activeTrips || ['morning_outbound', 'evening_return'],
       };
     });
 

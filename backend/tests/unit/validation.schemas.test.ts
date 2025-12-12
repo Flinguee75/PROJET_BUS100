@@ -355,17 +355,22 @@ describe('Validation Schemas', () => {
         dateOfBirth: '2010-05-15T00:00:00Z',
         grade: 'CM2',
         parentIds: ['parent-001', 'parent-002'],
-        pickupLocation: {
-          address: '123 Rue de Paris',
-          lat: 48.8566,
-          lng: 2.3522,
-          notes: 'Devant la boulangerie',
+        commune: 'Yopougon',
+        quartier: 'Zone 5',
+        locations: {
+          morningPickup: {
+            address: '123 Rue de Paris',
+            lat: 48.8566,
+            lng: 2.3522,
+            notes: 'Devant la boulangerie',
+          },
+          eveningDropoff: {
+            address: '456 Rue de Lyon',
+            lat: 48.8600,
+            lng: 2.3550,
+          },
         },
-        dropoffLocation: {
-          address: '456 Rue de Lyon',
-          lat: 48.8600,
-          lng: 2.3550,
-        },
+        activeTrips: ['morning_outbound', 'evening_return'],
         specialNeeds: 'Allergies alimentaires',
       };
 
@@ -380,16 +385,21 @@ describe('Validation Schemas', () => {
         dateOfBirth: new Date('2012-08-20'),
         grade: 'CE2',
         parentIds: ['parent-003'],
-        pickupLocation: {
-          address: '789 Avenue des Champs',
-          lat: 48.8700,
-          lng: 2.3600,
+        commune: 'Cocody',
+        quartier: 'Anoumabo',
+        locations: {
+          middayPickup: {
+            address: '789 Avenue des Champs',
+            lat: 48.8700,
+            lng: 2.3600,
+          },
+          middayDropoff: {
+            address: '101 Boulevard Voltaire',
+            lat: 48.8650,
+            lng: 2.3700,
+          },
         },
-        dropoffLocation: {
-          address: '101 Boulevard Voltaire',
-          lat: 48.8650,
-          lng: 2.3700,
-        },
+        activeTrips: ['midday_outbound'],
       };
 
       const result = studentCreateSchema.safeParse(validData);

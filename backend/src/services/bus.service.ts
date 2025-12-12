@@ -24,45 +24,58 @@ export class BusService {
   }
 
   /**
-   * Enrichit un bus avec le nom du chauffeur
+   * Enrichit un bus avec le nom du chauffeur et du convoyeur
    * @param bus - Bus à enrichir
-   * @returns Bus enrichi avec driverName
+   * @returns Bus enrichi avec driverName et escortName
    */
   private async enrichWithDriverName(bus: Bus): Promise<Bus> {
-    if (!bus.driverId) {
-      return { ...bus, driverName: null };
+    let enrichedBus = { ...bus, driverName: null, escortName: null };
+
+    // Enrichir avec le nom du chauffeur
+    if (bus.driverId) {
+      try {
+        const driverDoc = await this.getUsersCollection().doc(bus.driverId).get();
+        if (driverDoc.exists) {
+          const driverData = driverDoc.data();
+          if (driverData?.role === UserRole.DRIVER) {
+            enrichedBus.driverName = driverData.displayName || null;
+          }
+        }
+      } catch (error) {
+        console.error(`Error enriching bus ${bus.id} with driver name:`, error);
+      }
     }
 
-    try {
-      const driverDoc = await this.getUsersCollection().doc(bus.driverId).get();
-      if (!driverDoc.exists) {
-        return { ...bus, driverName: null };
+    // Enrichir avec le nom du convoyeur
+    if (bus.escortId) {
+      try {
+        const escortDoc = await this.getUsersCollection().doc(bus.escortId).get();
+        if (escortDoc.exists) {
+          const escortData = escortDoc.data();
+          if (escortData?.role === UserRole.ESCORT) {
+            enrichedBus.escortName = escortData.displayName || null;
+          }
+        }
+      } catch (error) {
+        console.error(`Error enriching bus ${bus.id} with escort name:`, error);
       }
-
-      const driverData = driverDoc.data();
-      if (driverData?.role !== UserRole.DRIVER) {
-        return { ...bus, driverName: null };
-      }
-
-      return { ...bus, driverName: driverData.displayName || null };
-    } catch (error) {
-      // En cas d'erreur, retourner le bus sans le nom du chauffeur
-      console.error(`Error enriching bus ${bus.id} with driver name:`, error);
-      return { ...bus, driverName: null };
     }
+
+    return enrichedBus;
   }
 
   /**
-   * Enrichit plusieurs bus avec les noms des chauffeurs
+   * Enrichit plusieurs bus avec les noms des chauffeurs et convoyeurs
    * @param buses - Liste des bus à enrichir
-   * @returns Buses enrichis avec driverName
+   * @returns Buses enrichis avec driverName et escortName
    */
   private async enrichBusesWithDriverNames(buses: Bus[]): Promise<Bus[]> {
-    // Récupérer tous les IDs de chauffeurs uniques
+    // Récupérer tous les IDs de chauffeurs et convoyeurs uniques
     const driverIds = [...new Set(buses.map(b => b.driverId).filter(id => id !== null))] as string[];
+    const escortIds = [...new Set(buses.map(b => b.escortId).filter(id => id !== null))] as string[];
 
-    if (driverIds.length === 0) {
-      return buses.map(bus => ({ ...bus, driverName: null }));
+    if (driverIds.length === 0 && escortIds.length === 0) {
+      return buses.map(bus => ({ ...bus, driverName: null, escortName: null }));
     }
 
     // Récupérer tous les chauffeurs en une seule requête
@@ -70,7 +83,12 @@ export class BusService {
       .where('role', '==', UserRole.DRIVER)
       .get();
 
-    // Créer une map ID -> nom
+    // Récupérer tous les convoyeurs en une seule requête
+    const escortsSnapshot = await this.getUsersCollection()
+      .where('role', '==', UserRole.ESCORT)
+      .get();
+
+    // Créer des maps ID -> nom
     const driverNamesMap = new Map<string, string>();
     driversSnapshot.docs.forEach(doc => {
       const data = doc.data();
@@ -79,10 +97,19 @@ export class BusService {
       }
     });
 
+    const escortNamesMap = new Map<string, string>();
+    escortsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.displayName) {
+        escortNamesMap.set(doc.id, data.displayName);
+      }
+    });
+
     // Enrichir les bus
     return buses.map(bus => ({
       ...bus,
       driverName: bus.driverId ? (driverNamesMap.get(bus.driverId) || null) : null,
+      escortName: bus.escortId ? (escortNamesMap.get(bus.escortId) || null) : null,
     }));
   }
 
@@ -98,7 +125,9 @@ export class BusService {
       status: BusStatus.ACTIVE,
       maintenanceStatus: BusMaintenanceStatus.OK,
       driverId: null,
+      escortId: null,
       routeId: null,
+      studentIds: [],
       createdAt: now,
       updatedAt: now,
     };

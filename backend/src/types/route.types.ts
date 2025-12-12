@@ -4,6 +4,16 @@
  */
 
 /**
+ * Moments de la journée pour les trajets scolaires
+ */
+export enum TimeOfDay {
+  MORNING_OUTBOUND = 'morning_outbound',      // Matin : maison → école
+  MIDDAY_OUTBOUND = 'midday_outbound',        // Midi : école → maison (demi-pensionnaires)
+  MIDDAY_RETURN = 'midday_return',            // Midi : maison → école (retour demi-pensionnaires)
+  EVENING_RETURN = 'evening_return'           // Soir : école → maison
+}
+
+/**
  * Communes principales d'Abidjan
  */
 export enum CommuneAbidjan {
@@ -38,6 +48,7 @@ export interface RouteStop {
   type: 'pickup' | 'dropoff' | 'both'; // Type d'arrêt
   quartier: string; // Quartier précis
   notes?: string; // Instructions spéciales
+  activeTimeSlots: TimeOfDay[]; // Moments où cet arrêt est actif
 
   // Champs pour génération automatique
   studentId?: string; // ID de l'élève associé à cet arrêt
@@ -61,12 +72,24 @@ export interface Route {
   // Points de passage
   stops: RouteStop[];
 
-  // Horaires
+  // Horaires pour les 4 périodes de la journée
   schedule: {
-    morningDeparture: string; // HH:mm (ex: "07:00")
-    morningArrival: string; // HH:mm (ex: "08:00")
-    afternoonDeparture: string; // HH:mm (ex: "15:30")
-    afternoonArrival: string; // HH:mm (ex: "16:30")
+    morningOutbound?: {
+      departure: string; // HH:mm (ex: "07:00")
+      arrival: string;   // HH:mm (ex: "08:00")
+    };
+    middayOutbound?: {
+      departure: string; // HH:mm (ex: "11:45")
+      arrival: string;   // HH:mm (ex: "12:45")
+    };
+    middayReturn?: {
+      departure: string; // HH:mm (ex: "13:00")
+      arrival: string;   // HH:mm (ex: "14:00")
+    };
+    eveningReturn?: {
+      departure: string; // HH:mm (ex: "15:30")
+      arrival: string;   // HH:mm (ex: "16:30")
+    };
   };
 
   // Métadonnées
@@ -117,10 +140,22 @@ export interface RouteCreateInput {
   quartiers: string[];
   stops: Omit<RouteStop, 'id'>[];
   schedule: {
-    morningDeparture: string;
-    morningArrival: string;
-    afternoonDeparture: string;
-    afternoonArrival: string;
+    morningOutbound?: {
+      departure: string;
+      arrival: string;
+    };
+    middayOutbound?: {
+      departure: string;
+      arrival: string;
+    };
+    middayReturn?: {
+      departure: string;
+      arrival: string;
+    };
+    eveningReturn?: {
+      departure: string;
+      arrival: string;
+    };
   };
   totalDistanceKm: number;
   estimatedDurationMinutes: number;
@@ -141,10 +176,22 @@ export interface RouteUpdateInput {
   quartiers?: string[];
   stops?: Omit<RouteStop, 'id'>[];
   schedule?: {
-    morningDeparture: string;
-    morningArrival: string;
-    afternoonDeparture: string;
-    afternoonArrival: string;
+    morningOutbound?: {
+      departure: string;
+      arrival: string;
+    };
+    middayOutbound?: {
+      departure: string;
+      arrival: string;
+    };
+    middayReturn?: {
+      departure: string;
+      arrival: string;
+    };
+    eveningReturn?: {
+      departure: string;
+      arrival: string;
+    };
   };
   totalDistanceKm?: number;
   estimatedDurationMinutes?: number;

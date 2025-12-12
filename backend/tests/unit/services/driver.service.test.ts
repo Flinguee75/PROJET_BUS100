@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour DriverService
  * Teste toutes les opérations CRUD sur les chauffeurs
@@ -8,12 +9,12 @@ import { DriverService } from '../../../src/services/driver.service';
 import { UserRole } from '../../../src/types/user.types';
 
 // Mock Firestore
-const mockAdd = jest.fn<any, any>();
-const mockGet = jest.fn<any, any>();
-const mockDoc = jest.fn<any, any>();
-const mockUpdate = jest.fn<any, any>();
-const mockWhere = jest.fn<any, any>();
-const mockLimit = jest.fn<any, any>();
+const mockAdd = jest.fn() as jest.Mock;
+const mockGet = jest.fn() as jest.Mock;
+const mockDoc = jest.fn() as jest.Mock;
+const mockUpdate = jest.fn() as jest.Mock;
+const mockWhere = jest.fn() as jest.Mock;
+const mockLimit = jest.fn() as jest.Mock;
 
 jest.mock('../../../src/config/firebase.config', () => ({
   getDb: jest.fn(() => ({
@@ -171,8 +172,8 @@ describe('DriverService', () => {
       const result = await driverService.getAllDrivers();
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('driver-1');
-      expect(result[1].id).toBe('driver-2');
+      expect(result[0]!.id).toBe('driver-1');
+      expect(result[1]!.id).toBe('driver-2');
     });
   });
 
@@ -270,7 +271,7 @@ describe('DriverService', () => {
       const result = await driverService.getAvailableDrivers();
 
       expect(result).toHaveLength(1);
-      expect(result[0].busId).toBeNull();
+      expect(result[0]!.busId).toBeNull();
       expect(mockWhere).toHaveBeenCalledWith('busId', '==', null);
     });
   });
@@ -501,4 +502,3 @@ describe('DriverService', () => {
     });
   });
 });
-

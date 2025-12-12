@@ -20,7 +20,8 @@
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
-    "seed": "ts-node src/scripts/seed-mock-data.ts",
+    "seed": "ts-node src/scripts/seed-data.ts",
+    "seed:old": "ts-node src/scripts/seed-mock-data.ts",
     "create-user-emulator": "ts-node scripts/create-user-emulator.ts",
     "dev:init": "./scripts/dev-init.sh",
     "dev:init:js": "node scripts/dev-init.js"

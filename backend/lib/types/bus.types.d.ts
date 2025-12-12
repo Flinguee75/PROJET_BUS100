@@ -7,7 +7,10 @@ export interface Bus {
     year: number;
     driverId: string | null;
     driverName?: string | null;
+    escortId: string | null;
+    escortName?: string | null;
     routeId: string | null;
+    studentIds: string[];
     status: BusStatus;
     maintenanceStatus: BusMaintenanceStatus;
     assignedCommune?: string;
@@ -41,7 +44,9 @@ export interface BusUpdateInput {
     model?: string;
     year?: number;
     driverId?: string | null;
+    escortId?: string | null;
     routeId?: string | null;
+    studentIds?: string[];
     status?: BusStatus;
     maintenanceStatus?: BusMaintenanceStatus;
     assignedCommune?: string;

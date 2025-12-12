@@ -84,7 +84,9 @@ export declare const busUpdateSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
     year: z.ZodOptional<z.ZodNumber>;
     driverId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    escortId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     routeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    studentIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     status: z.ZodOptional<z.ZodEnum<["active", "inactive", "in_maintenance", "out_of_service"]>>;
     maintenanceStatus: z.ZodOptional<z.ZodEnum<["ok", "warning", "critical"]>>;
 }, "strip", z.ZodTypeAny, {
@@ -94,7 +96,9 @@ export declare const busUpdateSchema: z.ZodObject<{
     model?: string | undefined;
     year?: number | undefined;
     driverId?: string | null | undefined;
+    escortId?: string | null | undefined;
     routeId?: string | null | undefined;
+    studentIds?: string[] | undefined;
     maintenanceStatus?: "ok" | "warning" | "critical" | undefined;
 }, {
     status?: "active" | "inactive" | "in_maintenance" | "out_of_service" | undefined;
@@ -103,49 +107,137 @@ export declare const busUpdateSchema: z.ZodObject<{
     model?: string | undefined;
     year?: number | undefined;
     driverId?: string | null | undefined;
+    escortId?: string | null | undefined;
     routeId?: string | null | undefined;
+    studentIds?: string[] | undefined;
     maintenanceStatus?: "ok" | "warning" | "critical" | undefined;
 }>;
+export declare const timeOfDaySchema: z.ZodEnum<["morning_outbound", "midday_outbound", "midday_return", "evening_return"]>;
 export declare const studentCreateSchema: z.ZodObject<{
     firstName: z.ZodString;
     lastName: z.ZodString;
     dateOfBirth: z.ZodUnion<[z.ZodString, z.ZodDate]>;
     grade: z.ZodString;
     parentIds: z.ZodArray<z.ZodString, "many">;
-    commune: z.ZodOptional<z.ZodString>;
-    quartier: z.ZodOptional<z.ZodString>;
-    pickupLocation: z.ZodObject<{
-        address: z.ZodString;
-        lat: z.ZodNumber;
-        lng: z.ZodNumber;
-        notes: z.ZodOptional<z.ZodString>;
+    commune: z.ZodString;
+    quartier: z.ZodString;
+    locations: z.ZodObject<{
+        morningPickup: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        middayDropoff: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        middayPickup: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        eveningDropoff: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
     }, "strip", z.ZodTypeAny, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     }, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     }>;
-    dropoffLocation: z.ZodObject<{
-        address: z.ZodString;
-        lat: z.ZodNumber;
-        lng: z.ZodNumber;
-        notes: z.ZodOptional<z.ZodString>;
-    }, "strip", z.ZodTypeAny, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    }, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    }>;
+    activeTrips: z.ZodArray<z.ZodEnum<["morning_outbound", "midday_outbound", "midday_return", "evening_return"]>, "many">;
     specialNeeds: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     firstName: string;
@@ -153,20 +245,35 @@ export declare const studentCreateSchema: z.ZodObject<{
     dateOfBirth: string | Date;
     grade: string;
     parentIds: string[];
-    pickupLocation: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+    commune: string;
+    quartier: string;
+    locations: {
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     };
-    dropoffLocation: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    };
-    commune?: string | undefined;
-    quartier?: string | undefined;
+    activeTrips: ("morning_outbound" | "midday_outbound" | "midday_return" | "evening_return")[];
     specialNeeds?: string | undefined;
 }, {
     firstName: string;
@@ -174,20 +281,35 @@ export declare const studentCreateSchema: z.ZodObject<{
     dateOfBirth: string | Date;
     grade: string;
     parentIds: string[];
-    pickupLocation: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+    commune: string;
+    quartier: string;
+    locations: {
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     };
-    dropoffLocation: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    };
-    commune?: string | undefined;
-    quartier?: string | undefined;
+    activeTrips: ("morning_outbound" | "midday_outbound" | "midday_return" | "evening_return")[];
     specialNeeds?: string | undefined;
 }>;
 export declare const studentUpdateSchema: z.ZodObject<{
@@ -199,38 +321,123 @@ export declare const studentUpdateSchema: z.ZodObject<{
     quartier: z.ZodOptional<z.ZodString>;
     busId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     routeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    pickupLocation: z.ZodOptional<z.ZodObject<{
-        address: z.ZodString;
-        lat: z.ZodNumber;
-        lng: z.ZodNumber;
-        notes: z.ZodOptional<z.ZodString>;
+    locations: z.ZodOptional<z.ZodObject<{
+        morningPickup: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        middayDropoff: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        middayPickup: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
+        eveningDropoff: z.ZodOptional<z.ZodObject<{
+            address: z.ZodString;
+            lat: z.ZodNumber;
+            lng: z.ZodNumber;
+            notes: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }, {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        }>>;
     }, "strip", z.ZodTypeAny, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     }, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     }>>;
-    dropoffLocation: z.ZodOptional<z.ZodObject<{
-        address: z.ZodString;
-        lat: z.ZodNumber;
-        lng: z.ZodNumber;
-        notes: z.ZodOptional<z.ZodString>;
-    }, "strip", z.ZodTypeAny, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    }, {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    }>>;
+    activeTrips: z.ZodOptional<z.ZodArray<z.ZodEnum<["morning_outbound", "midday_outbound", "midday_return", "evening_return"]>, "many">>;
     specialNeeds: z.ZodOptional<z.ZodString>;
     isActive: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
@@ -242,18 +449,33 @@ export declare const studentUpdateSchema: z.ZodObject<{
     grade?: string | undefined;
     commune?: string | undefined;
     quartier?: string | undefined;
-    pickupLocation?: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+    locations?: {
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     } | undefined;
-    dropoffLocation?: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    } | undefined;
+    activeTrips?: ("morning_outbound" | "midday_outbound" | "midday_return" | "evening_return")[] | undefined;
     specialNeeds?: string | undefined;
     isActive?: boolean | undefined;
 }, {
@@ -265,18 +487,33 @@ export declare const studentUpdateSchema: z.ZodObject<{
     grade?: string | undefined;
     commune?: string | undefined;
     quartier?: string | undefined;
-    pickupLocation?: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
+    locations?: {
+        morningPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        middayPickup?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
+        eveningDropoff?: {
+            lat: number;
+            lng: number;
+            address: string;
+            notes?: string | undefined;
+        } | undefined;
     } | undefined;
-    dropoffLocation?: {
-        lat: number;
-        lng: number;
-        address: string;
-        notes?: string | undefined;
-    } | undefined;
+    activeTrips?: ("morning_outbound" | "midday_outbound" | "midday_return" | "evening_return")[] | undefined;
     specialNeeds?: string | undefined;
     isActive?: boolean | undefined;
 }>;
@@ -331,17 +568,17 @@ export declare const userCreateSchema: z.ZodObject<{
     email: z.ZodString;
     displayName: z.ZodString;
     phoneNumber: z.ZodString;
-    role: z.ZodEnum<["admin", "driver", "parent"]>;
+    role: z.ZodEnum<["admin", "driver", "escort", "parent"]>;
 }, "strip", z.ZodTypeAny, {
     email: string;
     displayName: string;
     phoneNumber: string;
-    role: "admin" | "driver" | "parent";
+    role: "admin" | "driver" | "escort" | "parent";
 }, {
     email: string;
     displayName: string;
     phoneNumber: string;
-    role: "admin" | "driver" | "parent";
+    role: "admin" | "driver" | "escort" | "parent";
 }>;
 export declare const notificationCreateSchema: z.ZodObject<{
     type: z.ZodEnum<["bus_arriving", "bus_delayed", "bus_breakdown", "student_absent", "route_changed", "maintenance_due", "general"]>;
@@ -557,7 +794,9 @@ export declare const busUpdateWithAutoGenSchema: z.ZodObject<{
     model: z.ZodOptional<z.ZodString>;
     year: z.ZodOptional<z.ZodNumber>;
     driverId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    escortId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     routeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    studentIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     status: z.ZodOptional<z.ZodEnum<["active", "inactive", "in_maintenance", "out_of_service"]>>;
     maintenanceStatus: z.ZodOptional<z.ZodEnum<["ok", "warning", "critical"]>>;
 } & {
@@ -571,7 +810,9 @@ export declare const busUpdateWithAutoGenSchema: z.ZodObject<{
     model?: string | undefined;
     year?: number | undefined;
     driverId?: string | null | undefined;
+    escortId?: string | null | undefined;
     routeId?: string | null | undefined;
+    studentIds?: string[] | undefined;
     maintenanceStatus?: "ok" | "warning" | "critical" | undefined;
     assignedCommune?: string | undefined;
     assignedQuartiers?: string[] | undefined;
@@ -583,7 +824,9 @@ export declare const busUpdateWithAutoGenSchema: z.ZodObject<{
     model?: string | undefined;
     year?: number | undefined;
     driverId?: string | null | undefined;
+    escortId?: string | null | undefined;
     routeId?: string | null | undefined;
+    studentIds?: string[] | undefined;
     maintenanceStatus?: "ok" | "warning" | "critical" | undefined;
     assignedCommune?: string | undefined;
     assignedQuartiers?: string[] | undefined;
