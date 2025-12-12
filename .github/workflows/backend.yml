@@ -49,6 +49,15 @@ jobs:
         working-directory: backend
         run: npm run build
 
+      - name: 🔎 Verify build output
+        working-directory: backend
+        run: |
+          if [ ! -d "lib" ]; then
+            echo "❌ Build failed: lib directory not found"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+
       - name: 🚀 Deploy to Firebase Functions (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: backend
