@@ -59,3 +59,5 @@ export interface GPSHistoryQuery {
   startDate: Date;
   endDate: Date;
 }
+
+// Note: BusRealtimeData, DriverInfo, RouteInfo sont définis dans realtime.types.ts

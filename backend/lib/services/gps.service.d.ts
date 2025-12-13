@@ -1,6 +1,7 @@
 import { GPSUpdateInput, GPSLiveData, GPSHistoryEntry } from '../types';
 export declare class GPSService {
     updateGPSPosition(data: GPSUpdateInput): Promise<GPSLiveData>;
+    private enrichGPSDataWithBusInfo;
     private archiveGPSPosition;
     private determineBusStatus;
     getLivePosition(busId: string): Promise<GPSLiveData | null>;

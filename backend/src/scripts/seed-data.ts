@@ -15,8 +15,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Configuration pour les émulateurs Firebase
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
 // Initialiser Firebase Admin
 if (!admin.apps.length) {
@@ -43,42 +43,69 @@ const db = admin.firestore();
 // DONNÉES DE BASE
 // ==============================================
 
+const defaultSchool = {
+  
+  id: 'school-grain-de-soleil',
+  name: 'Ecole Grain de Soleil',
+  location: {
+    lat: 5.351824,
+    lng: -3.953979,
+  },
+  address: '922W+PCC, Abidjan, Côte d\'Ivoire (Cocody / Riviera)',
+  contactEmail: 'contact@grain-de-soleil.ci',
+  contactPhone: '+225 07 12 34 56 78',
+  fleetSize: 5,
+  createdAt: Timestamp.now(),
+  updatedAt: Timestamp.now(),
+  isActive: true,
+};
+const defaultSchoolId = defaultSchool.id;
+
 const prénoms = ['Kouassi', 'Aya', 'Koné', 'Fatou', 'Mamadou', 'Aïcha', 'Ibrahim', 'Aminata', 'Sébastien', 'Mariam'];
 const noms = ['Traoré', 'Ouattara', 'Coulibaly', 'Sanogo', 'Diallo', 'Bamba', 'Konaté', 'Touré', 'Yao', 'Kouamé'];
 
 // Note: quartiersByCommune disponible pour extensions futures
 
-// Coordonnées réelles d'Abidjan
+// Coordonnées réelles d'Abidjan - Quartiers autour de l'école Grain de Soleil
 const coordonnées = {
-  'Cocody-Riviera': { lat: 5.3600, lng: -4.0083 },
-  'Cocody-IIPlateaux': { lat: 5.3650, lng: -4.0100 },
-  'Cocody-Angré': { lat: 5.3700, lng: -4.0120 },
-  'Yopougon-Niangon': { lat: 5.3500, lng: -4.0500 },
-  'Yopougon-Maroc': { lat: 5.3450, lng: -4.0600 },
-  'Abobo-Gare': { lat: 5.4235, lng: -4.0196 },
-  'Adjamé-Liberté': { lat: 5.3567, lng: -4.0239 },
-  'Marcory-Zone4': { lat: 5.2886, lng: -3.9863 },
-  'École-Cocody': { lat: 5.3550, lng: -4.0050 },
-  'École-Plateau': { lat: 5.3223, lng: -4.0415 },
+  'Cocody-RivieraBonoumin': { lat: 5.362691, lng: -3.973329 },
+  'Cocody-RivieraPalmeraie': { lat: 5.368859, lng: -3.956818 },
+  'Cocody-AkouédoVillage': { lat: 5.351122, lng: -3.942706 },
+  'Cocody-M\'Pouto': { lat: 5.326388, lng: -3.955677 },
+  'Cocody-Riviera2': { lat: 5.344162, lng: -3.978827 },
+  // Coordonnées de l'école
+  'École-Cocody': { lat: 5.351824, lng: -3.953979 },
 };
 
 // ==============================================
 // FONCTION HELPERS
 // ==============================================
 
-async function checkEmulators() {
-  try {
-    await db.collection('_test').doc('_test').set({ test: true });
-    await db.collection('_test').doc('_test').delete();
-    return true;
-  } catch (error) {
-    console.error('❌ Erreur : Les émulateurs Firebase ne sont pas démarrés !\n');
-    console.log('📌 Pour démarrer les émulateurs :');
-    console.log('   1. cd backend');
-    console.log('   2. npm run serve\n');
-    console.log('💡 Puis relancez : npm run seed\n');
-    return false;
+async function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function checkEmulators(maxAttempts = 10) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await db.collection('_test').doc('_test').set({ test: true });
+      await db.collection('_test').doc('_test').delete();
+      return true;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`⚠️  Tentative ${attempt}/${maxAttempts} – émulateurs indisponibles (${reason}).`);
+      if (attempt === maxAttempts) {
+        console.error('❌ Erreur : Les émulateurs Firebase ne sont pas démarrés !\n');
+        console.log('📌 Pour démarrer les émulateurs :');
+        console.log('   1. cd backend');
+        console.log('   2. npm run serve\n');
+        console.log('💡 Puis relancez : npm run seed\n');
+        return false;
+      }
+      await wait(3000);
+    }
   }
+  return false;
 }
 
 function randomChoice<T>(array: T[]): T {
@@ -102,6 +129,13 @@ async function seedData() {
   }
 
   // ==================================================
+  // 0. CRÉER L'ÉCOLE PAR DÉFAUT
+  // ==================================================
+  console.log('🏫 Création de l\'école principale...');
+  await db.collection('schools').doc(defaultSchoolId).set(defaultSchool);
+  console.log(`✅ École enregistrée: ${defaultSchool.name} (${defaultSchool.address})\n`);
+
+  // ==================================================
   // 1. CRÉER LES CHAUFFEURS
   // ==================================================
   console.log('👨‍✈️ Création des chauffeurs...');
@@ -113,6 +147,7 @@ async function seedData() {
       email: `chauffeur${i}@bus-abidjan.ci`,
       displayName: `${randomChoice(prénoms)} ${randomChoice(noms)}`,
       phoneNumber: randomPhone(),
+      schoolId: defaultSchoolId,
       role: 'driver',
       licenseNumber: `CI-DL-${2024000 + i}`,
       licenseExpiry: Timestamp.fromDate(new Date(2026, 11, 31)),
@@ -140,6 +175,7 @@ async function seedData() {
       email: `escorte${i}@bus-abidjan.ci`,
       displayName: `${randomChoice(prénoms)} ${randomChoice(noms)}`,
       phoneNumber: randomPhone(),
+      schoolId: defaultSchoolId,
       role: 'escort',
       idCardNumber: `CI-${Math.floor(100000000 + Math.random() * 900000000)}`,
       busId: null,
@@ -187,6 +223,7 @@ async function seedData() {
       email,
       displayName: `M./Mme ${randomChoice(noms)}`,
       phoneNumber: randomPhone(),
+      schoolId: defaultSchoolId,
       role: 'parent',
       address: `${Math.floor(100 + Math.random() * 900)} Rue ${randomChoice(['de la Paix', 'du Commerce', 'Principale', 'de l\'École'])}`,
       studentIds: [], // Sera rempli plus tard
@@ -205,11 +242,11 @@ async function seedData() {
   // ==================================================
   console.log('🚌 Création des bus...');
   const busConfigs = [
-    { commune: 'Cocody', quartiers: ['Riviera', 'II Plateaux', 'Angré'] },
-    { commune: 'Yopougon', quartiers: ['Niangon', 'Quartier Maroc'] },
-    { commune: 'Abobo', quartiers: ['Abobo Gare', 'Abobo-PK 18'] },
-    { commune: 'Adjamé', quartiers: ['Adjamé Liberté', 'Williamsville'] },
-    { commune: 'Marcory', quartiers: ['Zone 4', 'Marcory Résidentiel'] },
+    { commune: 'Cocody', quartiers: ['Riviera Bonoumin'] },
+    { commune: 'Cocody', quartiers: ['Riviera Palmeraie'] },
+    { commune: 'Cocody', quartiers: ['Akouédo Village'] },
+    { commune: 'Cocody', quartiers: ['M\'Pouto'] },
+    { commune: 'Cocody', quartiers: ['Riviera 2'] },
   ];
 
   const buses = [];
@@ -225,15 +262,17 @@ async function seedData() {
       year: 2020 + (i % 4),
       driverId: chauffeurs[i]!.id,
       driverName: chauffeurs[i]!.displayName,
+      driverPhone: chauffeurs[i]!.phoneNumber,
       escortId: escortes[i]!.id,
       escortName: escortes[i]!.displayName,
-      routeId: null, // Sera rempli après création des routes
+      routeId: null as string | null, // Sera rempli après création des routes
       studentIds: [], // Sera rempli après création des élèves
       status: BusStatus.ACTIVE,
       maintenanceStatus: BusMaintenanceStatus.OK,
       assignedCommune: config.commune,
       assignedQuartiers: config.quartiers,
       preferredDepartureTime: '07:00',
+      schoolId: defaultSchoolId,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
@@ -252,6 +291,14 @@ async function seedData() {
     console.log(`    Escorte: ${bus.escortName}`);
   }
   console.log(`✅ ${buses.length} bus créés\n`);
+
+  await db
+    .collection('schools')
+    .doc(defaultSchoolId)
+    .update({
+      fleetSize: buses.length,
+      updatedAt: Timestamp.now(),
+    });
 
   // ==================================================
   // 5. CRÉER LES ÉLÈVES AVEC DIFFÉRENTS PROFILS
@@ -344,6 +391,7 @@ async function seedData() {
         prenom: firstName,
         classe,
         ecole,
+        schoolId: defaultSchoolId,
         dateOfBirth: Timestamp.fromDate(new Date(2010 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 12), Math.floor(1 + Math.random() * 28))),
         grade: classe,
         parentIds: [parentId],
@@ -386,6 +434,7 @@ async function seedData() {
   // 6. CRÉER LES ROUTES
   // ==================================================
   console.log('🛣️  Création des routes...');
+  const routes: Array<{ id: string; name: string; commune: string; quartiers: string[]; stops: any[] }> = [];
 
   for (let busIdx = 0; busIdx < buses.length; busIdx++) {
     const bus = buses[busIdx]!;
@@ -463,9 +512,17 @@ async function seedData() {
     };
 
     await db.collection('routes').doc(routeId).set(route);
+    routes.push({
+      id: routeId,
+      name: route.name,
+      commune: route.commune,
+      quartiers: route.quartiers,
+      stops: route.stops,
+    });
 
     // Mettre à jour le bus avec l'ID de la route
     await db.collection('buses').doc(bus.id).update({ routeId });
+    bus.routeId = routeId;
 
     // Mettre à jour les élèves avec l'ID de la route
     for (const élève of studentsOfBus) {
@@ -483,31 +540,69 @@ async function seedData() {
   // ==================================================
   console.log('📍 Création des positions GPS...');
 
-  for (let i = 0; i < 3; i++) { // 3 bus en mouvement
+  // Utiliser les valeurs correctes de BusLiveStatus (en_route, delayed, stopped, idle)
+  // La majorité des bus doivent être en_route pour la simulation
+  const statusCycle = ['en_route', 'en_route', 'en_route', 'delayed', 'en_route'];
+
+  for (let i = 0; i < buses.length; i++) {
     const bus = buses[i]!;
-    const config = busConfigs[i]!;
-    const baseKey = `${config.commune}-${config.quartiers[0]!.replace(/\s+/g, '')}`;
+    const config =
+      busConfigs.find((cfg) => cfg.commune === bus.assignedCommune) || busConfigs[i % busConfigs.length]!;
+    const quartierRef = config.quartiers[0] || config.commune;
+    const baseKey = `${config.commune}-${quartierRef.replace(/\s+/g, '')}`;
     const baseLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.35;
-    const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.00;
+    const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.0;
+    const now = Date.now();
+    const status = statusCycle[i % statusCycle.length]!;
+
+    const speed =
+      status === 'stopped' || status === 'idle'
+        ? 0
+        : status === 'delayed'
+        ? 10 + Math.random() * 10
+        : 20 + Math.random() * 25;
+
+    const chauffeur = chauffeurs.find((c) => c.id === bus.driverId);
+    const routeMeta = routes.find((route) => route.id === bus.routeId);
+    const lastStop = routeMeta?.stops[routeMeta.stops.length - 1];
 
     await db.collection('gps_live').doc(bus.id).set({
       busId: bus.id,
-      lat: baseLat + (Math.random() - 0.5) * 0.02,
-      lng: baseLng + (Math.random() - 0.5) * 0.02,
-      speed: 20 + Math.random() * 40,
-      heading: Math.floor(Math.random() * 360),
-      accuracy: 10,
-      timestamp: Date.now(),
+      number: `BUS-${String(bus.busNumber).padStart(2, '0')}`,
+      busNumber: bus.busNumber,
+      plateNumber: bus.plateNumber,
+      model: bus.model,
+      year: bus.year,
+      capacity: bus.capacity,
+      status,
+      passengersCount: bus.studentIds.length,
+      passengersPresent: Math.max(0, bus.studentIds.length - Math.floor(Math.random() * 4)),
       driverId: bus.driverId,
-      routeId: `route-${i + 1}`,
-      status: 'moving',
-      lastUpdate: Timestamp.now(),
+      driverName: bus.driverName,
+      driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
+      routeId: bus.routeId,
+      routeName: routeMeta?.name || `Route ${config.commune}`,
+      fromZone: routeMeta?.commune || config.commune,
+      toZone: lastStop?.name || 'École Primaire Cocody',
+      currentZone: `${config.commune} - ${quartierRef}`,
+      schoolId: defaultSchoolId,
+      position: {
+        lat: baseLat + (Math.random() - 0.5) * 0.02,
+        lng: baseLng + (Math.random() - 0.5) * 0.02,
+        speed,
+        heading: Math.floor(Math.random() * 360),
+        accuracy: 5 + Math.random() * 10,
+        timestamp: now,
+      },
+      updatedAt: now,
+      lastUpdate: Timestamp.fromMillis(now),
+      timestamp: now,
     });
 
-    console.log(`  ✓ Bus ${bus.busNumber} - Position GPS créée`);
+    console.log(`  ✓ Bus ${bus.busNumber} - Position GPS (${status})`);
   }
 
-  console.log(`✅ 3 positions GPS créées\n`);
+  console.log(`✅ ${buses.length} positions GPS créées\n`);
 
   // ==================================================
   // RÉSUMÉ FINAL
@@ -520,7 +615,7 @@ async function seedData() {
   console.log(`  ✓ ${buses.length} bus (tous avec chauffeur + escorte)`);
   console.log(`  ✓ ${élèves.length} élèves`);
   console.log(`  ✓ ${buses.length} routes avec horaires multiples`);
-  console.log(`  ✓ 3 bus avec positions GPS en temps réel\n`);
+  console.log(`  ✓ ${buses.length} bus avec positions GPS en temps réel\n`);
 
   console.log('📈 Profils des élèves :');
   for (const profil of profils) {

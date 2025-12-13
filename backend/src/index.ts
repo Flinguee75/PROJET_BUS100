@@ -10,13 +10,7 @@ import cors from 'cors';
 // Import routes
 import gpsRoutes from './routes/gps.routes';
 import busRoutes from './routes/bus.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import realtimeRoutes from './routes/realtime.routes';
-import studentRoutes from './routes/student.routes';
-import driverRoutes from './routes/driver.routes';
-import maintenanceRoutes from './routes/maintenance.routes';
-import attendanceRoutes from './routes/attendance.routes';
-import routeRoutes from './routes/route.routes';
+import schoolRoutes from './routes/school.routes';
 
 // Import WebSocket manager
 import websocketManager from './utils/websocket.manager';
@@ -45,13 +39,7 @@ app.get('/health', (_req, res) => {
 // Exemple: Cloud Function 'api' + route Express '/buses' = URL finale '/api/buses'
 app.use('/gps', gpsRoutes);
 app.use('/buses', busRoutes);
-app.use('/realtime', realtimeRoutes);
-app.use('/dashboard', dashboardRoutes);
-app.use('/students', studentRoutes);
-app.use('/drivers', driverRoutes);
-app.use('/maintenances', maintenanceRoutes);
-app.use('/attendance', attendanceRoutes);
-app.use('/routes', routeRoutes);
+app.use('/schools', schoolRoutes);
 
 // Route 404
 app.use((req, res) => {
@@ -98,4 +86,4 @@ export { helloWorld } from './test-function';
 
 // Export triggers
 export { onUserCreated } from './triggers/user-created.trigger';
-export { onStudentChanged } from './triggers/student-changed.trigger';
+export { checkUnscannedStudents } from './triggers/attendance-alert.trigger';

@@ -11,8 +11,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Configuration pour les émulateurs Firebase
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
 // Initialiser Firebase Admin pour les émulateurs
 if (!admin.apps.length) {

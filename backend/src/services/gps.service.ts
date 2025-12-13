@@ -4,7 +4,14 @@
  */
 
 import { getDb, collections } from '../config/firebase.config';
-import { GPSUpdateInput, GPSLiveData, GPSHistoryEntry, BusLiveStatus } from '../types';
+import {
+  GPSUpdateInput,
+  GPSLiveData,
+  GPSHistoryEntry,
+  BusLiveStatus
+} from '../types';
+import { BusStatus } from '../types/bus.types';
+import type { BusRealtimeData, DriverInfo, RouteInfo } from '../types/realtime.types';
 
 export class GPSService {
   /**
@@ -49,13 +56,114 @@ export class GPSService {
       lastUpdate: new Date(),
     };
 
-    // Sauvegarder position live
-    await db.collection(collections.gpsLive).doc(busId).set(gpsLive);
+    // NOUVEAU : Enrichir avec les infos du bus avant de sauvegarder
+    const enrichedData = await this.enrichGPSDataWithBusInfo(gpsLive, busData);
 
-    // Archiver dans historique
+    // Sauvegarder les données ENRICHIES dans /gps_live
+    await db.collection(collections.gpsLive).doc(busId).set(enrichedData);
+
+    // Archiver dans historique (format original)
     await this.archiveGPSPosition(data);
 
     return gpsLive;
+  }
+
+  /**
+   * Enrichit les données GPS avec les métadonnées du bus, driver et route
+   * Synchronise le format backend avec le frontend BusRealtimeData
+   */
+  private async enrichGPSDataWithBusInfo(
+    gpsData: GPSLiveData,
+    busData: any
+  ): Promise<BusRealtimeData> {
+    const db = getDb();
+
+    // 1. Fetch driver info if assigned
+    let driverInfo: DriverInfo | null = null;
+    if (gpsData.driverId) {
+      const driverDoc = await db.collection('users').doc(gpsData.driverId).get();
+      if (driverDoc.exists) {
+        const driver = driverDoc.data();
+        if (driver) {
+          driverInfo = {
+            id: gpsData.driverId,
+            name: driver.displayName || driver.email || 'Driver',
+            phone: driver.phoneNumber || null,
+          };
+        }
+      }
+    }
+
+    // 2. Fetch route info if assigned
+    let routeInfo: RouteInfo | null = null;
+    if (gpsData.routeId) {
+      const routeDoc = await db.collection('routes').doc(gpsData.routeId).get();
+      if (routeDoc.exists) {
+        const route = routeDoc.data();
+        if (route) {
+          routeInfo = {
+            id: gpsData.routeId,
+            name: route.name || `Route ${gpsData.routeId}`,
+            fromZone: route.zones?.[0] || null,
+            toZone: route.zones?.[route.zones.length - 1] || null,
+          };
+        }
+      }
+    }
+
+    // 2.5. Compter les passagers actuels depuis /attendance
+    let passengersCount = 0;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0]; // Format YYYY-MM-DD
+
+      const attendanceSnapshot = await db
+        .collection(collections.attendance)
+        .where('busId', '==', gpsData.busId)
+        .where('date', '==', todayStr)
+        .get();
+
+      // Compter les étudiants présents (morningStatus ou eveningStatus = 'present')
+      attendanceSnapshot.docs.forEach((doc) => {
+        const attendanceData = doc.data();
+        if (
+          attendanceData.morningStatus === 'present' ||
+          attendanceData.eveningStatus === 'present'
+        ) {
+          passengersCount++;
+        }
+      });
+    } catch (error) {
+      console.warn(
+        `⚠️ Erreur lors du comptage des passagers pour le bus ${gpsData.busId}:`,
+        error
+      );
+      // En cas d'erreur, utiliser la valeur par défaut (0 ou celle déjà dans gpsData)
+      passengersCount = gpsData.passengersCount;
+    }
+
+    // 3. Return enriched data (compatible avec frontend BusRealtimeData)
+    // Note: Firestore convertira automatiquement Date en Timestamp
+    // Le frontend devra convertir le Timestamp en string ISO
+    const busStatus = busData.status || 'active';
+    return {
+      id: gpsData.busId,
+      number: busData.number || `BUS-${gpsData.busId}`,
+      plateNumber: busData.plateNumber || '',
+      capacity: busData.capacity || 0,
+      model: busData.model || '',
+      year: busData.year || new Date().getFullYear(),
+      status: busStatus as BusStatus, // Assurer le type BusStatus
+      currentPosition: gpsData.position,
+      liveStatus: gpsData.status,
+      driver: driverInfo,
+      route: routeInfo,
+      passengersCount: passengersCount,
+      currentZone: null, // TODO: calculer depuis position GPS + zones
+      lastUpdate: gpsData.lastUpdate, // Date sera convertie en Timestamp par Firestore
+      isActive: busStatus === 'active',
+    };
   }
 
   /**

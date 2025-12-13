@@ -22,6 +22,17 @@ vi.stubEnv('VITE_FIREBASE_APP_ID', '1:123456789:web:abcdef');
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'test-mapbox-token');
 vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000');
 
+// Mock des services Firestore School
+vi.mock('@/services/school.firestore', () => {
+  const noopUnsubscribe = () => undefined;
+  const mock = {
+    watchSchool: vi.fn(() => noopUnsubscribe),
+    watchSchoolBuses: vi.fn(() => noopUnsubscribe),
+    getSchool: vi.fn(),
+  };
+  return mock;
+});
+
 // Mock de Mapbox GL
 vi.mock('mapbox-gl', () => ({
   default: {
@@ -70,4 +81,3 @@ expect.extend({
     }
   },
 });
-

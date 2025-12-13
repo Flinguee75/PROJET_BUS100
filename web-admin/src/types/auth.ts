@@ -7,6 +7,7 @@ export interface User {
   email: string;
   displayName?: string;
   role: UserRole;
+  schoolId?: string | null;
 }
 
 export enum UserRole {
@@ -25,4 +26,3 @@ export interface AuthState {
   loading: boolean;
   error: string | null;
 }
-

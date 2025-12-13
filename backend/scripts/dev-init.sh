@@ -19,6 +19,19 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+ensure_port_free() {
+    local PORT=$1
+    if lsof -i tcp:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Le port $PORT est déjà utilisé.${NC}"
+        echo "   Arrêtez les anciens émulateurs (pkill -f firebase) ou modifiez les ports dans firebase.json."
+        exit 1
+    fi
+}
+
+# Vérifier que les ports clés sont libres
+ensure_port_free 8080
+ensure_port_free 9099
+
 # Lancer les émulateurs en arrière-plan
 echo -e "${BLUE}🔧 Lancement des émulateurs Firebase...${NC}"
 firebase emulators:start --only functions,firestore,auth --project projet-bus-60a3f &
@@ -49,6 +62,12 @@ while ! nc -z localhost 8080 2>/dev/null; do
 done
 
 echo -e "\n${GREEN}✅ Émulateurs démarrés${NC}"
+
+# Vérifier que le processus firebase est toujours actif
+if ! ps -p $EMULATOR_PID > /dev/null; then
+    echo "❌ Les émulateurs se sont arrêtés de manière inattendue."
+    exit 1
+fi
 
 # Attendre encore 3 secondes pour s'assurer que tout est prêt
 sleep 3

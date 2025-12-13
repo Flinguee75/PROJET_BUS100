@@ -23,8 +23,8 @@ interface SidebarProviderProps {
   children: ReactNode;
 }
 
-// Largeur par défaut : 256px (équivalent à w-64)
-const DEFAULT_WIDTH = 256;
+// Largeur par défaut : 220px (réduite pour éviter coupure du titre)
+const DEFAULT_WIDTH = 220;
 
 export const SidebarProvider = ({ children }: SidebarProviderProps) => {
   const [width, setWidth] = useState(DEFAULT_WIDTH);

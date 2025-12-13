@@ -23,6 +23,7 @@ export interface Bus {
   assignedCommune?: string; // Commune d'opération principale
   assignedQuartiers?: string[]; // Sous-zones optionnelles
   preferredDepartureTime?: string; // Heure de départ du matin (ex: "07:00")
+  schoolId: string | null; // ID de l'école affiliée
 
   createdAt: Date;
   updatedAt: Date;
@@ -47,6 +48,7 @@ export interface BusCreateInput {
   capacity: number;
   model: string;
   year: number;
+  schoolId?: string | null; // Optionnel lors de la création
 }
 
 export interface BusUpdateInput {
@@ -64,4 +66,5 @@ export interface BusUpdateInput {
   assignedCommune?: string;
   assignedQuartiers?: string[];
   preferredDepartureTime?: string;
+  schoolId?: string | null;
 }

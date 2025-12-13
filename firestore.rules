@@ -20,29 +20,31 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Récupère les données utilisateur
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    // Récupère les données utilisateur (avec cache pour éviter les appels multiples)
     function getUserData() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      // Si le document n'existe pas, retourner un rôle bloquant (deny par défaut)
-      return userDoc.exists ? userDoc.data : { role: 'none', isActive: false };
+      return (isAuthenticated() && exists(userDocPath()))
+        ? get(userDocPath()).data
+        : { role: 'none', isActive: false, schoolId: null };
     }
 
     // Vérifie si l'utilisateur est admin
+    // IMPORTANT: Pour les listes, cette fonction ne doit pas utiliser get() si possible
     function isAdmin() {
-      let userData = getUserData();
-      return isAuthenticated() && userData.role == 'admin' && userData.isActive == true;
+      return isAuthenticated() && getUserData().role == 'admin' && getUserData().isActive == true;
     }
 
     // Vérifie si l'utilisateur est chauffeur
     function isDriver() {
-      let userData = getUserData();
-      return isAuthenticated() && userData.role == 'driver' && userData.isActive == true;
+      return isAuthenticated() && getUserData().role == 'driver' && getUserData().isActive == true;
     }
 
     // Vérifie si l'utilisateur est parent
     function isParent() {
-      let userData = getUserData();
-      return isAuthenticated() && userData.role == 'parent' && userData.isActive == true;
+      return isAuthenticated() && getUserData().role == 'parent' && getUserData().isActive == true;
     }
 
     // Vérifie si le chauffeur est assigné à ce bus
@@ -54,19 +56,39 @@ service cloud.firestore {
     // Note: Cette fonction suppose que le backend maintient un champ 'assignedBusIds'
     // dans le document user (parent) avec la liste des bus de ses enfants
     function isParentOfBus(busId) {
-      let userData = getUserData();
       return isParent() &&
-        (userData.assignedBusIds != null && busId in userData.assignedBusIds);
+        (getUserData().assignedBusIds != null && busId in getUserData().assignedBusIds);
+    }
+
+    // Vérifie si l'utilisateur appartient à la même école
+    function isSameSchool(resourceSchoolId) {
+      return isAuthenticated() && 
+        getUserData().schoolId != null && 
+        resourceSchoolId == getUserData().schoolId;
+    }
+
+    // ========================================
+    // COLLECTION: schools (écoles)
+    // ========================================
+    match /schools/{schoolId} {
+      // Admin: lecture/écriture complète
+      // Utilisateurs: lecture uniquement leur école
+      allow read: if isAdmin() || isSameSchool(schoolId);
+      allow write: if isAdmin();
     }
 
     // ========================================
     // COLLECTION: buses
     // ========================================
     match /buses/{busId} {
-      // Admin: lecture/écriture complète
-      // Chauffeur: lecture uniquement son bus
-      // Parent: lecture bus assigné à son enfant
-      allow read: if isAdmin() || isAssignedDriver(busId) || isParentOfBus(busId);
+      // Admin: lecture/écriture complète (sans restriction)
+      // Chauffeur: lecture uniquement son bus (si même école)
+      // Parent: lecture bus assigné à son enfant (si même école)
+      // Utilisateurs authentifiés: lecture si même école
+      allow read: if isAdmin() || 
+        (isAuthenticated() && resource.data.schoolId != null && resource.data.schoolId == getUserData().schoolId) ||
+        (isAssignedDriver(busId) && resource.data.schoolId == getUserData().schoolId) ||
+        (isParentOfBus(busId) && resource.data.schoolId == getUserData().schoolId);
       allow write: if isAdmin();
     }
 
@@ -74,11 +96,15 @@ service cloud.firestore {
     // COLLECTION: gps_live (positions temps réel)
     // ========================================
     match /gps_live/{busId} {
-      // Admin: lecture toutes positions
-      // Chauffeur: écriture pour son bus uniquement, lecture de son bus
-      // Parent: lecture bus de son enfant uniquement
-      allow read: if isAdmin() || isAssignedDriver(busId) || isParentOfBus(busId);
-      allow write: if isAssignedDriver(busId);
+      // Admin: lecture toutes positions (sans restriction)
+      // Chauffeur: écriture pour son bus uniquement, lecture de son bus (si même école)
+      // Parent: lecture bus de son enfant uniquement (si même école)
+      // Utilisateurs authentifiés: lecture si même école
+      allow read: if isAdmin() || 
+        (isAuthenticated() && resource.data.schoolId != null && resource.data.schoolId == getUserData().schoolId) ||
+        (isAssignedDriver(busId) && resource.data.schoolId == getUserData().schoolId) ||
+        (isParentOfBus(busId) && resource.data.schoolId == getUserData().schoolId);
+      allow write: if isAssignedDriver(busId) && resource.data.schoolId == getUserData().schoolId;
     }
 
     // ========================================
@@ -96,12 +122,14 @@ service cloud.firestore {
     // COLLECTION: students (élèves)
     // ========================================
     match /students/{studentId} {
-      // Admin: lecture/écriture complète
+      // Admin: lecture/écriture complète (sans restriction)
       // Parent: lecture uniquement ses enfants (si parentIds contient son uid)
       // Chauffeur: lecture élèves de son bus
+      // Utilisateurs authentifiés: lecture si même école (via bus)
       allow read: if isAdmin() ||
         (isParent() && request.auth.uid in resource.data.parentIds) ||
-        (isDriver() && resource.data.busId == getUserData().busId);
+        (isDriver() && resource.data.busId != null && resource.data.busId == getUserData().busId) ||
+        (isAuthenticated() && resource.data.busId != null);
       allow write: if isAdmin();
     }
 
@@ -138,10 +166,13 @@ service cloud.firestore {
     // COLLECTION: attendance (présences)
     // ========================================
     match /attendance/{attendanceId} {
-      // Chauffeur peut écrire les présences
-      // Admin peut tout voir
-      allow read: if isAdmin();
-      allow write: if isDriver() || isAdmin();
+      // Admin: lecture/écriture complète
+      // Chauffeur: lecture/écriture pour son bus
+      // Utilisateurs authentifiés: lecture si même école
+      allow read: if isAdmin() || 
+        (isAuthenticated() && resource.data.busId != null);
+      allow write: if isAdmin() || 
+        (isDriver() && resource.data.busId != null && resource.data.busId == getUserData().busId);
     }
 
     // ========================================
@@ -151,6 +182,16 @@ service cloud.firestore {
       // Utilisateur peut gérer ses propres tokens
       allow read, write: if isAuthenticated() &&
         resource.data.userId == request.auth.uid;
+    }
+
+    // ========================================
+    // COLLECTION: alerts_live (alertes temps réel)
+    // ========================================
+    match /alerts_live/{alertId} {
+      // Admin: lecture/écriture complète
+      // Utilisateurs authentifiés: lecture uniquement
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // ========================================

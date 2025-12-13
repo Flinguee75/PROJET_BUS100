@@ -48,8 +48,8 @@ describe('Layout', () => {
 
   it('affiche la Sidebar', () => {
     renderLayout();
-    expect(screen.getByText('Transport Scolaire')).toBeInTheDocument();
-    expect(screen.getByText('Administration')).toBeInTheDocument();
+    expect(screen.getByText('Transport')).toBeInTheDocument();
+    expect(screen.getByText('Scolaire')).toBeInTheDocument();
   });
 
   it('affiche le contenu de la page via Outlet', () => {
@@ -80,7 +80,7 @@ describe('Layout', () => {
   it('la sidebar occupe une largeur fixe', () => {
     renderLayout();
     // Vérifier que la sidebar est présente (via le logo)
-    expect(screen.getByText('Transport Scolaire')).toBeInTheDocument();
+    expect(screen.getByText('Transport')).toBeInTheDocument();
   });
 
   it('le contenu principal prend l\'espace restant', () => {

@@ -64,6 +64,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.ADMIN,
+        schoolId: null,
       });
     });
 
@@ -109,6 +110,7 @@ describe('AuthService', () => {
           email: 'test@example.com',
           displayName: 'Test User',
           role: UserRole.ADMIN,
+          schoolId: 'school-42',
         }),
       });
 
@@ -119,6 +121,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.ADMIN,
+        schoolId: 'school-42',
       });
     });
 
@@ -136,8 +139,8 @@ describe('AuthService', () => {
         email: '',
         displayName: 'Admin',
         role: UserRole.ADMIN,
+        schoolId: null,
       });
     });
   });
 });
-

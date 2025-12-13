@@ -16,6 +16,7 @@ export interface Bus {
     assignedCommune?: string;
     assignedQuartiers?: string[];
     preferredDepartureTime?: string;
+    schoolId: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -36,6 +37,7 @@ export interface BusCreateInput {
     capacity: number;
     model: string;
     year: number;
+    schoolId?: string | null;
 }
 export interface BusUpdateInput {
     busNumber?: number;
@@ -52,5 +54,6 @@ export interface BusUpdateInput {
     assignedCommune?: string;
     assignedQuartiers?: string[];
     preferredDepartureTime?: string;
+    schoolId?: string | null;
 }
 //# sourceMappingURL=bus.types.d.ts.map

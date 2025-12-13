@@ -23,6 +23,7 @@ export const onUserCreated = functions
         displayName: user.displayName || user.email?.split('@')[0] || 'Utilisateur',
         role: 'admin', // Par défaut, à ajuster selon vos besoins
         phoneNumber: user.phoneNumber || '',
+        schoolId: null, // Sera assigné lors de la configuration du compte
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),

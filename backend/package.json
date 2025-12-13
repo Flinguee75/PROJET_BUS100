@@ -20,10 +20,11 @@
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
-    "seed": "ts-node src/scripts/seed-mock-data.ts",
+    "seed": "ts-node src/scripts/seed-data.ts",
     "create-user-emulator": "ts-node scripts/create-user-emulator.ts",
     "migrate:assignedBusIds": "ts-node scripts/migrate-assignedBusIds.ts",
-    "dev:init": "ts-node scripts/dev-init.ts"
+    "dev:init": "bash scripts/dev-init.sh",
+    "dev:init:ts": "ts-node scripts/dev-init.ts"
   },
   "dependencies": {
     "axios": "^1.13.2",

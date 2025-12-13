@@ -5,11 +5,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { User, LoginCredentials } from '@/types/auth';
+import { useSchool } from '@/hooks/useSchool';
+import type { School } from '@/types/school';
 import * as authService from '@/services/auth.service';
 
 interface AuthContextType {
   user: User | null;
+  school: School | null;
   loading: boolean;
+  schoolLoading: boolean;
+  schoolError: string | null;
   error: string | null;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
@@ -36,6 +41,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
+  const {
+    school,
+    isLoading: schoolLoading,
+    error: schoolError,
+  } = useSchool(user?.schoolId ?? null);
 
   // Observer l'état d'authentification - une seule fois au montage
   useEffect(() => {
@@ -93,7 +103,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const value: AuthContextType = {
     user,
+    school,
     loading,
+    schoolLoading,
+    schoolError,
     error,
     login,
     logout,
@@ -102,4 +115,3 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

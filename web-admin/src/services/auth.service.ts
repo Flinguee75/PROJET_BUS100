@@ -54,6 +54,7 @@ export const getUserProfile = async (uid: string): Promise<User> => {
     email: auth.currentUser?.email || '',
     displayName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Admin',
     role: UserRole.ADMIN,
+    schoolId: null,
   };
 
   try {
@@ -76,6 +77,7 @@ export const getUserProfile = async (uid: string): Promise<User> => {
       email: data.email || defaultProfile.email,
       displayName: data.displayName || defaultProfile.displayName,
       role: data.role || UserRole.ADMIN,
+      schoolId: data.schoolId ?? data.school_id ?? defaultProfile.schoolId,
     };
   } catch (error) {
     // Toute erreur (timeout, réseau, etc.) → utiliser le profil par défaut
@@ -108,4 +110,3 @@ export const observeAuthState = (
 export const getCurrentUser = (): FirebaseUser | null => {
   return auth.currentUser;
 };
-

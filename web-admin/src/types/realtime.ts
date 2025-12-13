@@ -56,6 +56,7 @@ export interface BusRealtimeData {
   currentZone: string | null;
   lastUpdate: string | null;
   isActive: boolean;
+  schoolId?: string | null;
 }
 
 export interface BusStatistics {

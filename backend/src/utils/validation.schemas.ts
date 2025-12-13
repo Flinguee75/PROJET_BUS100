@@ -314,6 +314,42 @@ export const attendanceQuerySchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
 });
 
+/**
+ * Schéma School Location
+ * Validation pour coordonnées GPS d'une école
+ */
+export const schoolLocationSchema = z.object({
+  lat: z.number().min(-90).max(90, 'Latitude invalide'),
+  lng: z.number().min(-180).max(180, 'Longitude invalide'),
+});
+
+/**
+ * Schéma School Create
+ * Validation pour création d'une école
+ */
+export const schoolCreateSchema = z.object({
+  name: z.string().min(2, 'Le nom de l\'école doit contenir au moins 2 caractères').max(100),
+  location: schoolLocationSchema,
+  fleetSize: z.number().int().min(0).optional(),
+  address: z.string().max(200).optional(),
+  contactEmail: z.string().email('Email invalide').optional().or(z.literal('')),
+  contactPhone: z.string().max(20).optional(),
+});
+
+/**
+ * Schéma School Update
+ * Validation pour mise à jour d'une école
+ */
+export const schoolUpdateSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  location: schoolLocationSchema.optional(),
+  fleetSize: z.number().int().min(0).optional(),
+  address: z.string().max(200).optional().or(z.literal('')),
+  contactEmail: z.string().email('Email invalide').optional().or(z.literal('')),
+  contactPhone: z.string().max(20).optional().or(z.literal('')),
+  isActive: z.boolean().optional(),
+});
+
 // Types inférés depuis les schémas Zod
 export type GPSPositionInput = z.infer<typeof gpsPositionSchema>;
 export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
@@ -330,3 +366,5 @@ export type MapboxWaypoint = z.infer<typeof mapboxWaypointSchema>;
 export type MapboxOptimizationResponse = z.infer<typeof mapboxOptimizationResponseSchema>;
 export type MapboxDirectionsResponse = z.infer<typeof mapboxDirectionsResponseSchema>;
 export type BusUpdateWithAutoGen = z.infer<typeof busUpdateWithAutoGenSchema>;
+export type SchoolCreateInput = z.infer<typeof schoolCreateSchema>;
+export type SchoolUpdateInput = z.infer<typeof schoolUpdateSchema>;

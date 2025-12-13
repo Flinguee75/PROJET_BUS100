@@ -6,8 +6,8 @@
 
 // Configuration des variables d'environnement pour pointer vers les émulateurs
 process.env.FUNCTIONS_EMULATOR = 'true';
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
 import { getAuth, getDb } from '../src/config/firebase.config';
 
@@ -15,6 +15,7 @@ const EMAIL = 'redfoo923@gmail.com';
 const PASSWORD = 'Nuage923';
 const DISPLAY_NAME = 'Admin';
 const ROLE = 'admin';
+const SCHOOL_ID = 'school-grain-de-soleil';
 
 async function createUserInEmulator() {
   try {
@@ -61,6 +62,7 @@ async function createUserInEmulator() {
       email: EMAIL,
       displayName: DISPLAY_NAME,
       role: ROLE,
+      schoolId: SCHOOL_ID,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -102,4 +104,3 @@ async function createUserInEmulator() {
 
 // Exécuter le script
 createUserInEmulator();
-

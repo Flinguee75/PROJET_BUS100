@@ -34,7 +34,9 @@ void main() {
     when(mockBusProvider.isLoading).thenReturn(false);
     when(mockBusProvider.error).thenReturn(null);
     when(mockBusProvider.enfants).thenReturn([]);
-    when(mockBusProvider.loadEnfants(any)).thenAnswer((_) async {});
+    when(mockBusProvider.loadEnfants(any)).thenAnswer((_) async {
+      return null;
+    });
   });
 
   Widget createWidgetUnderTest() {

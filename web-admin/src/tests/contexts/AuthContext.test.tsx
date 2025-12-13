@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
 import * as authService from '@/services/auth.service';
+import { useSchool } from '@/hooks/useSchool';
 
 // Mock du service
 vi.mock('@/services/auth.service', () => ({
@@ -16,15 +17,32 @@ vi.mock('@/services/auth.service', () => ({
   logout: vi.fn(),
 }));
 
+vi.mock('@/hooks/useSchool', () => ({
+  useSchool: vi.fn(),
+}));
+
 // Composant de test pour utiliser le contexte
 const TestComponent = () => {
-  const { user, loading, error, login, logout, isAuthenticated } = useAuthContext();
+  const {
+    user,
+    school,
+    loading,
+    schoolLoading,
+    schoolError,
+    error,
+    login,
+    logout,
+    isAuthenticated,
+  } = useAuthContext();
 
   return (
     <div>
       <div data-testid="loading">{loading ? 'Loading' : 'Not Loading'}</div>
+      <div data-testid="school-loading">{schoolLoading ? 'School Loading' : 'School Ready'}</div>
       <div data-testid="user">{user ? user.email : 'No user'}</div>
+      <div data-testid="school">{school ? school.name : 'No school'}</div>
       <div data-testid="error">{error || 'No error'}</div>
+      <div data-testid="school-error">{schoolError || 'No school error'}</div>
       <div data-testid="isAuthenticated">{isAuthenticated ? 'Authenticated' : 'Not Authenticated'}</div>
       <button
         onClick={() => login({ email: 'test@example.com', password: 'password' }).catch(() => {})}
@@ -37,8 +55,15 @@ const TestComponent = () => {
 };
 
 describe('AuthContext', () => {
+  const mockUseSchool = vi.mocked(useSchool);
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseSchool.mockReturnValue({
+      school: null,
+      isLoading: false,
+      error: null,
+    });
   });
 
   it('lance une erreur si useAuthContext est utilisé hors du Provider', () => {
@@ -62,8 +87,11 @@ describe('AuthContext', () => {
     );
 
     expect(screen.getByTestId('loading')).toHaveTextContent('Loading');
+    expect(screen.getByTestId('school-loading')).toHaveTextContent('School Ready');
     expect(screen.getByTestId('user')).toHaveTextContent('No user');
+    expect(screen.getByTestId('school')).toHaveTextContent('No school');
     expect(screen.getByTestId('error')).toHaveTextContent('No error');
+    expect(screen.getByTestId('school-error')).toHaveTextContent('No school error');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('Not Authenticated');
   });
 
@@ -73,7 +101,21 @@ describe('AuthContext', () => {
       email: 'test@example.com',
       displayName: 'Test User',
       role: UserRole.ADMIN,
+      schoolId: 'school-1',
     };
+    mockUseSchool.mockReturnValue({
+      school: {
+        id: 'school-1',
+        name: 'Lycée Moderne',
+        location: { lat: 5.3, lng: -4.0 },
+        fleetSize: 4,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+      },
+      isLoading: false,
+      error: null,
+    } as any);
 
     vi.mocked(authService.observeAuthState).mockImplementation((callback) => {
       callback(mockUser);
@@ -90,6 +132,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('loading')).toHaveTextContent('Not Loading');
       expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
       expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('Authenticated');
+      expect(screen.getByTestId('school')).toHaveTextContent('Lycée Moderne');
     });
   });
 

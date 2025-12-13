@@ -882,6 +882,93 @@ export declare const attendanceQuerySchema: z.ZodObject<{
     startDate: string;
     endDate: string;
 }>;
+export declare const schoolLocationSchema: z.ZodObject<{
+    lat: z.ZodNumber;
+    lng: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    lat: number;
+    lng: number;
+}, {
+    lat: number;
+    lng: number;
+}>;
+export declare const schoolCreateSchema: z.ZodObject<{
+    name: z.ZodString;
+    location: z.ZodObject<{
+        lat: z.ZodNumber;
+        lng: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        lat: number;
+        lng: number;
+    }, {
+        lat: number;
+        lng: number;
+    }>;
+    fleetSize: z.ZodOptional<z.ZodNumber>;
+    address: z.ZodOptional<z.ZodString>;
+    contactEmail: z.ZodUnion<[z.ZodOptional<z.ZodString>, z.ZodLiteral<"">]>;
+    contactPhone: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    location: {
+        lat: number;
+        lng: number;
+    };
+    name: string;
+    address?: string | undefined;
+    fleetSize?: number | undefined;
+    contactEmail?: string | undefined;
+    contactPhone?: string | undefined;
+}, {
+    location: {
+        lat: number;
+        lng: number;
+    };
+    name: string;
+    address?: string | undefined;
+    fleetSize?: number | undefined;
+    contactEmail?: string | undefined;
+    contactPhone?: string | undefined;
+}>;
+export declare const schoolUpdateSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    location: z.ZodOptional<z.ZodObject<{
+        lat: z.ZodNumber;
+        lng: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        lat: number;
+        lng: number;
+    }, {
+        lat: number;
+        lng: number;
+    }>>;
+    fleetSize: z.ZodOptional<z.ZodNumber>;
+    address: z.ZodUnion<[z.ZodOptional<z.ZodString>, z.ZodLiteral<"">]>;
+    contactEmail: z.ZodUnion<[z.ZodOptional<z.ZodString>, z.ZodLiteral<"">]>;
+    contactPhone: z.ZodUnion<[z.ZodOptional<z.ZodString>, z.ZodLiteral<"">]>;
+    isActive: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    address?: string | undefined;
+    isActive?: boolean | undefined;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+    name?: string | undefined;
+    fleetSize?: number | undefined;
+    contactEmail?: string | undefined;
+    contactPhone?: string | undefined;
+}, {
+    address?: string | undefined;
+    isActive?: boolean | undefined;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+    name?: string | undefined;
+    fleetSize?: number | undefined;
+    contactEmail?: string | undefined;
+    contactPhone?: string | undefined;
+}>;
 export type GPSPositionInput = z.infer<typeof gpsPositionSchema>;
 export type GPSUpdateInput = z.infer<typeof gpsUpdateSchema>;
 export type BusCreateInput = z.infer<typeof busCreateSchema>;
@@ -897,4 +984,6 @@ export type MapboxWaypoint = z.infer<typeof mapboxWaypointSchema>;
 export type MapboxOptimizationResponse = z.infer<typeof mapboxOptimizationResponseSchema>;
 export type MapboxDirectionsResponse = z.infer<typeof mapboxDirectionsResponseSchema>;
 export type BusUpdateWithAutoGen = z.infer<typeof busUpdateWithAutoGenSchema>;
+export type SchoolCreateInput = z.infer<typeof schoolCreateSchema>;
+export type SchoolUpdateInput = z.infer<typeof schoolUpdateSchema>;
 //# sourceMappingURL=validation.schemas.d.ts.map

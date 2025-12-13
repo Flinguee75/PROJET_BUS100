@@ -10,7 +10,7 @@ class BusProvider with ChangeNotifier {
   final EnfantService _enfantService = EnfantService();
 
   List<Enfant> _enfants = [];
-  Map<String, Bus> _buses = {};
+  final Map<String, Bus> _buses = {};
   bool _isLoading = false;
   String? _error;
 

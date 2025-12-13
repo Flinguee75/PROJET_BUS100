@@ -95,8 +95,8 @@ export const Sidebar = () => {
           </div>
           {showText && (
             <div className="overflow-hidden">
-              <h1 className="text-lg font-bold font-display tracking-tight whitespace-nowrap">Transport Scolaire</h1>
-              <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Administration</p>
+              <h1 className="text-base font-bold font-display tracking-tight">Transport</h1>
+              <p className="text-xs text-slate-400 font-medium">Scolaire</p>
             </div>
           )}
         </div>

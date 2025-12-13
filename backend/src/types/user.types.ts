@@ -9,6 +9,7 @@ export interface User {
   displayName: string;
   phoneNumber: string;
   role: UserRole;
+  schoolId: string | null; // ID de l'école affiliée
   createdAt: Date;
   updatedAt: Date;
   isActive: boolean;
@@ -62,4 +63,5 @@ export interface UserCreateInput {
   displayName: string;
   phoneNumber: string;
   role: UserRole;
+  schoolId?: string | null; // Optionnel lors de la création
 }

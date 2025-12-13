@@ -3,77 +3,216 @@
  * Carte temps réel + Sidebar alertes critiques uniquement
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
-import { AlertsSidebar, Alert } from '@/components/AlertsSidebar';
-import * as realtimeApi from '@/services/realtime.api';
-import type { BusRealtimeData, BusLiveStatus } from '@/types/realtime';
+import { AlertsSidebar } from '@/components/AlertsSidebar';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useSchoolBuses } from '@/hooks/useSchool';
+import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
+import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
+import {
+  simulateBusTrajectoryToSchool,
+} from '@/utils/busPositionSimulator';
+import { getScannedStudents, getUnscannedStudents } from '@/services/students.firestore';
+import { updateBusStatus } from '@/services/realtime.firestore';
+
+type ClassifiedBus = BusRealtimeData & {
+  classification: 'stationed' | 'deployed';
+  distanceFromSchool: number | null;
+  displayPosition: { lat: number; lng: number } | null;
+  hasArrived?: boolean; // Flag pour indiquer si le bus est arrivé
+};
 
 // Token Mapbox depuis les variables d'environnement
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
-// Centre d'Abidjan
-const ABIDJAN_CENTER: [number, number] = [-4.0083, 5.3599];
+// Centre par défaut (localisation de l'école)
+const ABIDJAN_CENTER: [number, number] = [-3.953921037595442, 5.351860986707333];
+const STATIONED_DISTANCE_THRESHOLD_METERS = 150;
+
+const calculateDistanceMeters = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number => {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371000; // rayon de la Terre en mètres
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const classifyBus = (
+  bus: BusRealtimeData,
+  schoolLocation?: { lat: number; lng: number }
+): { classification: 'stationed' | 'deployed'; distance: number | null } => {
+  if (!schoolLocation || !bus.currentPosition) {
+    const defaultClassification =
+      bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED
+        ? 'deployed'
+        : 'stationed';
+    return { classification: defaultClassification, distance: null };
+  }
+
+  const distance = calculateDistanceMeters(
+    bus.currentPosition.lat,
+    bus.currentPosition.lng,
+    schoolLocation.lat,
+    schoolLocation.lng
+  );
+  const isNearSchool = distance <= STATIONED_DISTANCE_THRESHOLD_METERS;
+  const stationaryStatus =
+    bus.liveStatus === BusLiveStatus.IDLE ||
+    bus.liveStatus === BusLiveStatus.STOPPED ||
+    !bus.isActive;
+
+  const classification: 'stationed' | 'deployed' =
+    isNearSchool && stationaryStatus ? 'stationed' : 'deployed';
+
+  return { classification, distance };
+};
 
 export const GodViewPage = () => {
+  const { user, school, schoolLoading, schoolError } = useAuthContext();
+  const schoolId = user?.schoolId ?? null;
+  const {
+    buses: schoolBuses,
+    isLoading: schoolBusesLoading,
+    error: schoolBusesError,
+  } = useSchoolBuses(schoolId);
+
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const popups = useRef<Map<string, mapboxgl.Popup>>(new Map());
+  const schoolMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const initialCenterRef = useRef<[number, number]>(
+    school?.location ? [school.location.lng, school.location.lat] : ABIDJAN_CENTER
+  );
 
   const [mapLoaded, setMapLoaded] = useState(false);
+  const { alerts: realtimeAlerts, error: alertsError } = useRealtimeAlerts();
+  
+  // Stocker les comptages d'élèves pour chaque bus
+  const [studentsCounts, setStudentsCounts] = useState<
+    Record<string, { scanned: number; unscanned: number; total: number }>
+  >({});
+  
+  // État pour forcer la mise à jour des positions simulées
+  const [simulationTick, setSimulationTick] = useState(0);
 
-  // Récupérer les bus en temps réel
-  const {
-    data: buses = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<BusRealtimeData[]>({
-    queryKey: ['buses-realtime'],
-    queryFn: realtimeApi.getAllBusesRealtime,
-    refetchInterval: 5000, // Rafraîchir toutes les 5 secondes
-  });
+  // Suivre les bus qui sont arrivés pour éviter les mises à jour multiples
+  const arrivedBusesRef = useRef<Set<string>>(new Set());
 
-  // TODO: Récupérer les alertes depuis l'API
-  // Pour l'instant, on utilise des données mockées
-  const mockAlerts: Alert[] = [
-    {
-      id: 'alert_1',
-      type: 'DELAY',
-      busId: 'bus_1',
-      busNumber: '#12',
-      severity: 'HIGH',
-      message: 'Retard de 18 minutes',
-      timestamp: Date.now() - 5 * 60000, // Il y a 5 min
-    },
-    {
-      id: 'alert_2',
-      type: 'UNSCANNED_CHILD',
-      busId: 'bus_2',
-      busNumber: '#5',
-      severity: 'MEDIUM',
-      message: '3 enfants non scannés à Cocody',
-      timestamp: Date.now() - 10 * 60000, // Il y a 10 min
-    },
-    {
-      id: 'alert_3',
-      type: 'STOPPED',
-      busId: 'bus_3',
-      busNumber: '#8',
-      severity: 'MEDIUM',
-      message: 'Arrêté depuis 12 minutes',
-      timestamp: Date.now() - 12 * 60000, // Il y a 12 min
-    },
-  ];
+  const processedBuses: ClassifiedBus[] = useMemo(() => {
+    return schoolBuses
+      // Filtrer : ne garder que les bus EN_ROUTE (en course) ou ARRIVED (arrivés)
+      // Les bus arrêtés (STOPPED, IDLE, stationed) ne sont pas affichés sur la carte
+      .filter((bus) => {
+        const isEnRoute = bus.liveStatus === BusLiveStatus.EN_ROUTE || 
+                          bus.liveStatus === BusLiveStatus.DELAYED;
+        const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
+        return (isEnRoute || isArrived) && bus.isActive;
+      })
+      .map((bus) => {
+        const { classification, distance } = classifyBus(bus, school?.location);
+        
+        // Déterminer la position d'affichage
+        let displayPosition: { lat: number; lng: number } | null = null;
+        let hasArrived = false;
+        
+        if (school?.location) {
+          // Calculer la progression du bus vers l'école
+          // Chaque bus a une vitesse différente basée sur son ID
+          const seed = bus.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          const busSpeed = 0.02 + (seed % 100) / 100 * 0.03; // Vitesse entre 0.02 et 0.05 par tick
+          
+          // Progress va de 0 (quartier) à 1 (école), puis recommence
+          // Le cycle complet dure environ 20-50 ticks (100-250 secondes)
+          const cycleLength = Math.floor(1 / busSpeed);
+          const progress = (simulationTick % cycleLength) * busSpeed;
+          
+          // Si le bus est déjà arrivé, le placer à l'école
+          if (bus.liveStatus === BusLiveStatus.ARRIVED) {
+            displayPosition = school.location;
+            hasArrived = true;
+          } else if (progress >= 1 || (bus.currentPosition && calculateDistanceMeters(
+            bus.currentPosition.lat,
+            bus.currentPosition.lng,
+            school.location.lat,
+            school.location.lng
+          ) < 100)) {
+            // Le bus est arrivé à l'école (progress >= 1 ou distance < 100m)
+            displayPosition = school.location;
+            hasArrived = true;
+            
+            // Mettre à jour le statut dans Firestore si ce n'est pas déjà fait
+            if (!arrivedBusesRef.current.has(bus.id)) {
+              arrivedBusesRef.current.add(bus.id);
+              updateBusStatus(bus.id, 'arrived').catch((error) => {
+                console.error(`Erreur lors de la mise à jour du statut du bus ${bus.id}:`, error);
+                arrivedBusesRef.current.delete(bus.id); // Réessayer au prochain tick
+              });
+            }
+          } else {
+            // Si le bus a une position réelle, l'utiliser comme point de départ
+            if (bus.currentPosition) {
+              // Interpoler entre la position réelle et l'école
+              const realProgress = Math.min(progress * 2, 1); // Plus rapide si position réelle
+              displayPosition = {
+                lat: bus.currentPosition.lat + (school.location.lat - bus.currentPosition.lat) * realProgress,
+                lng: bus.currentPosition.lng + (school.location.lng - bus.currentPosition.lng) * realProgress,
+              };
+            } else {
+              // Simuler la trajectoire depuis un quartier vers l'école
+              displayPosition = simulateBusTrajectoryToSchool(school.location, bus.id, progress);
+            }
+          }
+        }
+        
+        return {
+          ...bus,
+          classification,
+          distanceFromSchool: distance,
+          displayPosition,
+          hasArrived, // Ajouter un flag pour indiquer l'arrivée
+        };
+      });
+  }, [schoolBuses, school, simulationTick]);
 
-  // TODO: Remplacer par la vraie requête API
-  const alerts = mockAlerts;
+  const schoolAlerts = useMemo(() => {
+    if (alertsError) return [];
+    const allowedBusIds = new Set(processedBuses.map((bus) => bus.id));
+    return realtimeAlerts.filter((alert) => allowedBusIds.has(alert.busId));
+  }, [alertsError, processedBuses, realtimeAlerts]);
+
+  const isLoading = schoolLoading || schoolBusesLoading;
+  const errorMessage = schoolError || schoolBusesError || null;
+
+  useEffect(() => {
+    if (alertsError) {
+      console.error('❌ Impossible de charger les alertes temps réel:', alertsError);
+    }
+  }, [alertsError]);
+
+  // Animation de simulation de mouvement pour les bus EN_ROUTE
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Mettre à jour le tick de simulation toutes les 5 secondes
+      setSimulationTick((prev) => prev + 1);
+    }, 5000); // Mise à jour toutes les 5 secondes
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialiser la carte Mapbox
   useEffect(() => {
@@ -86,14 +225,16 @@ export const GodViewPage = () => {
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Créer la carte centrée sur Abidjan
+    // Créer la carte centrée sur l'école de l'utilisateur (fallback Abidjan)
+    const initialCenter = initialCenterRef.current;
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: ABIDJAN_CENTER,
-      zoom: 10.5,
-      minZoom: 9,
-      maxZoom: 14,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: initialCenter,
+      zoom: 16,
+      minZoom: 13,
+      maxZoom: 18,
       dragPan: true,
       scrollZoom: true,
       boxZoom: true,
@@ -117,29 +258,73 @@ export const GodViewPage = () => {
         map.current = null;
       }
     };
-  }, []);
+  }, [initialCenterRef]);
+
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !school?.location) return;
+
+    map.current.flyTo({
+      center: [school.location.lng, school.location.lat],
+      zoom: 16,
+      speed: 0.8,
+      curve: 1,
+      easing: (t) => t,
+    });
+  }, [school, mapLoaded]);
+  
+  // Ajouter un marqueur fixe pour représenter l'école
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !school?.location) return;
+
+    const schoolMarkerHTML = `
+      <div class="bg-white rounded-full border-4 border-primary-500 shadow-xl p-3 flex items-center justify-center w-12 h-12">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" class="text-primary-600">
+          <path d="M12 3l9 6-9 6-9-6 9-6zm0 8.485L6 8.25v8.935A2.815 2.815 0 0 0 8.815 20h6.37A2.815 2.815 0 0 0 18 17.185V8.25l-6 3.235z"/>
+        </svg>
+      </div>
+    `;
+
+    if (schoolMarkerRef.current) {
+      const existingElement = schoolMarkerRef.current.getElement();
+      existingElement.innerHTML = schoolMarkerHTML;
+      schoolMarkerRef.current.setLngLat([school.location.lng, school.location.lat]);
+    } else {
+      const el = document.createElement('div');
+      el.className = 'school-marker';
+      el.innerHTML = schoolMarkerHTML;
+
+      schoolMarkerRef.current = new mapboxgl.Marker(el)
+        .setLngLat([school.location.lng, school.location.lat])
+        .addTo(map.current);
+    }
+
+    return () => {
+      if (schoolMarkerRef.current) {
+        schoolMarkerRef.current.remove();
+        schoolMarkerRef.current = null;
+      }
+    };
+  }, [school, mapLoaded]);
 
   // Déterminer la couleur du marqueur selon le statut
-  const getMarkerColor = useCallback((bus: BusRealtimeData): string => {
+  const getMarkerColor = useCallback((bus: ClassifiedBus): string => {
     if (!bus.isActive) return '#64748b'; // Gris (inactif)
 
-    // TODO: Calculer le vrai retard depuis l'API
-    const delayMinutes = 0; // Placeholder
+    if (bus.liveStatus === BusLiveStatus.DELAYED) return '#f97316'; // Orange (retard)
+    if (bus.classification === 'stationed') return '#ef4444'; // Rouge (à l'école)
+    if (bus.liveStatus === BusLiveStatus.EN_ROUTE) return '#22c55e'; // Vert (en cours)
 
-    if (delayMinutes > 15) return '#ef4444'; // Rouge (retard critique)
-    if (delayMinutes > 5) return '#f59e0b'; // Orange (retard léger)
-    if (bus.liveStatus === 'en_route') return '#22c55e'; // Vert (à l'heure)
-
-    return '#3b82f6'; // Bleu (arrêté)
+    return '#3b82f6'; // Bleu par défaut
   }, []);
 
   // Créer le HTML du marqueur
-  const createMarkerHTML = useCallback((bus: BusRealtimeData): string => {
+  const createMarkerHTML = useCallback((bus: ClassifiedBus): string => {
     const color = getMarkerColor(bus);
-    const busIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`;
+    // Icône de bus simplifiée
+    const busIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 10h16v8H4z"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>`;
 
     // Animation de clignotement pour les bus en retard critique
-    const isBlinking = color === '#ef4444';
+    const isBlinking = bus.liveStatus === BusLiveStatus.DELAYED;
 
     return `
       <div class="bus-marker ${isBlinking ? 'animate-pulse' : ''}" style="background-color: ${color}">
@@ -149,8 +334,19 @@ export const GodViewPage = () => {
   }, [getMarkerColor]);
 
   // Créer le HTML du popup
-  const createPopupHTML = useCallback((bus: BusRealtimeData): string => {
-    return `
+  const createPopupHTML = useCallback(
+    (bus: ClassifiedBus): string => {
+      const distanceLabel =
+        typeof bus.distanceFromSchool === 'number'
+          ? `${Math.round(bus.distanceFromSchool)} m`
+          : 'N/A';
+      const classificationLabel =
+        bus.classification === 'stationed' ? "Stationné à l'école" : 'Déployé';
+
+      // Récupérer les comptages d'élèves pour ce bus
+      const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
+
+      return `
       <div class="p-4 min-w-[240px]">
         <div class="text-center mb-3 pb-3 border-b border-slate-200">
           <h3 class="text-2xl font-bold text-primary-600">${bus.number}</h3>
@@ -175,26 +371,95 @@ export const GodViewPage = () => {
           `
           }
 
-          <div class="flex items-center justify-between p-2.5 bg-primary-50 rounded-lg">
-            <div class="flex items-center gap-2">
+          <div class="space-y-2 p-2.5 bg-primary-50 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
               <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM7 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/></svg>
               <span class="text-primary-700 text-xs font-medium">Élèves</span>
             </div>
-            <span class="text-primary-900 font-bold text-base">${bus.passengersCount} / ${bus.capacity}</span>
+            <div class="space-y-1 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-600">Scannés:</span>
+                <span class="font-semibold text-green-600">${counts.scanned}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-600">Non scannés:</span>
+                <span class="font-semibold text-red-600">${counts.unscanned}</span>
+              </div>
+              <div class="flex justify-between pt-1 border-t border-primary-200">
+                <span class="text-primary-700 font-medium">Total:</span>
+                <span class="font-bold text-primary-900">${counts.total} / ${bus.capacity}</span>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-2">
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <p class="font-semibold text-slate-800">${classificationLabel}</p>
+              <p class="text-slate-500">Statut actuel</p>
+            </div>
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <p class="font-semibold text-slate-800">${distanceLabel}</p>
+              <p class="text-slate-500">Distance école</p>
+            </div>
           </div>
         </div>
       </div>
     `;
-  }, []);
+    },
+    [studentsCounts]
+  );
+
+  // Récupérer les comptages d'élèves pour chaque bus
+  useEffect(() => {
+    const fetchStudentsCounts = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const countsPromises = processedBuses.map(async (bus) => {
+        try {
+          const [scanned, unscanned] = await Promise.all([
+            getScannedStudents(bus.id, today),
+            getUnscannedStudents(bus.id, today),
+          ]);
+
+          return {
+            busId: bus.id,
+            counts: {
+              // Correction : les fonctions retournent les valeurs inversées
+              // getScannedStudents retourne en fait les non scannés
+              // getUnscannedStudents retourne en fait les scannés
+              scanned: unscanned.length, // Utiliser unscanned.length pour les scannés
+              unscanned: scanned.length, // Utiliser scanned.length pour les non scannés
+              total: scanned.length + unscanned.length,
+            },
+          };
+        } catch (error) {
+          console.error(`Erreur lors de la récupération des élèves pour le bus ${bus.id}:`, error);
+          return {
+            busId: bus.id,
+            counts: { scanned: 0, unscanned: 0, total: 0 },
+          };
+        }
+      });
+
+      const results = await Promise.all(countsPromises);
+      const newCounts: Record<string, { scanned: number; unscanned: number; total: number }> = {};
+      results.forEach(({ busId, counts }) => {
+        newCounts[busId] = counts;
+      });
+      setStudentsCounts(newCounts);
+    };
+
+    if (processedBuses.length > 0) {
+      fetchStudentsCounts();
+    }
+  }, [processedBuses]);
 
   // Mettre à jour les marqueurs quand les bus changent
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    buses.forEach((bus) => {
-      if (!bus.currentPosition) return;
+    processedBuses.forEach((bus) => {
+      if (!bus.displayPosition) return;
 
-      const { lat, lng } = bus.currentPosition;
+      const { lat, lng } = bus.displayPosition;
       const busId = bus.id;
 
       // Si le marqueur existe déjà, le mettre à jour
@@ -235,15 +500,15 @@ export const GodViewPage = () => {
       }
     });
 
-    // Supprimer les marqueurs des bus qui n'existent plus
+    // Supprimer les marqueurs des bus qui ne sont plus dans la liste filtrée
     markers.current.forEach((marker, busId) => {
-      if (!buses.find((b) => b.id === busId)) {
+      if (!processedBuses.find((b) => b.id === busId)) {
         marker.remove();
         markers.current.delete(busId);
         popups.current.delete(busId);
       }
     });
-  }, [buses, mapLoaded, createMarkerHTML, createPopupHTML]);
+  }, [processedBuses, mapLoaded, createMarkerHTML, createPopupHTML, studentsCounts]);
 
   return (
     <div className="flex h-screen bg-neutral-50">
@@ -255,9 +520,9 @@ export const GodViewPage = () => {
           </div>
         )}
 
-        {error && (
+        {errorMessage && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
-            <ErrorMessage message="Impossible de charger les bus" />
+            <ErrorMessage message={errorMessage || 'Impossible de charger les bus'} />
           </div>
         )}
 
@@ -277,19 +542,14 @@ export const GodViewPage = () => {
 
         {/* Conteneur de la carte */}
         <div ref={mapContainer} className="w-full h-full absolute inset-0" />
-
-        {/* Bouton de rafraîchissement */}
-        <button
-          onClick={() => refetch()}
-          className="absolute top-4 left-4 z-10 bg-white px-4 py-2.5 rounded-lg shadow-card hover:shadow-card-hover transition-all duration-200 flex items-center gap-2 text-slate-700 hover:text-primary-600 font-medium group"
-        >
-          <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" strokeWidth={2} />
-          <span className="text-sm">Actualiser</span>
-        </button>
       </div>
 
       {/* Sidebar Alertes - 30% */}
-      <AlertsSidebar alerts={alerts} />
+      <AlertsSidebar 
+        alerts={schoolAlerts} 
+        buses={processedBuses} 
+        studentsCounts={studentsCounts}
+      />
 
       <style>{`
         .bus-marker {

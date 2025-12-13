@@ -39,8 +39,8 @@ describe('Sidebar', () => {
 
   it('affiche le logo et le titre', () => {
     renderSidebar();
-    expect(screen.getByText('Transport Scolaire')).toBeInTheDocument();
-    expect(screen.getByText('Administration')).toBeInTheDocument();
+    expect(screen.getByText('Transport')).toBeInTheDocument();
+    expect(screen.getByText('Scolaire')).toBeInTheDocument();
   });
 
   it('affiche tous les liens de navigation', () => {

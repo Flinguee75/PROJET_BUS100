@@ -17,8 +17,8 @@ if (!admin.apps.length) {
   // En mode émulateur, pas besoin de credentials réelles
   if (process.env.FUNCTIONS_EMULATOR === 'true') {
     // Mode émulateur - utiliser les credentials de test
-    process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-    process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+    process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
     console.log('🔧 Mode Emulator: Pas de service account requis');
   } else {
     // Production ou développement local - utiliser le service account
@@ -132,6 +132,7 @@ export const collections = {
   parents: 'parents',
   admins: 'admins',
   users: 'users', // Collection unifiée pour tous les utilisateurs (avec champ role)
+  schools: 'schools', // Collection des écoles
   gpsLive: 'gps_live',
   gpsHistory: 'gps_history',
   notifications: 'notifications',

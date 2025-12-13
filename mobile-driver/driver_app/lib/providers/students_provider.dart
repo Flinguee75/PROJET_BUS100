@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../models/student.dart';
 import '../models/bus.dart';
 import '../services/firestore_service.dart';

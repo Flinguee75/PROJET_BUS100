@@ -14,6 +14,7 @@ export declare const collections: {
     parents: string;
     admins: string;
     users: string;
+    schools: string;
     gpsLive: string;
     gpsHistory: string;
     notifications: string;

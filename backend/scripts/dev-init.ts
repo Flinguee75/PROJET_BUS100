@@ -19,8 +19,8 @@
 
 // Configuration des variables d'environnement pour pointer vers les émulateurs
 process.env.FUNCTIONS_EMULATOR = 'true';
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
 import { getAuth, getDb } from '../src/config/firebase.config';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -210,6 +210,9 @@ async function createBuses(driverIds: Map<string, string>): Promise<void> {
 
   for (let i = 0; i < BUSES.length; i++) {
     const busData = BUSES[i];
+    if (!busData) {
+      continue;
+    }
 
     try {
       console.log(`   Création: ${busData.plateNumber} (${busData.model})`);
@@ -228,16 +231,23 @@ async function createBuses(driverIds: Map<string, string>): Promise<void> {
 
       // Assigner un chauffeur si disponible
       if (i < driverEmails.length) {
-        const driverId = driverIds.get(driverEmails[i])!;
-        bus.driverId = driverId;
+        const driverEmail = driverEmails[i];
+        if (driverEmail) {
+          const driverId = driverIds.get(driverEmail);
+          if (driverId) {
+            bus.driverId = driverId;
 
-        // Mettre à jour le chauffeur avec le busId
-        await db.collection('users').doc(driverId).update({
-          busId: busData.id,
-          updatedAt: new Date(),
-        });
+            // Mettre à jour le chauffeur avec le busId
+            await db.collection('users').doc(driverId).update({
+              busId: busData.id,
+              updatedAt: new Date(),
+            });
 
-        console.log(`      ✅ Chauffeur assigné: ${driverEmails[i]}`);
+            console.log(`      ✅ Chauffeur assigné: ${driverEmail}`);
+          } else {
+            console.warn(`      ⚠️ Chauffeur introuvable pour ${driverEmail}`);
+          }
+        }
       }
 
       await db.collection('buses').doc(busData.id).set(bus);
@@ -253,16 +263,10 @@ async function createBuses(driverIds: Map<string, string>): Promise<void> {
 /**
  * Crée les students de test
  */
-async function createStudents(
-  parentIds: Map<string, string>,
-  busIds: string[]
-): Promise<void> {
+async function createStudents(parentIds: Map<string, string>): Promise<void> {
   console.log('👦 Création des students de test...\n');
 
   const db = getDb();
-  const parentEmails = Array.from(parentIds.keys()).filter((email) =>
-    email.startsWith('parent')
-  );
 
   const students = [
     {
@@ -443,8 +447,7 @@ async function devInit(): Promise<void> {
     await createBuses(userIds);
 
     // 4. Créer les students
-    const busIds = BUSES.map((b) => b.id);
-    await createStudents(userIds, busIds);
+    await createStudents(userIds);
 
     // 5. Exécuter la migration
     await runMigration();

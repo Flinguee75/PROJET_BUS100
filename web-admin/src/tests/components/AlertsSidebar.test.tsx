@@ -5,7 +5,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { AlertsSidebar, Alert } from '@/components/AlertsSidebar';
+import { AlertsSidebar } from '@/components/AlertsSidebar';
+import type { Alert } from '@/types/alerts';
+import { BusStatus, BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 
 const mockAlerts: Alert[] = [
   {
@@ -37,88 +39,110 @@ const mockAlerts: Alert[] = [
   },
 ];
 
+const mockBuses: BusRealtimeData[] = [
+  {
+    id: 'bus_1',
+    number: 'Bus #12',
+    plateNumber: 'CI-123-AB',
+    capacity: 30,
+    model: 'Test',
+    year: 2023,
+    status: BusStatus.ACTIVE,
+    currentPosition: null,
+    liveStatus: BusLiveStatus.EN_ROUTE,
+    driver: null,
+    route: null,
+    passengersCount: 10,
+    passengersPresent: 10,
+    currentZone: null,
+    lastUpdate: null,
+    isActive: true,
+  },
+  {
+    id: 'bus_2',
+    number: 'Bus #5',
+    plateNumber: 'CI-456-CD',
+    capacity: 40,
+    model: 'Test',
+    year: 2022,
+    status: BusStatus.INACTIVE,
+    currentPosition: null,
+    liveStatus: BusLiveStatus.IDLE,
+    driver: null,
+    route: null,
+    passengersCount: 0,
+    passengersPresent: 0,
+    currentZone: null,
+    lastUpdate: null,
+    isActive: false,
+  },
+  {
+    id: 'bus_3',
+    number: 'Bus #8',
+    plateNumber: 'CI-789-EF',
+    capacity: 35,
+    model: 'Test',
+    year: 2021,
+    status: BusStatus.ACTIVE,
+    currentPosition: null,
+    liveStatus: BusLiveStatus.STOPPED,
+    driver: null,
+    route: null,
+    passengersCount: 20,
+    passengersPresent: 18,
+    currentZone: null,
+    lastUpdate: null,
+    isActive: true,
+  },
+];
+
+const renderSidebar = (overrides: Partial<Parameters<typeof AlertsSidebar>[0]> = {}) => {
+  const props = {
+    alerts: [],
+    buses: mockBuses,
+    ...overrides,
+  };
+
+  return render(
+    <BrowserRouter>
+      <AlertsSidebar {...props} />
+    </BrowserRouter>
+  );
+};
+
 describe('AlertsSidebar', () => {
   it('should render without crashing', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={[]} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Alertes Actives')).toBeInTheDocument();
+    renderSidebar();
+    expect(screen.getByText('Supervision')).toBeInTheDocument();
   });
 
   it('should display "Tout est opérationnel" when no alerts', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={[]} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Tout est opérationnel')).toBeInTheDocument();
+    renderSidebar({ buses: [] });
+    expect(screen.getByText(/Tout est opérationnel/i)).toBeInTheDocument();
     expect(
       screen.getByText(/Aucune alerte active/i)
     ).toBeInTheDocument();
   });
 
   it('should display alert count badge when alerts exist', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
+    renderSidebar({ alerts: mockAlerts });
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('should display all alerts', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Bus #12')).toBeInTheDocument();
-    expect(screen.getByText('Bus #5')).toBeInTheDocument();
-    expect(screen.getByText('Bus #8')).toBeInTheDocument();
+    renderSidebar({ alerts: mockAlerts });
+    expect(screen.getByText(/Bus #12/)).toBeInTheDocument();
+    expect(screen.getByText(/Bus #5/)).toBeInTheDocument();
+    expect(screen.getByText(/Bus #8/)).toBeInTheDocument();
     expect(screen.getByText('Retard de 18 minutes')).toBeInTheDocument();
     expect(screen.getByText('3 enfants non scannés à Cocody')).toBeInTheDocument();
     expect(screen.getByText('Arrêté depuis 12 minutes')).toBeInTheDocument();
   });
 
-  it('should display URGENT badge for HIGH severity alerts', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('URGENT')).toBeInTheDocument();
-  });
-
-  it('should display statistics footer when alerts exist', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
-
-    // 1 retard, 1 arrêt, 1 non scanné
-    const stats = screen.getAllByText('1');
-    expect(stats.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('should display correct severity count in subtitle', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText(/1 critique/i)).toBeInTheDocument();
-  });
-
-  it('should handle empty alerts array', () => {
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={[]} />
-      </BrowserRouter>
-    );
-    expect(screen.getByText('Surveillance en temps réel')).toBeInTheDocument();
+  it('should display severity filters with counts', () => {
+    renderSidebar({ alerts: mockAlerts });
+    expect(screen.getByText('Retards (1)')).toBeInTheDocument();
+    expect(screen.getByText("Arrêts (1)")).toBeInTheDocument();
   });
 
   it('should format timestamps correctly', () => {
@@ -132,28 +156,17 @@ describe('AlertsSidebar', () => {
       timestamp: Date.now() - 30000, // 30 secondes
     };
 
-    render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={[recentAlert]} />
-      </BrowserRouter>
-    );
+    renderSidebar({ alerts: [recentAlert] });
 
     // Devrait afficher "À l'instant" ou "Il y a X min"
     expect(screen.getByText(/Il y a|À l'instant/i)).toBeInTheDocument();
   });
 
-  it('should display different colors for different severity levels', () => {
-    const { container } = render(
-      <BrowserRouter>
-        <AlertsSidebar alerts={mockAlerts} />
-      </BrowserRouter>
-    );
-
-    // Vérifier que les alertes sont rendues avec des éléments de bordure
-    const borderedElements = container.querySelectorAll('[class*="border"]');
-    expect(borderedElements.length).toBeGreaterThan(0);
-
-    // Vérifier que les différents types de sévérité sont présents
-    expect(screen.getByText('URGENT')).toBeInTheDocument(); // HIGH severity
+  it('should display different alert categories', () => {
+    const { container } = renderSidebar({ alerts: mockAlerts });
+    const categoryButtons = container.querySelectorAll('button');
+    expect(categoryButtons.length).toBeGreaterThan(0);
+    expect(screen.getByText('Retards (1)')).toBeInTheDocument();
+    expect(screen.getByText("Arrêts (1)")).toBeInTheDocument();
   });
 });

@@ -12,6 +12,13 @@ import { LoginPage } from '@/pages/LoginPage';
 import * as authService from '@/services/auth.service';
 
 vi.mock('@/services/auth.service');
+vi.mock('@/hooks/useSchool', () => ({
+  useSchool: () => ({
+    school: null,
+    isLoading: false,
+    error: null,
+  }),
+}));
 
 // Composant protégé de test
 const ProtectedPage = () => {

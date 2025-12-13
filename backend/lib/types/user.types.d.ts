@@ -4,6 +4,7 @@ export interface User {
     displayName: string;
     phoneNumber: string;
     role: UserRole;
+    schoolId: string | null;
     createdAt: Date;
     updatedAt: Date;
     isActive: boolean;
@@ -50,5 +51,6 @@ export interface UserCreateInput {
     displayName: string;
     phoneNumber: string;
     role: UserRole;
+    schoolId?: string | null;
 }
 //# sourceMappingURL=user.types.d.ts.map

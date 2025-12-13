@@ -13,6 +13,7 @@ export interface RouteInfo {
 }
 export interface BusRealtimeData {
     id: string;
+    number: string;
     plateNumber: string;
     capacity: number;
     model: string;

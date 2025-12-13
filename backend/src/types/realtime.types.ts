@@ -30,6 +30,7 @@ export interface RouteInfo {
 export interface BusRealtimeData {
   // Informations de base du bus
   id: string;
+  number: string; // Format: BUS-XX (ex: BUS-12, BUS-45)
   plateNumber: string;
   capacity: number;
   model: string;
