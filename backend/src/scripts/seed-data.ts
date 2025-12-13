@@ -159,11 +159,32 @@ async function seedData() {
   // ==================================================
   console.log('👪 Création des parents...');
   const parents = [];
+  const auth = admin.auth();
   for (let i = 1; i <= 15; i++) {
     const parentId = `parent-${i}`;
+    const email = `parent${i}@example.com`;
+
+    // Créer ou mettre à jour l'utilisateur Auth correspondant
+    try {
+      await auth.createUser({
+        uid: parentId,
+        email,
+        password: `ParentSeed${i}23!`,
+        displayName: `Parent ${i}`,
+        emailVerified: true,
+      });
+      console.log(`  ✅ Utilisateur Auth créé pour ${parentId}`);
+    } catch (error: any) {
+      if (error.code === 'auth/uid-already-exists' || error.code === 'auth/email-already-exists') {
+        console.log(`  ℹ️  Utilisateur Auth déjà existant pour ${parentId}`);
+      } else {
+        throw error;
+      }
+    }
+
     const parent = {
       id: parentId,
-      email: `parent${i}@example.com`,
+      email,
       displayName: `M./Mme ${randomChoice(noms)}`,
       phoneNumber: randomPhone(),
       role: 'parent',
@@ -310,13 +331,23 @@ async function seedData() {
         };
       }
 
+      const firstName = randomChoice(prénoms);
+      const lastName = randomChoice(noms);
+      const classe = randomChoice(['CP', 'CE1', 'CE2', 'CM1', 'CM2']);
+      const ecole = `École ${config.commune}`;
+
       const élève = {
         id: studentId,
-        firstName: randomChoice(prénoms),
-        lastName: randomChoice(noms),
+        firstName,
+        lastName,
+        nom: lastName,
+        prenom: firstName,
+        classe,
+        ecole,
         dateOfBirth: Timestamp.fromDate(new Date(2010 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 12), Math.floor(1 + Math.random() * 28))),
-        grade: randomChoice(['CP', 'CE1', 'CE2', 'CM1', 'CM2']),
+        grade: classe,
         parentIds: [parentId],
+        parentId,
         busId: bus.id,
         routeId: null, // Sera rempli après création des routes
         commune: config.commune,
