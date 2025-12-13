@@ -17,7 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { BusRealtimeData, BusLiveStatus } from '@/types/realtime';
+import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
 
 interface AlertsSidebarProps {

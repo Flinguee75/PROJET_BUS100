@@ -112,6 +112,10 @@ export const GodViewPage = () => {
 
   // Suivre les bus qui sont arrivés pour éviter les mises à jour multiples
   const arrivedBusesRef = useRef<Set<string>>(new Set());
+  // Suivre le moment où chaque bus est arrivé (pour gérer le redépart)
+  const arrivalTimesRef = useRef<Map<string, number>>(new Map());
+  // Délai avant qu'un bus reparte après arrivée (en millisecondes) - 30 secondes
+  const ARRIVAL_STAY_DURATION_MS = 30000;
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
     return schoolBuses
@@ -141,10 +145,33 @@ export const GodViewPage = () => {
           const cycleLength = Math.floor(1 / busSpeed);
           const progress = (simulationTick % cycleLength) * busSpeed;
           
-          // Si le bus est déjà arrivé, le placer à l'école
+          // Si le bus est déjà arrivé, vérifier s'il doit repartir
           if (bus.liveStatus === BusLiveStatus.ARRIVED) {
-            displayPosition = school.location;
-            hasArrived = true;
+            const arrivalTime = arrivalTimesRef.current.get(bus.id);
+            const now = Date.now();
+            
+            // Si le bus est arrivé depuis plus de ARRIVAL_STAY_DURATION_MS, le remettre en route
+            if (arrivalTime && (now - arrivalTime) > ARRIVAL_STAY_DURATION_MS) {
+              // Le bus repart après le délai
+              if (arrivedBusesRef.current.has(bus.id)) {
+                arrivedBusesRef.current.delete(bus.id);
+                arrivalTimesRef.current.delete(bus.id);
+                updateBusStatus(bus.id, 'en_route').catch((error) => {
+                  console.error(`Erreur lors de la remise en route du bus ${bus.id}:`, error);
+                });
+              }
+              // Continuer avec la simulation normale (le bus repart)
+              hasArrived = false;
+            } else {
+              // Le bus reste à l'école
+              displayPosition = school.location;
+              hasArrived = true;
+              
+              // Enregistrer le moment d'arrivée si ce n'est pas déjà fait
+              if (!arrivalTimesRef.current.has(bus.id)) {
+                arrivalTimesRef.current.set(bus.id, now);
+              }
+            }
           } else if (progress >= 1 || (bus.currentPosition && calculateDistanceMeters(
             bus.currentPosition.lat,
             bus.currentPosition.lng,
@@ -158,9 +185,11 @@ export const GodViewPage = () => {
             // Mettre à jour le statut dans Firestore si ce n'est pas déjà fait
             if (!arrivedBusesRef.current.has(bus.id)) {
               arrivedBusesRef.current.add(bus.id);
+              arrivalTimesRef.current.set(bus.id, Date.now());
               updateBusStatus(bus.id, 'arrived').catch((error) => {
                 console.error(`Erreur lors de la mise à jour du statut du bus ${bus.id}:`, error);
                 arrivedBusesRef.current.delete(bus.id); // Réessayer au prochain tick
+                arrivalTimesRef.current.delete(bus.id);
               });
             }
           } else {
@@ -213,6 +242,29 @@ export const GodViewPage = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Nettoyer périodiquement les bus qui ne sont plus dans la liste (prévenir fuites mémoire)
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const currentBusIds = new Set(schoolBuses.map((bus) => bus.id));
+      
+      // Nettoyer arrivedBusesRef
+      arrivedBusesRef.current.forEach((busId) => {
+        if (!currentBusIds.has(busId)) {
+          arrivedBusesRef.current.delete(busId);
+        }
+      });
+      
+      // Nettoyer arrivalTimesRef (Map - itérer sur les clés)
+      arrivalTimesRef.current.forEach((_, busId) => {
+        if (!currentBusIds.has(busId)) {
+          arrivalTimesRef.current.delete(busId);
+        }
+      });
+    }, 60000); // Nettoyage toutes les 60 secondes
+
+    return () => clearInterval(cleanupInterval);
+  }, [schoolBuses]);
 
   // Initialiser la carte Mapbox
   useEffect(() => {
@@ -422,11 +474,8 @@ export const GodViewPage = () => {
           return {
             busId: bus.id,
             counts: {
-              // Correction : les fonctions retournent les valeurs inversées
-              // getScannedStudents retourne en fait les non scannés
-              // getUnscannedStudents retourne en fait les scannés
-              scanned: unscanned.length, // Utiliser unscanned.length pour les scannés
-              unscanned: scanned.length, // Utiliser scanned.length pour les non scannés
+              scanned: scanned.length,
+              unscanned: unscanned.length,
               total: scanned.length + unscanned.length,
             },
           };
