@@ -282,7 +282,7 @@ export const GodViewPage = () => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      style: 'mapbox://styles/mapbox/dark-v11', // Style sombre avec fond noir/gris foncé
       center: initialCenter,
       zoom: 16,
       minZoom: 13,
@@ -364,26 +364,63 @@ export const GodViewPage = () => {
 
     if (bus.liveStatus === BusLiveStatus.DELAYED) return '#f97316'; // Orange (retard)
     if (bus.classification === 'stationed') return '#ef4444'; // Rouge (à l'école)
-    if (bus.liveStatus === BusLiveStatus.EN_ROUTE) return '#22c55e'; // Vert (en cours)
+    if (bus.liveStatus === BusLiveStatus.EN_ROUTE) return '#3b82f6'; // Bleu électrique (en cours) - meilleur contraste sur fond clair
 
     return '#3b82f6'; // Bleu par défaut
   }, []);
 
-  // Créer le HTML du marqueur
+  // Créer le HTML du marqueur avec flèche directionnelle
   const createMarkerHTML = useCallback((bus: ClassifiedBus): string => {
     const color = getMarkerColor(bus);
-    // Icône de bus simplifiée
-    const busIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 10h16v8H4z"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>`;
+    
+    // Calculer l'angle de rotation basé sur la direction du bus vers l'école
+    let rotationAngle = 0;
+    if (bus.currentPosition?.heading !== undefined) {
+      // Heading GPS : 0 = Nord, 90 = Est, 180 = Sud, 270 = Ouest
+      // CSS rotate : 0 = Nord (haut), 90 = Est (droite), 180 = Sud (bas), 270 = Ouest (gauche)
+      rotationAngle = bus.currentPosition.heading;
+    } else if (bus.displayPosition && school?.location) {
+      // Calculer l'angle vers l'école
+      // dx = différence en longitude (Est-Ouest)
+      // dy = différence en latitude (Nord-Sud)
+      const dx = school.location.lng - bus.displayPosition.lng;
+      const dy = school.location.lat - bus.displayPosition.lat;
+      
+      // Math.atan2(dy, dx) retourne un angle où :
+      // - 0° = Est (dx > 0, dy = 0)
+      // - 90° = Nord (dx = 0, dy > 0)
+      // - 180° = Ouest (dx < 0, dy = 0)
+      // - -90° = Sud (dx = 0, dy < 0)
+      // Pour CSS rotate où 0° = Nord, on doit convertir :
+      // angle = atan2(dy, dx) - 90° (pour avoir 0° = Nord)
+      const angleRadians = Math.atan2(dy, dx);
+      rotationAngle = (angleRadians * 180) / Math.PI - 90;
+      
+      // Normaliser entre 0 et 360
+      if (rotationAngle < 0) {
+        rotationAngle += 360;
+      }
+    }
+    
+    // Icône de bus avec flèche directionnelle (plus visible)
+    const busIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
+        <!-- Flèche directionnelle pointant vers le haut (sera rotée selon la direction) -->
+        <path d="M12 1 L18 9 L15 9 L15 18 C15 19.1 14.1 20 13 20 L11 20 C9.9 20 9 19.1 9 18 L9 9 L6 9 Z" fill="white" stroke="none"/>
+        <!-- Cercle pour le bus (base) -->
+        <circle cx="12" cy="20" r="2.5" fill="white"/>
+      </svg>
+    `;
 
     // Animation de clignotement pour les bus en retard critique
     const isBlinking = bus.liveStatus === BusLiveStatus.DELAYED;
 
     return `
-      <div class="bus-marker ${isBlinking ? 'animate-pulse' : ''}" style="background-color: ${color}">
+      <div class="bus-marker ${isBlinking ? 'animate-pulse' : ''}" style="background-color: ${color}; transform: rotate(${rotationAngle}deg);">
         ${busIcon}
       </div>
     `;
-  }, [getMarkerColor]);
+  }, [getMarkerColor, school]);
 
   // Créer le HTML du popup
   const createPopupHTML = useCallback(
