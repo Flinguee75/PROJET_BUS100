@@ -40,6 +40,7 @@ export interface Parent extends User {
   role: UserRole.PARENT;
   address: string;
   studentIds: string[]; // Liste des enfants
+  assignedBusIds?: string[]; // Liste des bus des enfants (maintenu automatiquement)
 }
 
 export interface Admin extends User {
