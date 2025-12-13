@@ -1,0 +1,4 @@
+firstName,lastName,parentEmail,busId,stopName,pickupLat,pickupLng,dropoffLat,dropoffLng
+Aïcha,Koné,kone@email.com,bus_1,Cocody Centre,5.3599,-4.0083,5.3500,-4.0000
+Koffi,Yao,yao@email.com,bus_1,Plateau,5.3200,-4.0200,5.3100,-4.0100
+Mamadou,Diallo,diallo@email.com,bus_2,Yopougon,5.3350,-4.0850,5.3250,-4.0750

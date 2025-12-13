@@ -25,7 +25,9 @@
       "Bash(npm run test:integration:*)",
       "Bash(npm run dev:*)",
       "Bash(cd:*)",
-      "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/backend && npx tsc:*)"
+      "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/backend && npx tsc:*)",
+      "Bash(npx vite build)",
+      "Bash(timeout 60 npm test -- --run)"
     ],
     "deny": [],
     "ask": []

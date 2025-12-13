@@ -7,6 +7,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 // Mock du module auth.service
 vi.mock('@/services/auth.service', () => ({
@@ -28,7 +29,9 @@ describe('Sidebar', () => {
     return render(
       <MemoryRouter initialEntries={[initialRoute]}>
         <AuthProvider>
-          <Sidebar />
+          <SidebarProvider>
+            <Sidebar />
+          </SidebarProvider>
         </AuthProvider>
       </MemoryRouter>
     );
@@ -43,53 +46,49 @@ describe('Sidebar', () => {
   it('affiche tous les liens de navigation', () => {
     renderSidebar();
 
-    expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
-    expect(screen.getByText('Carte temps réel')).toBeInTheDocument();
-    expect(screen.getByText('Gestion des bus')).toBeInTheDocument();
-    expect(screen.getByText('Élèves')).toBeInTheDocument();
-    expect(screen.getByText('Chauffeurs')).toBeInTheDocument();
-    expect(screen.getByText('Maintenance')).toBeInTheDocument();
-    expect(screen.getByText('Rapports')).toBeInTheDocument();
+    // Nouvelle structure MVP avec 2 items seulement
+    expect(screen.getByText('Tour de Contrôle')).toBeInTheDocument();
+    expect(screen.getByText('Import CSV')).toBeInTheDocument();
   });
 
   it('affiche les icônes des liens de navigation', () => {
     renderSidebar();
 
-    // Vérifier qu'il y a au moins 7 liens (correspondant aux 7 items)
+    // Vérifier qu'il y a 2 liens (correspondant aux 2 items MVP)
     const links = screen.getAllByRole('link');
-    expect(links.length).toBe(7);
+    expect(links.length).toBe(2);
   });
 
   it('applique la classe active au lien actif', () => {
-    renderSidebar('/dashboard');
+    renderSidebar('/map');
 
-    const dashboardLink = screen.getByText('Tableau de bord').closest('a');
-    expect(dashboardLink).toHaveClass('bg-primary-600');
-    expect(dashboardLink).toHaveClass('text-white');
+    const mapLink = screen.getByText('Tour de Contrôle').closest('a');
+    expect(mapLink).toHaveClass('bg-primary-600');
+    expect(mapLink).toHaveClass('text-white');
   });
 
   it("n'applique pas la classe active aux autres liens", () => {
-    renderSidebar('/dashboard');
+    renderSidebar('/map');
 
-    const busesLink = screen.getByText('Gestion des bus').closest('a');
-    expect(busesLink).not.toHaveClass('bg-primary-600');
-    expect(busesLink).toHaveClass('text-gray-300');
+    const importLink = screen.getByText('Import CSV').closest('a');
+    expect(importLink).not.toHaveClass('bg-primary-600');
+    expect(importLink).toHaveClass('text-slate-300');
   });
 
   it('change le lien actif selon la route', () => {
-    // Tester avec la route /buses
-    const { unmount } = renderSidebar('/buses');
+    // Tester avec la route /import
+    const { unmount } = renderSidebar('/import');
 
-    const busesLink = screen.getByText('Gestion des bus').closest('a');
-    expect(busesLink).toHaveClass('bg-primary-600');
+    const importLink = screen.getByText('Import CSV').closest('a');
+    expect(importLink).toHaveClass('bg-primary-600');
 
     unmount();
 
-    // Tester avec la route /dashboard
-    renderSidebar('/dashboard');
+    // Tester avec la route /map
+    renderSidebar('/map');
 
-    const dashboardLink = screen.getByText('Tableau de bord').closest('a');
-    expect(dashboardLink).toHaveClass('bg-primary-600');
+    const mapLink = screen.getByText('Tour de Contrôle').closest('a');
+    expect(mapLink).toHaveClass('bg-primary-600');
   });
 
   it('affiche la version dans le footer', () => {
@@ -105,34 +104,19 @@ describe('Sidebar', () => {
   it('les liens pointent vers les bonnes routes', () => {
     renderSidebar();
 
-    const dashboardLink = screen.getByText('Tableau de bord').closest('a');
-    expect(dashboardLink).toHaveAttribute('href', '/dashboard');
+    const mapLink = screen.getByText('Tour de Contrôle').closest('a');
+    expect(mapLink).toHaveAttribute('href', '/map');
 
-    const mapLink = screen.getByText('Carte temps réel').closest('a');
-    expect(mapLink).toHaveAttribute('href', '/realtime-map');
-
-    const busesLink = screen.getByText('Gestion des bus').closest('a');
-    expect(busesLink).toHaveAttribute('href', '/buses');
-
-    const studentsLink = screen.getByText('Élèves').closest('a');
-    expect(studentsLink).toHaveAttribute('href', '/students');
-
-    const driversLink = screen.getByText('Chauffeurs').closest('a');
-    expect(driversLink).toHaveAttribute('href', '/drivers');
-
-    const maintenanceLink = screen.getByText('Maintenance').closest('a');
-    expect(maintenanceLink).toHaveAttribute('href', '/maintenance');
-
-    const reportsLink = screen.getByText('Rapports').closest('a');
-    expect(reportsLink).toHaveAttribute('href', '/reports');
+    const importLink = screen.getByText('Import CSV').closest('a');
+    expect(importLink).toHaveAttribute('href', '/import');
   });
 
   it('applique les styles de hover aux liens non actifs', () => {
-    renderSidebar('/dashboard');
+    renderSidebar('/map');
 
-    const busesLink = screen.getByText('Gestion des bus').closest('a');
-    expect(busesLink).toHaveClass('hover:bg-gray-800');
-    expect(busesLink).toHaveClass('hover:text-white');
+    const importLink = screen.getByText('Import CSV').closest('a');
+    expect(importLink).toHaveClass('hover:bg-slate-800');
+    expect(importLink).toHaveClass('hover:text-white');
   });
 
   it('tous les liens sont des éléments Link de React Router', () => {

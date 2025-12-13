@@ -1,0 +1,4 @@
+number,plateNumber,capacity,model,driverId
+#1,CI-123-AB,25,Mercedes Sprinter,driver_1
+#2,CI-456-CD,30,Iveco Daily,driver_2
+#3,CI-789-EF,28,Renault Master,driver_3

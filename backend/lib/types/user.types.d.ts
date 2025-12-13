@@ -31,6 +31,7 @@ export interface Parent extends User {
     role: UserRole.PARENT;
     address: string;
     studentIds: string[];
+    assignedBusIds?: string[];
 }
 export interface Admin extends User {
     role: UserRole.ADMIN;

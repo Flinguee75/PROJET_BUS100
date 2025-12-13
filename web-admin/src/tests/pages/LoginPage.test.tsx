@@ -135,7 +135,8 @@ describe('LoginPage', () => {
 
   it('affiche le logo du bus', () => {
     renderLoginPage();
-    expect(screen.getByText('🚌')).toBeInTheDocument();
+    // Le logo est maintenant un SVG, vérifions le titre à la place
+    expect(screen.getByText('Transport Scolaire')).toBeInTheDocument();
   });
 
   it('affiche la checkbox "Se souvenir de moi"', () => {

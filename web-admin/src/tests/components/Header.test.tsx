@@ -105,7 +105,7 @@ describe('Header', () => {
   it("affiche l'initiale de l'utilisateur dans l'avatar", async () => {
     renderHeader();
     await waitFor(() => {
-      const avatar = screen.getByText('A'); // "Admin Test" → "A"
+      const avatar = screen.getByText('AT'); // "Admin Test" → "AT" (initiales)
       expect(avatar).toBeInTheDocument();
     });
   });

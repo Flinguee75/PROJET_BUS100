@@ -17,14 +17,8 @@ import { Layout } from '@/components/Layout';
 import { FirebaseConfigError } from '@/components/FirebaseConfigError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoginPage } from '@/pages/LoginPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { RealtimeMapPage } from '@/pages/RealtimeMapPage';
-import { BusDetailsPage } from '@/pages/BusDetailsPage';
-import { BusesManagementPage } from '@/pages/BusesManagementPage';
-import { StudentsManagementPage } from '@/pages/StudentsManagementPage';
-import { DriversManagementPage } from '@/pages/DriversManagementPage';
-import { RoutesManagementPage } from '@/pages/RoutesManagementPage';
-import { MaintenancePage } from '@/pages/MaintenancePage';
+import { GodViewPage } from '@/pages/GodViewPage';
+import { CSVImportPage } from '@/pages/CSVImportPage';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 // Configuration du client React Query
@@ -69,20 +63,13 @@ function AppRoutes() {
           </ProtectedRoute>
         }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="map" element={<RealtimeMapPage />} />
-          <Route path="buses" element={<BusesManagementPage />} />
-          <Route path="buses/:busId" element={<BusDetailsPage />} />
-          <Route path="drivers" element={<DriversManagementPage />} />
-          <Route path="students" element={<StudentsManagementPage />} />
-          <Route path="routes" element={<RoutesManagementPage />} />
-          <Route path="maintenance" element={<MaintenancePage />} />
-          <Route path="settings" element={<div className="p-8"><h1 className="text-2xl font-bold">Paramètres (À venir)</h1></div>} />
+          <Route index element={<Navigate to="/map" replace />} />
+          <Route path="map" element={<GodViewPage />} />
+          <Route path="import" element={<CSVImportPage />} />
         </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/map" replace />} />
     </Routes>
   );
 }

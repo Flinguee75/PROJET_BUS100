@@ -7,17 +7,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useRef, useEffect } from 'react';
 import {
-  LayoutDashboard,
   Map,
-  Bus,
-  Users,
-  UserCheck,
-  Wrench,
-  FileText,
-  Settings,
-  Route,
+  Upload,
   LucideIcon,
-  GripVertical
+  GripVertical,
+  Bus
 } from 'lucide-react';
 import { useSidebarContext } from '@/contexts/SidebarContext';
 
@@ -28,15 +22,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { path: '/map', label: 'Carte temps réel', icon: Map },
-  { path: '/buses', label: 'Gestion des bus', icon: Bus },
-  { path: '/students', label: 'Élèves', icon: Users },
-  { path: '/drivers', label: 'Chauffeurs', icon: UserCheck },
-  { path: '/routes', label: 'Itinéraires', icon: Route },
-  { path: '/maintenance', label: 'Maintenance', icon: Wrench },
-  { path: '/reports', label: 'Rapports', icon: FileText },
-  { path: '/settings', label: 'Paramètres', icon: Settings },
+  { path: '/map', label: 'Tour de Contrôle', icon: Map },
+  { path: '/import', label: 'Import CSV', icon: Upload },
 ];
 
 // Constantes pour les limites de largeur

@@ -4,10 +4,51 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Créer l'instance mockée réutilisable avec vi.hoisted pour qu'elle soit disponible dans vi.mock
+const mockAxiosInstance = vi.hoisted(() => ({
+  interceptors: {
+    request: {
+      use: vi.fn(),
+      eject: vi.fn(),
+    },
+    response: {
+      use: vi.fn(),
+      eject: vi.fn(),
+    },
+  },
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+}));
+
+// Mock axios AVANT tous les imports
+vi.mock('axios', () => {
+  return {
+    default: {
+      create: vi.fn(() => mockAxiosInstance),
+      get: vi.fn(),
+      post: vi.fn(),
+      put: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    },
+  };
+});
+
+// Mock Firebase auth pour éviter les erreurs
+vi.mock('@/services/firebase', () => ({
+  auth: {
+    currentUser: null,
+  },
+  db: {},
+}));
+
 import axios from 'axios';
 import * as busApi from '@/services/bus.api';
 
-vi.mock('axios');
 const mockedAxios = vi.mocked(axios, true);
 
 describe('Bus API Service', () => {
@@ -38,7 +79,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.post.mockResolvedValue(mockResponse);
+      mockAxiosInstance.post.mockResolvedValue(mockResponse);
 
       const input = {
         plateNumber: 'TU 123 TN 456',
@@ -49,7 +90,7 @@ describe('Bus API Service', () => {
 
       const result = await busApi.createBus(input);
 
-      expect(mockedAxios.post).toHaveBeenCalledWith('/api/buses', input);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/api/buses', input);
       expect(result).toEqual(mockBus);
     });
 
@@ -62,7 +103,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.post.mockRejectedValue(errorResponse);
+      mockAxiosInstance.post.mockRejectedValue(errorResponse);
 
       const input = {
         plateNumber: 'TU 123 TN 456',
@@ -75,7 +116,7 @@ describe('Bus API Service', () => {
     });
 
     it('lance une erreur générique si pas de message d\'erreur', async () => {
-      mockedAxios.post.mockRejectedValue(new Error('Network error'));
+      mockAxiosInstance.post.mockRejectedValue(new Error('Network error'));
 
       const input = {
         plateNumber: 'TU 123 TN 456',
@@ -115,11 +156,11 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockAxiosInstance.get.mockResolvedValue(mockResponse);
 
       const result = await busApi.getAllBuses(false);
 
-      expect(mockedAxios.get).toHaveBeenCalledWith('/api/buses', {
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/buses', {
         params: { live: false },
       });
       expect(result).toEqual(mockBuses);
@@ -155,11 +196,11 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockAxiosInstance.get.mockResolvedValue(mockResponse);
 
       const result = await busApi.getAllBuses(true);
 
-      expect(mockedAxios.get).toHaveBeenCalledWith('/api/buses', {
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/buses', {
         params: { live: true },
       });
       expect(result[0]).toHaveProperty('currentPosition');
@@ -174,7 +215,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.get.mockRejectedValue(errorResponse);
+      mockAxiosInstance.get.mockRejectedValue(errorResponse);
 
       await expect(busApi.getAllBuses()).rejects.toThrow('Database error');
     });
@@ -203,11 +244,11 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockAxiosInstance.get.mockResolvedValue(mockResponse);
 
       const result = await busApi.getBusById('bus-123');
 
-      expect(mockedAxios.get).toHaveBeenCalledWith('/api/buses/bus-123');
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/buses/bus-123');
       expect(result).toEqual(mockBus);
     });
 
@@ -220,7 +261,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.get.mockRejectedValue(errorResponse);
+      mockAxiosInstance.get.mockRejectedValue(errorResponse);
 
       await expect(busApi.getBusById('bus-inexistant')).rejects.toThrow(
         'Bus not found'
@@ -251,7 +292,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.put.mockResolvedValue(mockResponse);
+      mockAxiosInstance.put.mockResolvedValue(mockResponse);
 
       const updateData = {
         plateNumber: 'TU 999 TN 999',
@@ -260,7 +301,7 @@ describe('Bus API Service', () => {
 
       const result = await busApi.updateBus('bus-123', updateData);
 
-      expect(mockedAxios.put).toHaveBeenCalledWith(
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith(
         '/api/buses/bus-123',
         updateData
       );
@@ -277,7 +318,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.put.mockRejectedValue(errorResponse);
+      mockAxiosInstance.put.mockRejectedValue(errorResponse);
 
       await expect(
         busApi.updateBus('bus-123', { capacity: 60 })
@@ -294,11 +335,11 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.delete.mockResolvedValue(mockResponse);
+      mockAxiosInstance.delete.mockResolvedValue(mockResponse);
 
       await busApi.deleteBus('bus-123');
 
-      expect(mockedAxios.delete).toHaveBeenCalledWith('/api/buses/bus-123');
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/api/buses/bus-123');
     });
 
     it('lance une erreur en cas d\'échec', async () => {
@@ -310,7 +351,7 @@ describe('Bus API Service', () => {
         },
       };
 
-      mockedAxios.delete.mockRejectedValue(errorResponse);
+      mockAxiosInstance.delete.mockRejectedValue(errorResponse);
 
       await expect(busApi.deleteBus('bus-inexistant')).rejects.toThrow(
         'Bus not found'
