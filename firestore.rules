@@ -73,7 +73,7 @@ service cloud.firestore {
     match /schools/{schoolId} {
       // Admin: lecture/écriture complète
       // Utilisateurs: lecture uniquement leur école
-      allow read: if isAdmin() || isSameSchool(schoolId);
+      allow read: if isAdmin() || (isAuthenticated() && getUserData().schoolId != null && schoolId == getUserData().schoolId);
       allow write: if isAdmin();
     }
 

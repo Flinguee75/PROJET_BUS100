@@ -6,6 +6,7 @@
 import {
   collection,
   doc,
+  documentId,
   onSnapshot,
   query,
   where,
@@ -248,6 +249,42 @@ async function getBusAttendance(
   });
 
   return attendance;
+}
+
+export async function getStudentsByIds(ids: string[]): Promise<Student[]> {
+  if (!ids.length) {
+    return [];
+  }
+
+  const db = getFirebaseDb();
+  const studentsRef = collection(db, 'students');
+  const result: Student[] = [];
+  const chunkSize = 10;
+
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const chunkQuery = query(studentsRef, where(documentId(), 'in', chunk));
+    const snapshot = await getDocs(chunkQuery);
+    snapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      result.push({
+        id: docSnapshot.id,
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        dateOfBirth: data.dateOfBirth || '',
+        grade: data.grade || '',
+        parentIds: data.parentIds || [],
+        busId: data.busId || null,
+        routeId: data.routeId || null,
+        commune: data.commune || '',
+        quartier: data.quartier || '',
+        isActive: data.isActive !== false,
+        photoUrl: data.photoUrl,
+      });
+    });
+  }
+
+  return result;
 }
 
 function buildAttendanceRecord(

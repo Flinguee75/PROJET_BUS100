@@ -19,6 +19,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoginPage } from '@/pages/LoginPage';
 import { GodViewPage } from '@/pages/GodViewPage';
 import { CSVImportPage } from '@/pages/CSVImportPage';
+import { CourseHistoryPage } from '@/pages/CourseHistoryPage';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 // Configuration du client React Query
@@ -65,6 +66,7 @@ function AppRoutes() {
         >
           <Route index element={<Navigate to="/map" replace />} />
           <Route path="map" element={<GodViewPage />} />
+          <Route path="history" element={<CourseHistoryPage />} />
           <Route path="import" element={<CSVImportPage />} />
         </Route>
 

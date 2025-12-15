@@ -11,7 +11,8 @@ import {
   Upload,
   LucideIcon,
   GripVertical,
-  Bus
+  Bus,
+  History
 } from 'lucide-react';
 import { useSidebarContext } from '@/contexts/SidebarContext';
 
@@ -23,6 +24,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/map', label: 'Tour de Contrôle', icon: Map },
+  { path: '/history', label: 'Historique', icon: History },
   { path: '/import', label: 'Import CSV', icon: Upload },
 ];
 

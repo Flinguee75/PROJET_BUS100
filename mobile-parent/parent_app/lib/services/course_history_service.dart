@@ -11,6 +11,10 @@ class CourseHistoryService {
   static Future<String?> startCourse({
     required String busId,
     required String driverId,
+    required String tripType,
+    required String tripLabel,
+    Map<String, dynamic>? busInfo,
+    Map<String, dynamic>? driverInfo,
     String? routeId,
     String? schoolId,
   }) async {
@@ -20,9 +24,14 @@ class CourseHistoryService {
         'driverId': driverId,
         'routeId': routeId,
         'schoolId': schoolId,
+        'tripType': tripType,
+        'tripLabel': tripLabel,
+        'busInfo': busInfo,
+        'driverInfo': driverInfo,
         'status': 'in_progress',
         'startTime': FieldValue.serverTimestamp(),
         'endTime': null,
+        'stats': null,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -39,13 +48,40 @@ class CourseHistoryService {
   static Future<void> endCourse({
     required String historyId,
     String status = 'completed',
+    int? totalStudents,
+    int? scannedCount,
+    List<String>? scannedStudentIds,
+    List<String>? missedStudentIds,
   }) async {
     try {
-      await _firestore.collection(_collection).doc(historyId).update({
+      final updateData = <String, dynamic>{
         'status': status,
         'endTime': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (totalStudents != null || scannedCount != null) {
+        final scanned = scannedCount ?? scannedStudentIds?.length ?? 0;
+        int? unscanned;
+        if (totalStudents != null) {
+          final remaining = totalStudents - scanned;
+          unscanned = remaining < 0 ? 0 : remaining;
+        }
+        updateData['stats'] = {
+          'totalStudents': totalStudents,
+          'scannedCount': scanned,
+          'unscannedCount': unscanned,
+        };
+      }
+
+      if (scannedStudentIds != null) {
+        updateData['scannedStudentIds'] = scannedStudentIds;
+      }
+      if (missedStudentIds != null) {
+        updateData['missedStudentIds'] = missedStudentIds;
+      }
+
+      await _firestore.collection(_collection).doc(historyId).update(updateData);
       debugPrint('✅ Course $historyId marquée comme $status');
     } catch (e) {
       debugPrint('❌ Erreur fermeture historique course: $e');

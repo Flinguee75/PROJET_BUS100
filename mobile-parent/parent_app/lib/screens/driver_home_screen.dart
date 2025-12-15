@@ -1,17 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
-import '../providers/auth_provider.dart';
-import '../services/gps_service.dart';
-import '../services/driver_service.dart';
-import '../services/student_service.dart';
-import '../services/attendance_service.dart';
-import '../services/course_history_service.dart';
+import 'package:provider/provider.dart';
 import '../models/driver.dart';
 import '../models/trip_type.dart';
+import '../providers/auth_provider.dart';
+import '../services/attendance_service.dart';
+import '../services/course_history_service.dart';
+import '../services/driver_service.dart';
+import '../services/firebase_service.dart';
+import '../services/gps_service.dart';
+import '../services/student_service.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
-import 'dart:async';
 
 /// Écran d'accueil pour les chauffeurs
 /// Permet de sélectionner un type de course, lancer/arrêter la course,
@@ -33,6 +35,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   List<Student> _students = [];
   bool _isLoadingStudents = false;
   String? _currentCourseHistoryId;
+  Map<String, dynamic>? _busMetadata;
 
   // Nouveaux états pour le type de trajet et les scans
   TripType? _selectedTripType;
@@ -65,8 +68,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
     try {
       final driver = await DriverService.getDriverProfile(userId);
+      Map<String, dynamic>? busData;
+      if (driver?.hasAssignedBus ?? false) {
+        busData = await _fetchBusMetadata(driver!.busId!);
+      }
+
+      if (!mounted) return;
       setState(() {
         _driver = driver;
+        _busMetadata = busData;
         _isLoading = false;
         if (driver == null) {
           _error = 'Profil chauffeur introuvable';
@@ -80,6 +90,43 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<Map<String, dynamic>?> _fetchBusMetadata(String busId) async {
+    try {
+      final doc = await FirebaseService.firestore.collection('buses').doc(busId).get();
+      if (!doc.exists) return null;
+      final data = doc.data();
+      if (data == null) return null;
+      return {
+        'id': doc.id,
+        'busNumber': data['busNumber'],
+        'plateNumber': data['plateNumber'],
+        'assignedCommune': data['assignedCommune'],
+        'assignedQuartiers': data['assignedQuartiers'],
+        'routeId': data['routeId'],
+        'routeName': data['routeName'],
+        'capacity': data['capacity'],
+      };
+    } catch (e) {
+      debugPrint('❌ Erreur chargement infos bus: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _ensureBusMetadata() async {
+    final busId = _driver?.busId;
+    if (busId == null) return null;
+    if (_busMetadata != null) return _busMetadata;
+    final data = await _fetchBusMetadata(busId);
+    if (!mounted) {
+      _busMetadata = data;
+      return data;
+    }
+    setState(() {
+      _busMetadata = data;
+    });
+    return data;
   }
 
   /// Charge la liste des élèves assignés au bus, filtrés par type de trajet
@@ -148,10 +195,21 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
 
     await _updateLiveStatus('en_route');
+    final busInfo = await _ensureBusMetadata();
+    final tripValue = _selectedTripType!.firestoreValue;
     final historyId = await CourseHistoryService.startCourse(
       busId: _driver!.busId!,
       driverId: _driver!.id,
-      routeId: null,
+      routeId: busInfo?['routeId'] as String?,
+      tripType: tripValue,
+      tripLabel: _selectedTripType!.label,
+      busInfo: busInfo,
+      driverInfo: {
+        'id': _driver!.id,
+        'name': _driver!.displayName,
+        'phoneNumber': _driver!.phoneNumber,
+        'email': _driver!.email,
+      },
       schoolId: _driver!.schoolId,
     );
     _currentCourseHistoryId = historyId;
@@ -165,6 +223,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   /// Arrête la course
   Future<void> _stopTrip({bool completed = true}) async {
+    final totalStudents = _students.length;
+    final scannedIds = _scannedStudents.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
+    final missedIds = _students
+        .where((student) => !(_scannedStudents[student.id] ?? false))
+        .map((student) => student.id)
+        .toList();
+
     setState(() {
       _isTripActive = false;
       _scannedStudents = {};
@@ -179,6 +247,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       await CourseHistoryService.endCourse(
         historyId: _currentCourseHistoryId!,
         status: completed ? 'completed' : 'stopped',
+        totalStudents: totalStudents > 0 ? totalStudents : null,
+        scannedCount: scannedIds.length,
+        scannedStudentIds: scannedIds,
+        missedStudentIds: missedIds,
       );
       _currentCourseHistoryId = null;
     }
@@ -284,7 +356,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             busId: _driver!.busId!,
             position: position,
             driverId: _driver!.id,
-            routeId: null,
+            routeId: _busMetadata?['routeId'] as String?,
             statusOverride: _isTripActive ? 'en_route' : null,
           );
 
