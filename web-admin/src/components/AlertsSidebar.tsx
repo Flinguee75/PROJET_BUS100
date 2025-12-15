@@ -24,9 +24,19 @@ interface AlertsSidebarProps {
   alerts: Alert[];
   buses: BusRealtimeData[];
   studentsCounts?: Record<string, { scanned: number; unscanned: number; total: number }>;
+  totalBusCount?: number;
+  enCourseCount?: number;
+  atSchoolCount?: number;
 }
 
-export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSidebarProps) => {
+export const AlertsSidebar = ({
+  alerts,
+  buses,
+  studentsCounts = {},
+  totalBusCount,
+  enCourseCount,
+  atSchoolCount,
+}: AlertsSidebarProps) => {
   const navigate = useNavigate();
 
   // Onglet actif : FLOTTE ou ÉLÈVES
@@ -39,6 +49,7 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
 
   // État pour les filtres de type d'alerte élèves
   const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>(['UNSCANNED_CHILD']);
+  const [expandedInfoBusId, setExpandedInfoBusId] = useState<string | null>(null);
 
   // Compteurs pour chaque type d'alerte
   const delayCount = alerts.filter((a) => a.type === 'DELAY').length;
@@ -50,13 +61,15 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
   const totalUnscanned = Object.values(studentsCounts).reduce((acc, counts) => acc + counts.unscanned, 0);
 
   // Compteurs pour les bus par statut
-  const enCourseCount = buses.filter((b) => {
-    return b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED;
-  }).length;
-  const atSchoolCount = buses.filter((b) => {
-    return b.liveStatus === BusLiveStatus.ARRIVED || 
-           (b.liveStatus !== BusLiveStatus.EN_ROUTE && b.liveStatus !== BusLiveStatus.DELAYED);
-  }).length;
+  const effectiveEnCourse =
+    enCourseCount ??
+    buses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED).length;
+  const effectiveAtSchool =
+    atSchoolCount ??
+    buses.filter(
+      (b) => b.liveStatus === BusLiveStatus.ARRIVED || (b.liveStatus !== BusLiveStatus.EN_ROUTE && b.liveStatus !== BusLiveStatus.DELAYED)
+    ).length;
+  const totalFleet = totalBusCount ?? buses.length;
 
   // Séparation des alertes par contexte
   const fleetAlerts = alerts.filter((a) => a.type === 'DELAY' || a.type === 'STOPPED');
@@ -112,19 +125,63 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
     }
   };
 
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+const formatTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
 
     if (diffMinutes < 1) return 'À l\'instant';
     if (diffMinutes === 1) return 'Il y a 1 min';
     if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
 
     const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours === 1) return 'Il y a 1h';
-    return `Il y a ${diffHours}h`;
-  };
+  if (diffHours === 1) return 'Il y a 1h';
+  return `Il y a ${diffHours}h`;
+};
+
+const InfoRow = ({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) => (
+  <div className="flex justify-between text-xs">
+    <span className="text-slate-500">{label}</span>
+    <span className={`font-semibold text-slate-900 ${valueClass ?? ''}`}>{value}</span>
+  </div>
+);
+
+const TRIP_TYPE_LABELS: Record<string, string> = {
+  morning_outbound: 'Matin - Récupérer les élèves',
+  midday_outbound: 'Midi - Déposer les élèves',
+  midday_return: 'Après-midi - Récupérer les élèves',
+  evening_return: 'Soir - Déposer les élèves',
+};
+
+const formatTripTypeLabel = (tripType?: string | null, tripLabel?: string | null): string | null => {
+  if (tripLabel && tripLabel.trim().length > 0) {
+    return tripLabel;
+  }
+  if (tripType && TRIP_TYPE_LABELS[tripType]) {
+    return TRIP_TYPE_LABELS[tripType];
+  }
+  return tripType ?? null;
+};
+
+const formatDurationFromMs = (durationMs: number | null | undefined): string => {
+  if (durationMs == null || durationMs < 0) return '—';
+  if (durationMs < 60000) return '< 1 min';
+  const totalMinutes = Math.floor(durationMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return `${totalMinutes} min`;
+  }
+  return `${hours}h${minutes.toString().padStart(2, '0')}`;
+};
 
   return (
     <div className="w-96 bg-slate-50 border-l border-slate-200 flex flex-col h-full">
@@ -203,7 +260,7 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300'
                 }`}
               >
-                Tout ({buses.length})
+                Tout ({totalFleet})
               </button>
 
               {/* Retards */}
@@ -241,33 +298,33 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
               {/* En course */}
               <button
                 onClick={() => setSelectedFleetFilter('en_course')}
-                disabled={enCourseCount === 0}
+                disabled={effectiveEnCourse === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   selectedFleetFilter === 'en_course'
                     ? 'bg-success-600 text-white'
-                    : enCourseCount === 0
+                    : effectiveEnCourse === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-success-300'
                 }`}
               >
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
-                En course ({enCourseCount})
+                En course ({effectiveEnCourse})
               </button>
 
               {/* À l'école */}
               <button
                 onClick={() => setSelectedFleetFilter('at_school')}
-                disabled={atSchoolCount === 0}
+                disabled={effectiveAtSchool === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   selectedFleetFilter === 'at_school'
                     ? 'bg-blue-400 text-white'
-                    : atSchoolCount === 0
+                    : effectiveAtSchool === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-200'
                 }`}
               >
                 <School className="w-3.5 h-3.5" strokeWidth={2.5} />
-                À l'école ({atSchoolCount})
+                À l'école ({effectiveAtSchool})
               </button>
             </div>
           </div>
@@ -342,10 +399,10 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
               const busAlert = alerts.find((a) => a.busId === bus.id);
               const hasAlert = busAlert !== undefined;
               const isNormalBus = !hasAlert; // Bus normal sans problème
+              const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
 
               if (isNormalBus) {
                 // Carte pour bus normaux avec statut et comptages
-                const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
                 const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
                 const isEnRoute = bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
                 
@@ -370,13 +427,27 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleAlertClick(bus.id)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5"
-                      >
-                        <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        Carte
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleAlertClick(bus.id)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5"
+                        >
+                          <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          Carte
+                        </button>
+                        <button
+                          onClick={() =>
+                            setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id))
+                          }
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 ${
+                            expandedInfoBusId === bus.id
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          Voir info
+                        </button>
+                      </div>
                     </div>
                     {isArrived && (
                       <div className="mt-2 pt-2 border-t border-slate-200">
@@ -387,6 +458,22 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
                         <p className="text-xs text-slate-500">
                           Total: {counts.total} / {bus.capacity} élèves
                         </p>
+                      </div>
+                    )}
+                    {expandedInfoBusId === bus.id && (
+                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
+                        <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
+                        <InfoRow
+                          label="Durée"
+                          value={
+                            typeof bus.tripStartTime === 'number'
+                              ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+                              : '—'
+                          }
+                        />
+                        <InfoRow label="Élèves total" value={`${counts.total}`} />
+                        <InfoRow label="Récupérés" value={`${counts.scanned}`} />
+                        <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
                       </div>
                     )}
                   </div>
@@ -425,7 +512,7 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
                       {formatTimestamp(busAlert.timestamp)}
                     </p>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -446,7 +533,36 @@ export const AlertsSidebar = ({ alerts, buses, studentsCounts = {} }: AlertsSide
                         <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
                         Carte
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id));
+                        }}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5 ${
+                          expandedInfoBusId === bus.id
+                            ? 'bg-primary-100 text-primary-700'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        Voir info
+                      </button>
                     </div>
+                    {expandedInfoBusId === bus.id && (
+                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
+                        <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
+                        <InfoRow
+                          label="Durée"
+                          value={
+                            typeof bus.tripStartTime === 'number'
+                              ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+                              : '—'
+                          }
+                        />
+                        <InfoRow label="Élèves total" value={`${counts.total}`} />
+                        <InfoRow label="Récupérés" value={`${counts.scanned}`} />
+                        <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
+                      </div>
+                    )}
                   </div>
                 </div>
               );

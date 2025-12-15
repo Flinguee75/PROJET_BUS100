@@ -33,6 +33,32 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 // Centre par défaut (localisation de l'école)
 const ABIDJAN_CENTER: [number, number] = [-3.953921037595442, 5.351860986707333];
 const STATIONED_DISTANCE_THRESHOLD_METERS = 150;
+const TRIP_TYPE_LABELS: Record<string, string> = {
+  morning_outbound: 'Matin - Récupérer les élèves',
+  midday_outbound: 'Midi - Déposer les élèves',
+  midday_return: 'Après-midi - Récupérer les élèves',
+  evening_return: 'Soir - Déposer les élèves',
+};
+
+const formatTripTypeLabel = (tripType?: string | null, tripLabel?: string | null): string | null => {
+  if (tripLabel && tripLabel.trim().length > 0) return tripLabel;
+  if (tripType && TRIP_TYPE_LABELS[tripType]) {
+    return TRIP_TYPE_LABELS[tripType];
+  }
+  return tripType ?? null;
+};
+
+const formatDurationFromMs = (durationMs: number | null | undefined): string => {
+  if (durationMs == null || durationMs < 0) return '—';
+  if (durationMs < 60000) return '< 1 min';
+  const totalMinutes = Math.floor(durationMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return `${totalMinutes} min`;
+  }
+  return `${hours}h${minutes.toString().padStart(2, '0')}`;
+};
 
 const calculateDistanceMeters = (
   lat1: number,
@@ -422,6 +448,16 @@ export const GodViewPage = () => {
     `;
   }, [getMarkerColor, school]);
 
+  // Compteurs de flotte (pour la sidebar)
+  const fleetEnCourseCount = useMemo(
+    () =>
+      schoolBuses.filter(
+        (bus) => bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED
+      ).length,
+    [schoolBuses]
+  );
+  const fleetAtSchoolCount = Math.max(0, schoolBuses.length - fleetEnCourseCount);
+
   // Créer le HTML du popup
   const createPopupHTML = useCallback(
     (bus: ClassifiedBus): string => {
@@ -431,6 +467,11 @@ export const GodViewPage = () => {
           : 'N/A';
       const classificationLabel =
         bus.classification === 'stationed' ? "Stationné à l'école" : 'Déployé';
+      const tripLabel = formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini';
+      const tripDuration =
+        typeof bus.tripStartTime === 'number'
+          ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+          : '—';
 
       // Récupérer les comptages d'élèves pour ce bus
       const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
@@ -482,6 +523,16 @@ export const GodViewPage = () => {
           </div>
           <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-2">
             <div class="p-2 bg-slate-50 rounded-lg">
+              <p class="text-slate-500 text-[11px] uppercase">Type de course</p>
+              <p class="font-semibold text-slate-800">${tripLabel}</p>
+            </div>
+            <div class="p-2 bg-slate-50 rounded-lg">
+              <p class="text-slate-500 text-[11px] uppercase">Durée</p>
+              <p class="font-semibold text-slate-800">${tripDuration}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-2">
+            <div class="p-2 bg-slate-50 rounded-lg">
               <p class="font-semibold text-slate-800">${classificationLabel}</p>
               <p class="text-slate-500">Statut actuel</p>
             </div>
@@ -499,7 +550,7 @@ export const GodViewPage = () => {
 
   // Écouter les changements d'attendance en temps réel pour chaque bus
   useEffect(() => {
-    if (processedBuses.length === 0) {
+    if (schoolBuses.length === 0) {
       return;
     }
 
@@ -509,7 +560,7 @@ export const GodViewPage = () => {
 
     // Récupérer d'abord le total d'élèves pour chaque bus (one-shot)
     const fetchBusStudentsTotals = async () => {
-      const promises = processedBuses.map(async (bus) => {
+      const promises = schoolBuses.map(async (bus) => {
         try {
           const students = await getBusStudents(bus.id);
           busStudentsMap.set(bus.id, students.length);
@@ -523,7 +574,7 @@ export const GodViewPage = () => {
 
     fetchBusStudentsTotals().then(() => {
       // Pour chaque bus, écouter les changements d'attendance en temps réel
-      processedBuses.forEach((bus) => {
+      schoolBuses.forEach((bus) => {
         const unsubscribe = watchBusAttendance(
           bus.id,
           today,
@@ -555,7 +606,7 @@ export const GodViewPage = () => {
     return () => {
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [processedBuses]);
+  }, [schoolBuses]);
 
   // Mettre à jour les marqueurs quand les bus changent
   useEffect(() => {
@@ -654,6 +705,9 @@ export const GodViewPage = () => {
         alerts={schoolAlerts} 
         buses={processedBuses} 
         studentsCounts={studentsCounts}
+        totalBusCount={schoolBuses.length}
+        enCourseCount={fleetEnCourseCount}
+        atSchoolCount={fleetAtSchoolCount}
       />
 
       <style>{`

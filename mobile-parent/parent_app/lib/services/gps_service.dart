@@ -21,6 +21,8 @@ class GPSService {
     String? driverId,
     String? routeId,
     String? statusOverride,
+    String? tripType,
+    String? tripLabel,
   }) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -40,6 +42,8 @@ class GPSService {
         'routeId': routeId,
         'status': statusOverride ?? _determineBusStatus(position.speed),
         'passengersCount': 0, // TODO: Implémenter comptage passagers
+        'tripType': tripType,
+        'tripLabel': tripLabel,
         'lastUpdate': FieldValue.serverTimestamp(),
       };
 
@@ -64,9 +68,10 @@ class GPSService {
     String? driverName,
     String? driverPhone,
     String? routeId,
+    Map<String, dynamic>? extraData,
   }) async {
     try {
-      await _firestore.collection('gps_live').doc(busId).set({
+      final payload = {
         'busId': busId,
         'status': status,
         'driverId': driverId ?? '',
@@ -74,7 +79,13 @@ class GPSService {
         'driverPhone': driverPhone,
         'routeId': routeId,
         'lastUpdate': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+
+      if (extraData != null) {
+        payload.addAll(extraData);
+      }
+
+      await _firestore.collection('gps_live').doc(busId).set(payload, SetOptions(merge: true));
       debugPrint('✅ Statut du bus $busId mis à $status');
     } catch (e) {
       debugPrint('❌ Erreur mise à jour statut bus: $e');

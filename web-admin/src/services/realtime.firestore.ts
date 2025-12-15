@@ -217,6 +217,9 @@ export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRea
       : null,
     lastUpdate: normalizeTimestampToString(data.lastUpdate || data.updatedAt || data.timestamp),
     schoolId: data.schoolId || data.school_id || null,
+    tripType: data.tripType || null,
+    tripLabel: data.tripLabel || null,
+    tripStartTime: normalizeTimestampToMillis(data.tripStartTime),
   };
 };
 
@@ -318,6 +321,38 @@ function normalizeTimestampToString(value: unknown): string | null {
     }
   }
 
+  return null;
+}
+
+function normalizeTimestampToMillis(value: unknown): number | null {
+  if (!value) return null;
+  if (typeof value === 'number') return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toMillis' in value &&
+    typeof (value as { toMillis: () => number }).toMillis === 'function'
+  ) {
+    try {
+      return (value as { toMillis: () => number }).toMillis();
+    } catch (err) {
+      console.warn('⚠️ Impossible de convertir le timestamp Firestore:', err);
+      return null;
+    }
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate: () => Date }).toDate === 'function'
+  ) {
+    try {
+      return (value as { toDate: () => Date }).toDate().getTime();
+    } catch (err) {
+      console.warn('⚠️ Impossible de convertir le timestamp Firestore en Date:', err);
+      return null;
+    }
+  }
   return null;
 }
 

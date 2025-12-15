@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -194,7 +195,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     });
     debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
 
-    await _updateLiveStatus('en_route');
+    final tripValue = _selectedTripType!.firestoreValue;
+    await _updateLiveStatus('en_route', extraData: {
+      'tripType': tripValue,
+      'tripLabel': _selectedTripType!.label,
+      'tripStartTime': FieldValue.serverTimestamp(),
+    });
     final busInfo = await _ensureBusMetadata();
     final tripValue = _selectedTripType!.firestoreValue;
     final historyId = await CourseHistoryService.startCourse(
@@ -241,7 +247,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _gpsTimer?.cancel();
     _gpsTimer = null;
 
-    await _updateLiveStatus('stopped');
+    await _updateLiveStatus('stopped', extraData: {
+      'tripType': null,
+      'tripLabel': null,
+      'tripStartTime': null,
+    });
 
     if (_currentCourseHistoryId != null) {
       await CourseHistoryService.endCourse(
@@ -312,7 +322,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  Future<void> _updateLiveStatus(String status) async {
+  Future<void> _updateLiveStatus(String status, {Map<String, dynamic>? extraData}) async {
     final busId = _driver?.busId;
     if (busId == null) return;
     await GPSService.setBusStatus(
@@ -321,6 +331,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       driverId: _driver?.id,
       driverName: _driver?.displayName,
       driverPhone: _driver?.phoneNumber,
+      routeId: _busMetadata?['routeId'] as String?,
+      extraData: extraData,
     );
   }
 
@@ -358,6 +370,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             driverId: _driver!.id,
             routeId: _busMetadata?['routeId'] as String?,
             statusOverride: _isTripActive ? 'en_route' : null,
+            tripType: _selectedTripType?.firestoreValue,
+            tripLabel: _selectedTripType?.label,
           );
 
           // Archiver dans l'historique

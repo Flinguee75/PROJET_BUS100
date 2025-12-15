@@ -57,6 +57,9 @@ export interface BusRealtimeData {
   lastUpdate: string | null;
   isActive: boolean;
   schoolId?: string | null;
+  tripType?: string | null;
+  tripLabel?: string | null;
+  tripStartTime?: number | null;
 }
 
 export interface BusStatistics {
