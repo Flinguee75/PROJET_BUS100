@@ -12,6 +12,8 @@ import {
   Unsubscribe,
   getDocs,
   Timestamp,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
 
@@ -37,6 +39,8 @@ export interface AttendanceRecord {
   date: string; // Format YYYY-MM-DD
   morningStatus?: 'present' | 'absent' | 'late' | 'excused';
   eveningStatus?: 'present' | 'absent' | 'late' | 'excused';
+  status?: 'present' | 'absent' | 'late' | 'excused';
+  tripType?: string;
   timestamp?: number;
   type?: 'boarding' | 'alighting';
   location?: {
@@ -158,20 +162,7 @@ export function watchBusAttendance(
       const attendance: AttendanceRecord[] = [];
 
       snapshot.forEach((docSnapshot) => {
-        const data = docSnapshot.data();
-        const record: AttendanceRecord = {
-          id: docSnapshot.id,
-          studentId: data.studentId || '',
-          busId: data.busId || '',
-          date: data.date || date,
-          morningStatus: data.morningStatus,
-          eveningStatus: data.eveningStatus,
-          timestamp: normalizeTimestamp(data.timestamp),
-          type: data.type,
-          location: data.location,
-        };
-
-        attendance.push(record);
+        attendance.push(buildAttendanceRecord(docSnapshot, date));
       });
 
       onUpdate(attendance);
@@ -253,23 +244,49 @@ async function getBusAttendance(
   const attendance: AttendanceRecord[] = [];
 
   snapshot.forEach((docSnapshot) => {
-    const data = docSnapshot.data();
-    const record: AttendanceRecord = {
-      id: docSnapshot.id,
-      studentId: data.studentId || '',
-      busId: data.busId || '',
-      date: data.date || date,
-      morningStatus: data.morningStatus,
-      eveningStatus: data.eveningStatus,
-      timestamp: normalizeTimestamp(data.timestamp),
-      type: data.type,
-      location: data.location,
-    };
-
-    attendance.push(record);
+    attendance.push(buildAttendanceRecord(docSnapshot, date));
   });
 
   return attendance;
+}
+
+function buildAttendanceRecord(
+  docSnapshot: QueryDocumentSnapshot<DocumentData>,
+  fallbackDate: string
+): AttendanceRecord {
+  const data = docSnapshot.data();
+  const status = (data.status || data.morningStatus || data.eveningStatus) as
+    | 'present'
+    | 'absent'
+    | 'late'
+    | 'excused'
+    | undefined;
+  const tripType = data.tripType as string | undefined;
+
+  let morningStatus = data.morningStatus as AttendanceRecord['morningStatus'];
+  let eveningStatus = data.eveningStatus as AttendanceRecord['eveningStatus'];
+
+  if (!morningStatus && !eveningStatus && tripType && status) {
+    if (tripType === 'morning_outbound' || tripType === 'midday_return') {
+      morningStatus = status;
+    } else if (tripType === 'midday_outbound' || tripType === 'evening_return') {
+      eveningStatus = status;
+    }
+  }
+
+  return {
+    id: docSnapshot.id,
+    studentId: data.studentId || '',
+    busId: data.busId || '',
+    date: data.date || fallbackDate,
+    morningStatus,
+    eveningStatus,
+    status,
+    tripType,
+    timestamp: normalizeTimestamp(data.timestamp || data.scannedAt || data.updatedAt),
+    type: data.type,
+    location: data.location,
+  };
 }
 
 /**
@@ -300,4 +317,3 @@ function normalizeTimestamp(value: unknown): number | undefined {
 
   return undefined;
 }
-
