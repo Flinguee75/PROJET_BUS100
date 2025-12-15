@@ -140,11 +140,33 @@ async function seedData() {
   // ==================================================
   console.log('👨‍✈️ Création des chauffeurs...');
   const chauffeurs = [];
+  const auth = admin.auth();
   for (let i = 1; i <= 5; i++) {
     const chauffeurId = `driver-${i}`;
+    const email = `chauffeur${i}@bus-abidjan.ci`;
+    const password = `DriverSeed${i}23!`;
+
+    // CRÉER L'UTILISATEUR AUTH
+    try {
+      await auth.createUser({
+        uid: chauffeurId,
+        email,
+        password,
+        displayName: `${randomChoice(prénoms)} ${randomChoice(noms)}`,
+        emailVerified: true,
+      });
+      console.log(`  ✅ Utilisateur Auth créé pour ${chauffeurId}`);
+    } catch (error: any) {
+      if (error.code === 'auth/uid-already-exists' || error.code === 'auth/email-already-exists') {
+        console.log(`  ℹ️  Utilisateur Auth déjà existant pour ${chauffeurId}`);
+      } else {
+        throw error;
+      }
+    }
+
     const chauffeur = {
       id: chauffeurId,
-      email: `chauffeur${i}@bus-abidjan.ci`,
+      email,
       displayName: `${randomChoice(prénoms)} ${randomChoice(noms)}`,
       phoneNumber: randomPhone(),
       schoolId: defaultSchoolId,
@@ -195,7 +217,6 @@ async function seedData() {
   // ==================================================
   console.log('👪 Création des parents...');
   const parents = [];
-  const auth = admin.auth();
   for (let i = 1; i <= 15; i++) {
     const parentId = `parent-${i}`;
     const email = `parent${i}@example.com`;
@@ -540,9 +561,9 @@ async function seedData() {
   // ==================================================
   console.log('📍 Création des positions GPS...');
 
-  // Utiliser les valeurs correctes de BusLiveStatus (en_route, delayed, stopped, idle)
-  // La majorité des bus doivent être en_route pour la simulation
-  const statusCycle = ['en_route', 'en_route', 'en_route', 'delayed', 'en_route'];
+  // Tous les bus démarrent à l'arrêt (stopped) pour laisser l'application mobile lancer les courses
+  // Aucune course active au démarrage, donc passengersPresent = 0
+  const status = 'stopped';
 
   for (let i = 0; i < buses.length; i++) {
     const bus = buses[i]!;
@@ -553,19 +574,11 @@ async function seedData() {
     const baseLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.35;
     const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.0;
     const now = Date.now();
-    const status = statusCycle[i % statusCycle.length]!;
-
-    const speed =
-      status === 'stopped' || status === 'idle'
-        ? 0
-        : status === 'delayed'
-        ? 10 + Math.random() * 10
-        : 20 + Math.random() * 25;
 
     const chauffeur = chauffeurs.find((c) => c.id === bus.driverId);
     const routeMeta = routes.find((route) => route.id === bus.routeId);
-    const lastStop = routeMeta?.stops[routeMeta.stops.length - 1];
 
+    // Position initiale du bus (au dépôt ou point de départ)
     await db.collection('gps_live').doc(bus.id).set({
       busId: bus.id,
       number: `BUS-${String(bus.busNumber).padStart(2, '0')}`,
@@ -574,24 +587,24 @@ async function seedData() {
       model: bus.model,
       year: bus.year,
       capacity: bus.capacity,
-      status,
-      passengersCount: bus.studentIds.length,
-      passengersPresent: Math.max(0, bus.studentIds.length - Math.floor(Math.random() * 4)),
+      status, // Toujours 'stopped' au démarrage
+      passengersCount: 0, // Aucun passager au démarrage
+      passengersPresent: 0, // Aucune course active
       driverId: bus.driverId,
       driverName: bus.driverName,
       driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
-      routeId: bus.routeId,
-      routeName: routeMeta?.name || `Route ${config.commune}`,
-      fromZone: routeMeta?.commune || config.commune,
-      toZone: lastStop?.name || 'École Primaire Cocody',
+      routeId: bus.routeId || null, // Route assignée mais pas encore active
+      routeName: routeMeta?.name || null,
+      fromZone: null, // Sera défini quand la course sera lancée
+      toZone: null, // Sera défini quand la course sera lancée
       currentZone: `${config.commune} - ${quartierRef}`,
       schoolId: defaultSchoolId,
       position: {
-        lat: baseLat + (Math.random() - 0.5) * 0.02,
-        lng: baseLng + (Math.random() - 0.5) * 0.02,
-        speed,
-        heading: Math.floor(Math.random() * 360),
-        accuracy: 5 + Math.random() * 10,
+        lat: baseLat + (Math.random() - 0.5) * 0.01, // Position initiale proche du dépôt
+        lng: baseLng + (Math.random() - 0.5) * 0.01,
+        speed: 0, // Bus arrêté
+        heading: 0,
+        accuracy: 10,
         timestamp: now,
       },
       updatedAt: now,
@@ -599,7 +612,7 @@ async function seedData() {
       timestamp: now,
     });
 
-    console.log(`  ✓ Bus ${bus.busNumber} - Position GPS (${status})`);
+    console.log(`  ✓ Bus ${bus.busNumber} - Position GPS initiale (${status})`);
   }
 
   console.log(`✅ ${buses.length} positions GPS créées\n`);

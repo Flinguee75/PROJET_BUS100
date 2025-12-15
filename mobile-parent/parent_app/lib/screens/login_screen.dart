@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
 import 'main_map_screen.dart';
+import 'driver_home_screen.dart';
 
 /// Écran de connexion
 class LoginScreen extends StatefulWidget {
@@ -38,10 +39,26 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      // Connexion réussie → aller vers la carte principale
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainMapScreen()),
-      );
+      // Attendre que le profil soit chargé
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Rediriger selon le rôle
+      if (authProvider.isDriver) {
+        // Chauffeur → écran chauffeur
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
+        );
+      } else if (authProvider.isParent) {
+        // Parent → carte principale
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainMapScreen()),
+        );
+      } else {
+        // Autre rôle → carte principale par défaut
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainMapScreen()),
+        );
+      }
     } else {
       // Afficher l'erreur
       ScaffoldMessenger.of(context).showSnackBar(
@@ -96,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Sous-titre
                   const Text(
-                    'Espace Parents',
+                    'Espace Parents & Chauffeurs',
                     style: TextStyle(
                       fontSize: 16,
                       color: AppColors.textSecondary,
@@ -199,18 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Mot de passe oublié
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Implémenter la récupération de mot de passe
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Fonctionnalité à venir'),
-                        ),
-                      );
-                    },
-                    child: const Text('Mot de passe oublié ?'),
-                  ),
+
                 ],
               ),
             ),

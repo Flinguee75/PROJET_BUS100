@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
 import 'main_map_screen.dart';
+import 'driver_home_screen.dart';
 
 /// Écran de démarrage (Splash Screen)
 class SplashScreen extends StatefulWidget {
@@ -30,10 +31,26 @@ class _SplashScreenState extends State<SplashScreen> {
     final authProvider = context.read<AuthProvider>();
 
     if (authProvider.isAuthenticated) {
-      // Utilisateur connecté → aller vers la carte principale
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainMapScreen()),
-      );
+      // Attendre que le profil soit chargé
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Rediriger selon le rôle
+      if (authProvider.isDriver) {
+        // Chauffeur → écran chauffeur
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DriverHomeScreen()),
+        );
+      } else if (authProvider.isParent) {
+        // Parent → carte principale
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainMapScreen()),
+        );
+      } else {
+        // Autre rôle ou rôle non défini → Login
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
     } else {
       // Utilisateur non connecté → aller vers Login
       Navigator.of(context).pushReplacement(

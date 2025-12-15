@@ -1,0 +1,866 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import '../providers/auth_provider.dart';
+import '../services/gps_service.dart';
+import '../services/driver_service.dart';
+import '../services/student_service.dart';
+import '../services/attendance_service.dart';
+import '../services/course_history_service.dart';
+import '../models/driver.dart';
+import '../models/trip_type.dart';
+import '../utils/app_colors.dart';
+import 'login_screen.dart';
+import 'dart:async';
+
+/// Écran d'accueil pour les chauffeurs
+/// Permet de sélectionner un type de course, lancer/arrêter la course,
+/// et confirmer la présence des élèves en temps réel
+class DriverHomeScreen extends StatefulWidget {
+  const DriverHomeScreen({super.key});
+
+  @override
+  State<DriverHomeScreen> createState() => _DriverHomeScreenState();
+}
+
+class _DriverHomeScreenState extends State<DriverHomeScreen> {
+  Driver? _driver;
+  bool _isLoading = true;
+  bool _isTripActive = false;
+  Position? _currentPosition;
+  Timer? _gpsTimer;
+  String? _error;
+  List<Student> _students = [];
+  bool _isLoadingStudents = false;
+  String? _currentCourseHistoryId;
+
+  // Nouveaux états pour le type de trajet et les scans
+  TripType? _selectedTripType;
+  Map<String, bool> _scannedStudents = {}; // studentId -> isScanned
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDriverProfile();
+  }
+
+  @override
+  void dispose() {
+    _gpsTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Charge le profil du chauffeur
+  Future<void> _loadDriverProfile() async {
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.user?.uid;
+
+    if (userId == null) {
+      setState(() {
+        _error = 'Utilisateur non connecté';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final driver = await DriverService.getDriverProfile(userId);
+      setState(() {
+        _driver = driver;
+        _isLoading = false;
+        if (driver == null) {
+          _error = 'Profil chauffeur introuvable';
+        } else if (!driver.hasAssignedBus) {
+          _error = 'Aucun bus assigné';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Erreur: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Charge la liste des élèves assignés au bus, filtrés par type de trajet
+  Future<void> _loadStudents() async {
+    if (_driver?.busId == null || _selectedTripType == null) return;
+
+    setState(() {
+      _isLoadingStudents = true;
+    });
+
+    try {
+      // Charger les élèves filtrés par type de trajet
+      final students = await StudentService.getStudentsByBusIdAndTripType(
+        _driver!.busId!,
+        _selectedTripType!.firestoreValue,
+      );
+
+      // Charger les statuts d'attendance existants
+      final attendanceStatus = await AttendanceService.getAttendanceStatusForBus(
+        busId: _driver!.busId!,
+        tripType: _selectedTripType!.firestoreValue,
+      );
+
+      setState(() {
+        _students = students;
+        _scannedStudents = attendanceStatus;
+        _isLoadingStudents = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Erreur chargement élèves: $e');
+      setState(() {
+        _isLoadingStudents = false;
+      });
+    }
+  }
+
+  /// Lance une course
+  Future<void> _startTrip() async {
+    debugPrint('🚀 Tentative de lancement de la course');
+
+    // Vérifier qu'un type de trajet est sélectionné
+    if (_selectedTripType == null) {
+      _showError('Veuillez sélectionner un type de course');
+      return;
+    }
+
+    if (_driver == null || !_driver!.hasAssignedBus) {
+      debugPrint('❌ Lancement impossible: chauffeur sans bus assigné');
+      _showError('Aucun bus assigné');
+      return;
+    }
+
+    // Vérifier les permissions de localisation
+    final hasPermission = await GPSService.checkLocationPermission();
+    if (!hasPermission) {
+      debugPrint('❌ Permissions de localisation refusées');
+      _showError('Permissions de localisation requises');
+      return;
+    }
+
+    setState(() {
+      _isTripActive = true;
+      _error = null;
+      _scannedStudents = {}; // Réinitialiser les scans
+    });
+    debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
+
+    await _updateLiveStatus('en_route');
+    final historyId = await CourseHistoryService.startCourse(
+      busId: _driver!.busId!,
+      driverId: _driver!.id,
+      routeId: null,
+      schoolId: _driver!.schoolId,
+    );
+    _currentCourseHistoryId = historyId;
+
+    // Charger la liste des élèves filtrés
+    await _loadStudents();
+
+    // Démarrer l'envoi périodique de la position GPS
+    _startGPSTracking();
+  }
+
+  /// Arrête la course
+  Future<void> _stopTrip({bool completed = true}) async {
+    setState(() {
+      _isTripActive = false;
+      _scannedStudents = {};
+      _students = [];
+    });
+    _gpsTimer?.cancel();
+    _gpsTimer = null;
+
+    await _updateLiveStatus('stopped');
+
+    if (_currentCourseHistoryId != null) {
+      await CourseHistoryService.endCourse(
+        historyId: _currentCourseHistoryId!,
+        status: completed ? 'completed' : 'stopped',
+      );
+      _currentCourseHistoryId = null;
+    }
+  }
+
+  /// Toggle le scan d'un élève (présent/absent)
+  Future<void> _toggleStudentScan(Student student) async {
+    if (_driver == null || _selectedTripType == null) return;
+
+    final isCurrentlyScanned = _scannedStudents[student.id] ?? false;
+
+    try {
+      if (isCurrentlyScanned) {
+        // Annuler le scan
+        await AttendanceService.unscanStudent(
+          studentId: student.id,
+          busId: _driver!.busId!,
+          tripType: _selectedTripType!.firestoreValue,
+          driverId: _driver!.id,
+        );
+      } else {
+        // Scanner l'élève
+        await AttendanceService.scanStudent(
+          studentId: student.id,
+          busId: _driver!.busId!,
+          tripType: _selectedTripType!.firestoreValue,
+          driverId: _driver!.id,
+          location: _currentPosition != null
+              ? {
+                  'lat': _currentPosition!.latitude,
+                  'lng': _currentPosition!.longitude,
+                }
+              : null,
+        );
+      }
+
+      // Mettre à jour l'état local
+      setState(() {
+        _scannedStudents[student.id] = !isCurrentlyScanned;
+      });
+
+      // Feedback visuel
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isCurrentlyScanned
+                  ? '${student.firstName} marqué comme absent'
+                  : '${student.firstName} confirmé présent',
+            ),
+            duration: const Duration(seconds: 1),
+            backgroundColor: isCurrentlyScanned ? Colors.orange : Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur lors du scan: $e');
+      _showError('Erreur lors de la confirmation');
+    }
+  }
+
+  Future<void> _updateLiveStatus(String status) async {
+    final busId = _driver?.busId;
+    if (busId == null) return;
+    await GPSService.setBusStatus(
+      busId: busId,
+      status: status,
+      driverId: _driver?.id,
+      driverName: _driver?.displayName,
+      driverPhone: _driver?.phoneNumber,
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    final authProvider = context.read<AuthProvider>();
+    await _stopTrip(completed: false);
+    await authProvider.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Démarre le tracking GPS périodique
+  void _startGPSTracking() {
+    // Envoyer la position toutes les 3 secondes (comme spécifié)
+    _gpsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!_isTripActive) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final position = await GPSService.getCurrentPosition();
+        if (position != null) {
+          setState(() {
+            _currentPosition = position;
+          });
+
+          // Écrire dans Firestore
+          await GPSService.updateBusPosition(
+            busId: _driver!.busId!,
+            position: position,
+            driverId: _driver!.id,
+            routeId: null,
+            statusOverride: _isTripActive ? 'en_route' : null,
+          );
+
+          // Archiver dans l'historique
+          await GPSService.archiveGPSPosition(
+            busId: _driver!.busId!,
+            position: position,
+          );
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur GPS: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur GPS: $e'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.danger,
+      ),
+    );
+  }
+
+  /// Compte le nombre d'élèves scannés
+  int get _scannedCount =>
+      _scannedStudents.values.where((scanned) => scanned).length;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null && _driver == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Erreur'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: AppColors.danger,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _handleLogout,
+                child: const Text('Se déconnecter'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Espace Chauffeur'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _handleLogout,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Carte de bienvenue
+              Card(
+                color: AppColors.primary,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.person,
+                        size: 64,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _driver?.displayName ?? 'Chauffeur',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _driver?.email ?? '',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Informations du bus
+              if (_driver?.hasAssignedBus ?? false) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Bus Assigné',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ID: ${_driver!.busId}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (_driver!.schoolId != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'École: ${_driver!.schoolId}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Sélecteur de type de course (affiché seulement si course inactive)
+              if (!_isTripActive) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.route, color: AppColors.primary),
+                            SizedBox(width: 8),
+                            Text(
+                              'Type de course',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ...TripType.values.map((tripType) => _buildTripTypeOption(tripType)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Position actuelle
+              if (_currentPosition != null) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Position Actuelle',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'Vitesse: ${(_currentPosition!.speed * 3.6).toStringAsFixed(1)} km/h',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Bouton Lancer/Arrêter la course
+              ElevatedButton(
+                onPressed: (_isTripActive || _selectedTripType != null)
+                    ? () async {
+                        if (_isTripActive) {
+                          await _stopTrip();
+                        } else {
+                          await _startTrip();
+                        }
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      _isTripActive ? AppColors.danger : AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isTripActive ? Icons.stop : Icons.play_arrow,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isTripActive
+                          ? 'Arrêter la course'
+                          : _selectedTripType != null
+                              ? 'Lancer: ${_selectedTripType!.shortLabel}'
+                              : 'Sélectionnez un type de course',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              if (_isTripActive) ...[
+                const SizedBox(height: 16),
+                Card(
+                  color: Colors.green,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Course en cours - GPS actif',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (_selectedTripType != null)
+                                Text(
+                                  _selectedTripType!.label,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              // Liste des élèves (affichée uniquement quand la course est active)
+              if (_isTripActive) ...[
+                const SizedBox(height: 24),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.people, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _selectedTripType?.actionDescription ?? 'Élèves',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            // Compteur de progression
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _scannedCount == _students.length && _students.isNotEmpty
+                                    ? Colors.green.withValues(alpha: 0.2)
+                                    : AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '$_scannedCount/${_students.length}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _scannedCount == _students.length && _students.isNotEmpty
+                                      ? Colors.green
+                                      : AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Appuyez sur un élève pour confirmer sa présence',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_isLoadingStudents)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else if (_students.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 48,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Aucun élève pour ce trajet',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ...(_students.map((student) => _buildStudentTile(student))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Construit une option de type de trajet
+  Widget _buildTripTypeOption(TripType tripType) {
+    final isSelected = _selectedTripType == tripType;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedTripType = tripType;
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? tripType.color.withValues(alpha: 0.2)
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? tripType.color : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? tripType.color.withValues(alpha: 0.3)
+                      : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  tripType.icon,
+                  color: isSelected ? tripType.color : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tripType.shortLabel,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? tripType.color : Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      tripType.actionDescription,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle,
+                  color: tripType.color,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Construit une tuile d'élève avec possibilité de toggle scan
+  Widget _buildStudentTile(Student student) {
+    final isScanned = _scannedStudents[student.id] ?? false;
+
+    return InkWell(
+      onTap: () => _toggleStudentScan(student),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          color: isScanned
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isScanned ? Colors.green.withValues(alpha: 0.3) : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              backgroundColor:
+                  isScanned ? Colors.green.withValues(alpha: 0.2) : AppColors.primary.withValues(alpha: 0.2),
+              child: Text(
+                student.firstName.isNotEmpty
+                    ? student.firstName[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  color: isScanned ? Colors.green : AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Infos élève
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.fullName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isScanned ? Colors.green.shade800 : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    '${student.grade}${student.quartier != null ? " • ${student.quartier}" : ""}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Icône de statut
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isScanned ? Colors.green : Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isScanned ? Icons.check : Icons.person_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

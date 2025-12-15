@@ -17,7 +17,7 @@ import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import {
   simulateBusTrajectoryToSchool,
 } from '@/utils/busPositionSimulator';
-import { getScannedStudents, getUnscannedStudents } from '@/services/students.firestore';
+import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
 import { updateBusStatus } from '@/services/realtime.firestore';
 
 type ClassifiedBus = BusRealtimeData & {
@@ -497,45 +497,64 @@ export const GodViewPage = () => {
     [studentsCounts]
   );
 
-  // Récupérer les comptages d'élèves pour chaque bus
+  // Écouter les changements d'attendance en temps réel pour chaque bus
   useEffect(() => {
-    const fetchStudentsCounts = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const countsPromises = processedBuses.map(async (bus) => {
-        try {
-          const [scanned, unscanned] = await Promise.all([
-            getScannedStudents(bus.id, today),
-            getUnscannedStudents(bus.id, today),
-          ]);
+    if (processedBuses.length === 0) {
+      return;
+    }
 
-          return {
-            busId: bus.id,
-            counts: {
-              scanned: scanned.length,
-              unscanned: unscanned.length,
-              total: scanned.length + unscanned.length,
-            },
-          };
+    const today = new Date().toISOString().split('T')[0];
+    const unsubscribes: (() => void)[] = [];
+    const busStudentsMap = new Map<string, number>(); // Map pour stocker le total d'élèves par bus
+
+    // Récupérer d'abord le total d'élèves pour chaque bus (one-shot)
+    const fetchBusStudentsTotals = async () => {
+      const promises = processedBuses.map(async (bus) => {
+        try {
+          const students = await getBusStudents(bus.id);
+          busStudentsMap.set(bus.id, students.length);
         } catch (error) {
           console.error(`Erreur lors de la récupération des élèves pour le bus ${bus.id}:`, error);
-          return {
-            busId: bus.id,
-            counts: { scanned: 0, unscanned: 0, total: 0 },
-          };
+          busStudentsMap.set(bus.id, 0);
         }
       });
-
-      const results = await Promise.all(countsPromises);
-      const newCounts: Record<string, { scanned: number; unscanned: number; total: number }> = {};
-      results.forEach(({ busId, counts }) => {
-        newCounts[busId] = counts;
-      });
-      setStudentsCounts(newCounts);
+      await Promise.all(promises);
     };
 
-    if (processedBuses.length > 0) {
-      fetchStudentsCounts();
-    }
+    fetchBusStudentsTotals().then(() => {
+      // Pour chaque bus, écouter les changements d'attendance en temps réel
+      processedBuses.forEach((bus) => {
+        const unsubscribe = watchBusAttendance(
+          bus.id,
+          today,
+          (attendance) => {
+            // Calculer le nombre d'élèves scannés à partir des enregistrements d'attendance
+            const scanned = attendance.filter(
+              (a) => a.morningStatus === 'present' || a.eveningStatus === 'present'
+            ).length;
+
+            // Le total d'élèves du bus (récupéré précédemment)
+            const total = busStudentsMap.get(bus.id) || 0;
+            const unscanned = Math.max(0, total - scanned);
+
+            // Mettre à jour les comptages pour ce bus
+            setStudentsCounts((prev) => ({
+              ...prev,
+              [bus.id]: { scanned, unscanned, total },
+            }));
+          },
+          (error) => {
+            console.error(`Erreur lors de l'écoute de l'attendance pour le bus ${bus.id}:`, error);
+          }
+        );
+        unsubscribes.push(unsubscribe);
+      });
+    });
+
+    // Cleanup: désabonner tous les listeners quand les bus changent ou le composant se démonte
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
   }, [processedBuses]);
 
   // Mettre à jour les marqueurs quand les bus changent

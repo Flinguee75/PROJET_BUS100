@@ -882,6 +882,69 @@ export declare const attendanceQuerySchema: z.ZodObject<{
     startDate: string;
     endDate: string;
 }>;
+export declare const routeStartSchema: z.ZodObject<{
+    busId: z.ZodString;
+    driverId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    busId: string;
+    driverId: string;
+}, {
+    busId: string;
+    driverId: string;
+}>;
+export declare const attendanceScanSchema: z.ZodObject<{
+    studentId: z.ZodString;
+    busId: z.ZodString;
+    date: z.ZodString;
+    type: z.ZodEnum<["boarding", "alighting"]>;
+    driverId: z.ZodString;
+    location: z.ZodOptional<z.ZodObject<{
+        lat: z.ZodNumber;
+        lng: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        lat: number;
+        lng: number;
+    }, {
+        lat: number;
+        lng: number;
+    }>>;
+}, "strip", z.ZodTypeAny, {
+    type: "boarding" | "alighting";
+    busId: string;
+    driverId: string;
+    date: string;
+    studentId: string;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+}, {
+    type: "boarding" | "alighting";
+    busId: string;
+    driverId: string;
+    date: string;
+    studentId: string;
+    location?: {
+        lat: number;
+        lng: number;
+    } | undefined;
+}>;
+export declare const attendanceUnscanSchema: z.ZodObject<{
+    studentId: z.ZodString;
+    busId: z.ZodString;
+    date: z.ZodString;
+    driverId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    busId: string;
+    driverId: string;
+    date: string;
+    studentId: string;
+}, {
+    busId: string;
+    driverId: string;
+    date: string;
+    studentId: string;
+}>;
 export declare const schoolLocationSchema: z.ZodObject<{
     lat: z.ZodNumber;
     lng: z.ZodNumber;

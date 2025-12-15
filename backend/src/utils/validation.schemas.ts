@@ -315,6 +315,46 @@ export const attendanceQuerySchema = z.object({
 });
 
 /**
+ * Schéma Route Start
+ * Validation pour démarrer une course
+ */
+export const routeStartSchema = z.object({
+  busId: z.string().min(1, 'Bus ID requis'),
+  driverId: z.string().min(1, 'Driver ID requis'),
+});
+
+/**
+ * Schéma Attendance Scan
+ * Validation pour scanner un élève
+ */
+export const attendanceScanSchema = z.object({
+  studentId: z.string().min(1, 'Student ID requis'),
+  busId: z.string().min(1, 'Bus ID requis'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+  type: z.enum(['boarding', 'alighting'], {
+    required_error: 'Type requis (boarding ou alighting)',
+  }),
+  driverId: z.string().min(1, 'Driver ID requis'),
+  location: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
+});
+
+/**
+ * Schéma Attendance Unscan
+ * Validation pour dé-scanner un élève
+ */
+export const attendanceUnscanSchema = z.object({
+  studentId: z.string().min(1, 'Student ID requis'),
+  busId: z.string().min(1, 'Bus ID requis'),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date invalide (YYYY-MM-DD)'),
+  driverId: z.string().min(1, 'Driver ID requis'),
+});
+
+/**
  * Schéma School Location
  * Validation pour coordonnées GPS d'une école
  */

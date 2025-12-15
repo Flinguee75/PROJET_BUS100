@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../firebase_options.dart';
 
 /// Service Firebase pour initialiser et accéder aux services Firebase
 class FirebaseService {
@@ -9,11 +11,13 @@ class FirebaseService {
 
   /// Initialiser Firebase
   static Future<void> initialize() async {
-    await Firebase.initializeApp();
-    
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
     // Utiliser les émulateurs en développement (optionnel)
     const useEmulators = bool.fromEnvironment('USE_EMULATORS', defaultValue: false);
-    
+
     if (useEmulators) {
       await _connectToEmulators();
     }
@@ -21,13 +25,22 @@ class FirebaseService {
 
   /// Connecter aux émulateurs Firebase (développement local)
   static Future<void> _connectToEmulators() async {
+    final host = _emulatorHost;
     try {
-      await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-      FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+      await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+      FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
       print('✅ Connecté aux émulateurs Firebase');
     } catch (e) {
       print('⚠️ Erreur connexion émulateurs: $e');
     }
+  }
+
+  /// Retourne l'hôte à utiliser selon la plateforme
+  static String get _emulatorHost {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return '10.0.2.2';
+    }
+    return 'localhost';
   }
 
   /// Connexion avec email et mot de passe
@@ -69,4 +82,3 @@ class FirebaseService {
     }
   }
 }
-

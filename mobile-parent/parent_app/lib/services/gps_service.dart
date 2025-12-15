@@ -1,0 +1,183 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'firebase_service.dart';
+
+/// Service pour gérer l'écriture GPS dans Firestore
+class GPSService {
+  static final FirebaseFirestore _firestore = FirebaseService.firestore;
+
+  /// Met à jour la position GPS d'un bus dans Firestore
+  /// Écrit dans /gps_live/{busId}
+  /// 
+  /// [busId] : ID du bus
+  /// [position] : Position GPS actuelle
+  /// [driverId] : ID du chauffeur (optionnel)
+  /// [routeId] : ID de la route (optionnel)
+  /// [statusOverride] : Statut imposé (ex: 'en_route' pendant la course)
+  static Future<void> updateBusPosition({
+    required String busId,
+    required Position position,
+    String? driverId,
+    String? routeId,
+    String? statusOverride,
+  }) async {
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+      // Créer l'objet GPS Live selon le format backend
+      final gpsLiveData = {
+        'busId': busId,
+        'position': {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'speed': position.speed, // m/s
+          'heading': position.heading, // degrés (0-360)
+          'accuracy': position.accuracy, // mètres
+          'timestamp': timestamp,
+        },
+        'driverId': driverId ?? '',
+        'routeId': routeId,
+        'status': statusOverride ?? _determineBusStatus(position.speed),
+        'passengersCount': 0, // TODO: Implémenter comptage passagers
+        'lastUpdate': FieldValue.serverTimestamp(),
+      };
+
+      // Écrire dans /gps_live/{busId}
+      await _firestore
+          .collection('gps_live')
+          .doc(busId)
+          .set(gpsLiveData, SetOptions(merge: true));
+
+      debugPrint('✅ Position GPS mise à jour pour le bus $busId');
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la mise à jour GPS: $e');
+      rethrow;
+    }
+  }
+
+  /// Met uniquement à jour le statut live d'un bus (sans écrire de position)
+  static Future<void> setBusStatus({
+    required String busId,
+    required String status,
+    String? driverId,
+    String? driverName,
+    String? driverPhone,
+    String? routeId,
+  }) async {
+    try {
+      await _firestore.collection('gps_live').doc(busId).set({
+        'busId': busId,
+        'status': status,
+        'driverId': driverId ?? '',
+        'driverName': driverName,
+        'driverPhone': driverPhone,
+        'routeId': routeId,
+        'lastUpdate': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('✅ Statut du bus $busId mis à $status');
+    } catch (e) {
+      debugPrint('❌ Erreur mise à jour statut bus: $e');
+    }
+  }
+
+  /// Archive la position GPS dans l'historique
+  /// Écrit dans /gps_history/{busId}/{date}/{positionId}
+  static Future<void> archiveGPSPosition({
+    required String busId,
+    required Position position,
+  }) async {
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final date = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD
+      final positionId = timestamp.toString();
+
+      final historyData = {
+        'busId': busId,
+        'position': {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'speed': position.speed,
+          'heading': position.heading,
+          'accuracy': position.accuracy,
+          'timestamp': timestamp,
+        },
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // Écrire dans /gps_history/{busId}/{date}/{positionId}
+      await _firestore
+          .collection('gps_history')
+          .doc(busId)
+          .collection(date)
+          .doc(positionId)
+          .set(historyData);
+
+      debugPrint('✅ Position GPS archivée pour le bus $busId');
+    } catch (e) {
+      debugPrint('❌ Erreur lors de l\'archivage GPS: $e');
+      // Ne pas rethrow pour ne pas bloquer la mise à jour live
+    }
+  }
+
+  /// Détermine le statut du bus basé sur la vitesse
+  /// Retourne les mêmes statuts que le backend attend (en_route, idle, stopped)
+  static String _determineBusStatus(double speedMs) {
+    final speedKmh = speedMs * 3.6;
+
+    if (speedKmh > 5) {
+      return 'en_route'; // Bus considéré comme en course
+    } else if (speedKmh > 0.5) {
+      return 'idle'; // Ralenti
+    } else {
+      return 'stopped'; // À l'arrêt
+    }
+  }
+
+  /// Vérifie les permissions de localisation
+  static Future<bool> checkLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Vérifier si le service de localisation est activé
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      debugPrint('⚠️ Le service de localisation est désactivé');
+      return false;
+    }
+
+    // Vérifier les permissions
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        debugPrint('⚠️ Les permissions de localisation sont refusées');
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      debugPrint('⚠️ Les permissions de localisation sont définitivement refusées');
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Obtient la position actuelle
+  static Future<Position?> getCurrentPosition() async {
+    try {
+      final hasPermission = await checkLocationPermission();
+      if (!hasPermission) {
+        return null;
+      }
+
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la récupération de la position: $e');
+      return null;
+    }
+  }
+}

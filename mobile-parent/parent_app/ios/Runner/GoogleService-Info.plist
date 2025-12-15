@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.projet.bus</string>
+	<string>com.transportscolaire.parentApp</string>
 	<key>PROJECT_ID</key>
 	<string>projet-bus-60a3f</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:694037171854:ios:012a06c871b4277891c3df</string>
+	<string>1:694037171854:ios:40e1ddf0b81e6a6691c3df</string>
 </dict>
 </plist>
