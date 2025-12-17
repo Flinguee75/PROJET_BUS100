@@ -10,6 +10,7 @@
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { BusStatus, BusMaintenanceStatus } from '../types/bus.types';
+import { BusLiveStatus } from '../types/gps.types';
 import { TimeOfDay } from '../types/route.types';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -114,6 +115,20 @@ function randomChoice<T>(array: T[]): T {
 
 function randomPhone(): string {
   return `+225 07 ${Math.floor(10 + Math.random() * 90)} ${Math.floor(10 + Math.random() * 90)} ${Math.floor(10 + Math.random() * 90)} ${Math.floor(10 + Math.random() * 90)}`;
+}
+
+function getStationedPosition(index: number, total: number) {
+  const angle = (index / Math.max(total, 1)) * 2 * Math.PI;
+  const radiusMeters = 35 + (index % 3) * 12; // 35 à 59 mètres autour de l'école
+  const radiusDegreesLat = radiusMeters / 111000;
+  const radiusDegreesLng =
+    radiusMeters /
+    (111000 * Math.cos((defaultSchool.location.lat * Math.PI) / 180));
+
+  return {
+    lat: defaultSchool.location.lat + radiusDegreesLat * Math.cos(angle),
+    lng: defaultSchool.location.lng + radiusDegreesLng * Math.sin(angle),
+  };
 }
 
 // ==============================================
@@ -561,18 +576,12 @@ async function seedData() {
   // ==================================================
   console.log('📍 Création des positions GPS...');
 
-  // Tous les bus démarrent à l'arrêt (stopped) pour laisser l'application mobile lancer les courses
-  // Aucune course active au démarrage, donc passengersPresent = 0
-  const status = 'stopped';
+  // Tous les bus démarrent stationnés à l'école
+  const status = BusLiveStatus.STOPPED;
 
   for (let i = 0; i < buses.length; i++) {
     const bus = buses[i]!;
-    const config =
-      busConfigs.find((cfg) => cfg.commune === bus.assignedCommune) || busConfigs[i % busConfigs.length]!;
-    const quartierRef = config.quartiers[0] || config.commune;
-    const baseKey = `${config.commune}-${quartierRef.replace(/\s+/g, '')}`;
-    const baseLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.35;
-    const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.0;
+    const { lat, lng } = getStationedPosition(i, buses.length);
     const now = Date.now();
 
     const chauffeur = chauffeurs.find((c) => c.id === bus.driverId);
@@ -587,9 +596,11 @@ async function seedData() {
       model: bus.model,
       year: bus.year,
       capacity: bus.capacity,
-      status, // Toujours 'stopped' au démarrage
+      status,
+      liveStatus: status,
       passengersCount: 0, // Aucun passager au démarrage
       passengersPresent: 0, // Aucune course active
+      isActive: true,
       driverId: bus.driverId,
       driverName: bus.driverName,
       driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
@@ -597,11 +608,11 @@ async function seedData() {
       routeName: routeMeta?.name || null,
       fromZone: null, // Sera défini quand la course sera lancée
       toZone: null, // Sera défini quand la course sera lancée
-      currentZone: `${config.commune} - ${quartierRef}`,
+      currentZone: `${defaultSchool.name} - Cocody`,
       schoolId: defaultSchoolId,
       position: {
-        lat: baseLat + (Math.random() - 0.5) * 0.01, // Position initiale proche du dépôt
-        lng: baseLng + (Math.random() - 0.5) * 0.01,
+        lat,
+        lng,
         speed: 0, // Bus arrêté
         heading: 0,
         accuracy: 10,
@@ -612,7 +623,7 @@ async function seedData() {
       timestamp: now,
     });
 
-    console.log(`  ✓ Bus ${bus.busNumber} - Position GPS initiale (${status})`);
+    console.log(`  ✓ Bus ${bus.busNumber} - Positionné à l'école (${status})`);
   }
 
   console.log(`✅ ${buses.length} positions GPS créées\n`);

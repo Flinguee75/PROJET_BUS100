@@ -9,13 +9,15 @@ class GPSService {
 
   /// Met à jour la position GPS d'un bus dans Firestore
   /// Écrit dans /gps_live/{busId}
-  /// 
+  ///
   /// [busId] : ID du bus
   /// [position] : Position GPS actuelle
   /// [driverId] : ID du chauffeur (optionnel)
   /// [routeId] : ID de la route (optionnel)
   /// [statusOverride] : Statut imposé (ex: 'en_route' pendant la course)
-  static Future<void> updateBusPosition({
+  ///
+  /// Retourne `true` en cas de succès, `false` en cas d'échec
+  static Future<bool> updateBusPosition({
     required String busId,
     required Position position,
     String? driverId,
@@ -54,9 +56,10 @@ class GPSService {
           .set(gpsLiveData, SetOptions(merge: true));
 
       debugPrint('✅ Position GPS mise à jour pour le bus $busId');
+      return true; // Succès
     } catch (e) {
       debugPrint('❌ Erreur lors de la mise à jour GPS: $e');
-      rethrow;
+      return false; // Échec - sera mis en queue pour retry
     }
   }
 

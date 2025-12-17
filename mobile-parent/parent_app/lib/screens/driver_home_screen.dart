@@ -8,11 +8,14 @@ import '../models/driver.dart';
 import '../models/trip_type.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
+import '../services/background_gps_service.dart';
 import '../services/course_history_service.dart';
 import '../services/driver_service.dart';
 import '../services/firebase_service.dart';
 import '../services/gps_service.dart';
 import '../services/student_service.dart';
+import '../services/trip_state_service.dart';
+import '../models/trip_state.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
 
@@ -31,7 +34,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isLoading = true;
   bool _isTripActive = false;
   Position? _currentPosition;
-  Timer? _gpsTimer;
   String? _error;
   List<Student> _students = [];
   bool _isLoadingStudents = false;
@@ -46,11 +48,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     _loadDriverProfile();
+    _checkForResumableTrip(); // Vérifier si un trajet était actif
   }
 
   @override
   void dispose() {
-    _gpsTimer?.cancel();
+    // Plus de Timer GPS - géré par BackgroundGpsService
     super.dispose();
   }
 
@@ -164,6 +167,106 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  /// Vérifie si un trajet était actif et propose de le reprendre
+  Future<void> _checkForResumableTrip() async {
+    // Attendre que le profil du chauffeur soit chargé
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Charger l'état persisté
+    final savedState = await TripStateService.loadTripState();
+
+    if (savedState == null) return; // Pas de trajet à restaurer
+
+    // Afficher dialog de confirmation
+    if (!mounted) return;
+
+    final shouldResume = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Trajet en cours détecté'),
+        content: Text(
+          'Un trajet "${savedState.tripType.label}" était actif.\n\n'
+          'Voulez-vous le reprendre ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Non, annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Oui, reprendre'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldResume == true) {
+      await _resumeTrip(savedState);
+    } else {
+      // L'utilisateur refuse, nettoyer l'état
+      await TripStateService.clearTripState();
+      await BackgroundGpsService.instance.stopTracking();
+    }
+  }
+
+  /// Restaure un trajet à partir de l'état sauvegardé
+  Future<void> _resumeTrip(TripState savedState) async {
+    try {
+      debugPrint('🔄 Restauration du trajet: ${savedState.toString()}');
+
+      // Restaurer l'état
+      setState(() {
+        _isTripActive = true;
+        _selectedTripType = savedState.tripType;
+        _currentCourseHistoryId = savedState.courseHistoryId;
+        _scannedStudents = savedState.scannedStudents;
+        _currentPosition = savedState.currentPosition;
+        _busMetadata = savedState.busMetadata;
+      });
+
+      // Recharger la liste des élèves
+      await _loadStudents();
+
+      // Redémarrer le service GPS en arrière-plan
+      final success = await BackgroundGpsService.instance.startTracking(
+        busId: savedState.busId,
+        driverId: savedState.driverId,
+        tripType: savedState.tripType,
+        routeId: savedState.busMetadata?['routeId'] as String?,
+      );
+
+      if (!success) {
+        _showError('Impossible de redémarrer le tracking GPS');
+        await TripStateService.clearTripState();
+        setState(() {
+          _isTripActive = false;
+        });
+        return;
+      }
+
+      debugPrint('✅ Trajet restauré avec succès: ${savedState.tripType.label}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Trajet "${savedState.tripType.label}" repris avec succès'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur lors de la restauration du trajet: $e');
+      _showError('Erreur lors de la restauration du trajet');
+      await TripStateService.clearTripState();
+    }
+  }
+
   /// Lance une course
   Future<void> _startTrip() async {
     debugPrint('🚀 Tentative de lancement de la course');
@@ -202,7 +305,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       'tripStartTime': FieldValue.serverTimestamp(),
     });
     final busInfo = await _ensureBusMetadata();
-    final tripValue = _selectedTripType!.firestoreValue;
     final historyId = await CourseHistoryService.startCourse(
       busId: _driver!.busId!,
       driverId: _driver!.id,
@@ -221,10 +323,37 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _currentCourseHistoryId = historyId;
 
     // Charger la liste des élèves filtrés
+    await AttendanceService.resetAttendanceForTrip(
+      busId: _driver!.busId!,
+      tripType: tripValue,
+    );
     await _loadStudents();
 
-    // Démarrer l'envoi périodique de la position GPS
-    _startGPSTracking();
+    // Démarrer le service GPS en arrière-plan
+    final success = await BackgroundGpsService.instance.startTracking(
+      busId: _driver!.busId!,
+      driverId: _driver!.id,
+      tripType: _selectedTripType!,
+      routeId: _busMetadata?['routeId'] as String?,
+    );
+
+    if (!success) {
+      debugPrint('❌ Échec démarrage service GPS background');
+      _showError('Impossible de démarrer le tracking GPS');
+    } else {
+      debugPrint('✅ Service GPS background démarré');
+
+      // Sauvegarder l'état du trajet pour récupération après crash
+      await TripStateService.saveTripState(
+        busId: _driver!.busId!,
+        driverId: _driver!.id,
+        tripType: _selectedTripType!,
+        courseHistoryId: _currentCourseHistoryId!,
+        scannedStudents: _scannedStudents,
+        currentPosition: _currentPosition,
+        busMetadata: _busMetadata,
+      );
+    }
   }
 
   /// Arrête la course
@@ -244,8 +373,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _scannedStudents = {};
       _students = [];
     });
-    _gpsTimer?.cancel();
-    _gpsTimer = null;
+
+    // Arrêter le service GPS en arrière-plan
+    await BackgroundGpsService.instance.stopTracking();
+    debugPrint('✅ Service GPS background arrêté');
+
+    // Nettoyer l'état persisté du trajet
+    await TripStateService.clearTripState();
 
     await _updateLiveStatus('stopped', extraData: {
       'tripType': null,
@@ -302,6 +436,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _scannedStudents[student.id] = !isCurrentlyScanned;
       });
 
+      // Mettre à jour l'état persisté (si trajet actif)
+      if (_isTripActive && _currentCourseHistoryId != null) {
+        await TripStateService.saveTripState(
+          busId: _driver!.busId!,
+          driverId: _driver!.id,
+          tripType: _selectedTripType!,
+          courseHistoryId: _currentCourseHistoryId!,
+          scannedStudents: _scannedStudents,
+          currentPosition: _currentPosition,
+          busMetadata: _busMetadata,
+        );
+      }
+
       // Feedback visuel
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -347,52 +494,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
-  /// Démarre le tracking GPS périodique
-  void _startGPSTracking() {
-    // Envoyer la position toutes les 3 secondes (comme spécifié)
-    _gpsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      if (!_isTripActive) {
-        timer.cancel();
-        return;
-      }
-
-      try {
-        final position = await GPSService.getCurrentPosition();
-        if (position != null) {
-          setState(() {
-            _currentPosition = position;
-          });
-
-          // Écrire dans Firestore
-          await GPSService.updateBusPosition(
-            busId: _driver!.busId!,
-            position: position,
-            driverId: _driver!.id,
-            routeId: _busMetadata?['routeId'] as String?,
-            statusOverride: _isTripActive ? 'en_route' : null,
-            tripType: _selectedTripType?.firestoreValue,
-            tripLabel: _selectedTripType?.label,
-          );
-
-          // Archiver dans l'historique
-          await GPSService.archiveGPSPosition(
-            busId: _driver!.busId!,
-            position: position,
-          );
-        }
-      } catch (e) {
-        debugPrint('❌ Erreur GPS: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur GPS: $e'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
-        }
-      }
-    });
-  }
+  // Méthode _startGPSTracking supprimée - remplacée par BackgroundGpsService
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

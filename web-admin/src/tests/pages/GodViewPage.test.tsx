@@ -9,6 +9,7 @@ import { GodViewPage } from '@/pages/GodViewPage';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchoolBuses } from '@/hooks/useSchool';
 import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
+import { BusLiveStatus } from '@/types/realtime';
 
 // Mock Mapbox GL
 vi.mock('mapbox-gl', () => ({
@@ -187,7 +188,7 @@ describe('GodViewPage', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,

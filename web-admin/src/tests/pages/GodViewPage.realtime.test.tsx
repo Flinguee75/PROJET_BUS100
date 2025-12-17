@@ -10,6 +10,7 @@ import { GodViewPage } from '@/pages/GodViewPage';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchoolBuses } from '@/hooks/useSchool';
 import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
+import { BusLiveStatus } from '@/types/realtime';
 import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
 
 // Mock Mapbox GL
@@ -186,7 +187,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,
@@ -204,7 +205,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,
@@ -253,7 +254,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,
@@ -308,7 +309,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,
@@ -350,7 +351,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'stopped', // Bus arrêté
+          liveStatus: BusLiveStatus.STOPPED, // Bus arrêté
           driver: null,
           route: null,
           passengersCount: 0,
@@ -386,7 +387,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           year: 2020,
           status: 'active',
           currentPosition: null,
-          liveStatus: 'en_route',
+          liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
           route: null,
           passengersCount: 0,
@@ -407,5 +408,9 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
     });
   });
 });
+
+
+
+
 
 

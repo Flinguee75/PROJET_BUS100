@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'services/firebase_service.dart';
+import 'services/background_gps_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bus_provider.dart';
 import 'utils/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialiser Firebase
   await FirebaseService.initialize();
-  
+
+  // Initialiser le service GPS en arrière-plan
+  await BackgroundGpsService.instance.initialize();
+
   runApp(const MyApp());
 }
 

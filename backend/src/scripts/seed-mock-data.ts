@@ -109,6 +109,9 @@ const routes = [
   },
 ];
 
+// Localisation de l'école (parking principal pour les bus stationnés)
+const SCHOOL_LOCATION = { lat: 5.351824, lng: -3.953979 };
+
 // Conducteurs mock
 const drivers = [
   { id: 'driver-1', name: 'Kouassi Jean', phone: '+225 07 12 34 56 78' },
@@ -135,6 +138,20 @@ function getRandomPositionOnRoute(route: typeof routes[0], progress: number) {
   return {
     lat: p1.lat + (p2.lat - p1.lat) * localProgress,
     lng: p1.lng + (p2.lng - p1.lng) * localProgress,
+  };
+}
+
+// Générer une position stationnée à proximité de l'école (répartition radiale)
+function getStationedPosition(index: number, total: number) {
+  const angle = (index / total) * 2 * Math.PI;
+  const radiusMeters = 35 + (index % 3) * 12; // 35 à 59m
+  const radiusDegreesLat = radiusMeters / 111000;
+  const radiusDegreesLng =
+    radiusMeters / (111000 * Math.cos((SCHOOL_LOCATION.lat * Math.PI) / 180));
+
+  return {
+    lat: SCHOOL_LOCATION.lat + radiusDegreesLat * Math.cos(angle),
+    lng: SCHOOL_LOCATION.lng + radiusDegreesLng * Math.sin(angle),
   };
 }
 
@@ -238,14 +255,14 @@ async function seedMockData() {
   console.log('🚌 Création des bus...');
   const now = Date.now();
   const busStatuses = [
-    { status: BusLiveStatus.EN_ROUTE, speed: 35, passengersCount: 25, minutesAgo: 2 }, // Normal
-    { status: BusLiveStatus.EN_ROUTE, speed: 40, passengersCount: 30, minutesAgo: 3 }, // Normal
-    { status: BusLiveStatus.EN_ROUTE, speed: 25, passengersCount: 18, minutesAgo: 18 }, // Retard critique
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 15, minutesAgo: 4 }, // En attente
-    { status: BusLiveStatus.EN_ROUTE, speed: 45, passengersCount: 28, minutesAgo: 23 }, // Retard grave
-    { status: BusLiveStatus.IDLE, speed: 3, passengersCount: 12, minutesAgo: 2 }, // Normal
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0, minutesAgo: 0 }, // Bus hors course
-    { status: BusLiveStatus.STOPPED, speed: 0, passengersCount: 0, minutesAgo: 0 }, // Bus hors course
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 26, minutesAgo: 1 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 24, minutesAgo: 2 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 22, minutesAgo: 0 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 27, minutesAgo: 3 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 25, minutesAgo: 1 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 23, minutesAgo: 4 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 21, minutesAgo: 2 },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 20, minutesAgo: 0 },
   ];
 
   for (let i = 0; i < drivers.length; i++) {
@@ -274,7 +291,10 @@ async function seedMockData() {
     // Si le bus est actif, créer sa position GPS
     if (isActive) {
       const progress = (i * 0.15) % 1; // Position sur la route (0-100%)
-      const position = getRandomPositionOnRoute(route, progress);
+      const position =
+        busInfo.status === BusLiveStatus.ARRIVED
+          ? getStationedPosition(i, drivers.length)
+          : getRandomPositionOnRoute(route, progress);
       const gpsTimestamp = now - busInfo.minutesAgo * 60 * 1000; // Timestamp avec retard
 
       await db.collection('gps_live').doc(busId).set({
@@ -294,10 +314,9 @@ async function seedMockData() {
         lastUpdate: Timestamp.now(),
       });
 
-      const retardInfo = busInfo.minutesAgo > 15 ? ` 🚨 RETARD ${busInfo.minutesAgo} min` : '';
-      console.log(
-        `  ✓ Bus ${busId} - ${route.name} - ${busInfo.status} - ${busInfo.passengersCount} élèves${retardInfo}`
-      );
+      const statusLabel =
+        busInfo.status === BusLiveStatus.ARRIVED ? 'Stationné à l’école' : busInfo.status;
+      console.log(`  ✓ Bus ${busId} - ${statusLabel} - ${busInfo.passengersCount} élèves`);
     } else {
       console.log(`  ✓ Bus ${busId} - HORS COURSE`);
     }
@@ -311,8 +330,8 @@ async function seedMockData() {
   console.log(`  - ${drivers.length} bus`);
   console.log(`  - ${studentCount} élèves`);
   console.log(`  - ${scannedCount} scans aujourd'hui (${scannedCount}% validation)`);
-  console.log(`  - ${busStatuses.filter((s) => s.passengersCount > 0).length} bus en course`);
-  console.log(`  - ${busStatuses.filter((s) => s.passengersCount === 0).length} bus hors course`);
+  console.log(`  - ${busStatuses.filter((s) => s.status === BusLiveStatus.ARRIVED).length} bus stationnés`);
+  console.log(`  - ${busStatuses.filter((s) => s.status === BusLiveStatus.EN_ROUTE).length} bus en cours de préparation`);
   console.log(`  - ${busStatuses.filter((s) => s.minutesAgo > 15).length} bus en retard critique`);
   console.log(`  - ${busStatuses.filter((s) => s.minutesAgo > 20).length} bus en retard grave`);
   console.log('\n✨ Vous pouvez maintenant tester le Dashboard avec ces données !');

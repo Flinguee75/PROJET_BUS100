@@ -18,7 +18,6 @@ import {
   simulateBusTrajectoryToSchool,
 } from '@/utils/busPositionSimulator';
 import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
-import { updateBusStatus } from '@/services/realtime.firestore';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -26,6 +25,68 @@ type ClassifiedBus = BusRealtimeData & {
   displayPosition: { lat: number; lng: number } | null;
   hasArrived?: boolean; // Flag pour indiquer si le bus est arrivé
 };
+
+// Timeout pour considérer un bus comme "en route" même sans GPS récent (2 minutes)
+const GPS_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+const isBusEnCourse = (bus: BusRealtimeData): boolean => {
+  // Si le statut est explicitement EN_ROUTE ou DELAYED, le bus est en course
+  if (bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED) {
+    return true;
+  }
+  
+  // Si le bus n'a pas de position GPS, utiliser lastUpdate comme fallback
+  if (!bus.currentPosition || !bus.currentPosition.timestamp) {
+    // Vérifier si le bus avait une mise à jour récente (dans les 2 dernières minutes)
+    if (bus.lastUpdate) {
+      const lastUpdateTime = typeof bus.lastUpdate === 'string' 
+        ? new Date(bus.lastUpdate).getTime() 
+        : (typeof bus.lastUpdate === 'number' ? bus.lastUpdate : null);
+      
+      if (lastUpdateTime) {
+        const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:isBusEnCourse',message:'No GPS but checking lastUpdate',data:{busId:bus.id,liveStatus:bus.liveStatus,timeSinceLastUpdate,wasRecentlyUpdated:timeSinceLastUpdate < GPS_TIMEOUT_MS,isArrived:bus.liveStatus === BusLiveStatus.ARRIVED,result:timeSinceLastUpdate < GPS_TIMEOUT_MS && bus.liveStatus !== BusLiveStatus.ARRIVED},timestamp:Date.now(),sessionId:'debug-session',runId:'run-gps-timeout-fix-v2',hypothesisId:'GPS_TIMEOUT_FIX_V2'})}).catch(()=>{});
+        // #endregion
+        
+        // Si la dernière mise à jour est récente ET que le statut n'est pas ARRIVED,
+        // on considère le bus comme toujours en course (protection contre arrêt temporaire GPS)
+        if (timeSinceLastUpdate < GPS_TIMEOUT_MS && 
+            bus.liveStatus !== BusLiveStatus.ARRIVED) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  // Si le bus avait une position GPS récente (GPS reçu il y a moins de GPS_TIMEOUT_MS),
+  // on le considère toujours comme en course même si le statut a changé
+  // Cela gère le cas où le mobile arrête d'envoyer des GPS quand le bus est immobile
+  // Le backend peut mettre le statut à STOPPED quand il n'y a plus de GPS, mais si le GPS est récent,
+  // c'est juste que le bus est immobile temporairement, pas qu'il a terminé sa course
+  const timeSinceLastGPS = Date.now() - bus.currentPosition.timestamp;
+  const wasRecentlyEnRoute = timeSinceLastGPS < GPS_TIMEOUT_MS;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:isBusEnCourse',message:'Checking if bus is en course with GPS',data:{busId:bus.id,liveStatus:bus.liveStatus,hasGPS:!!bus.currentPosition,timeSinceLastGPS,wasRecentlyEnRoute,isArrived:bus.liveStatus === BusLiveStatus.ARRIVED,result:wasRecentlyEnRoute && bus.liveStatus !== BusLiveStatus.ARRIVED},timestamp:Date.now(),sessionId:'debug-session',runId:'run-gps-timeout-fix-v2',hypothesisId:'GPS_TIMEOUT_FIX_V2'})}).catch(()=>{});
+  // #endregion
+  
+  // Si le bus avait une position GPS récente ET qu'il n'est pas explicitement arrivé,
+  // on le considère toujours comme en course (même si le statut est STOPPED ou IDLE)
+  // car cela signifie que le bus est juste immobile temporairement
+  if (wasRecentlyEnRoute && bus.liveStatus !== BusLiveStatus.ARRIVED) {
+    return true;
+  }
+  
+  return false;
+};
+
+const isBusAtSchool = (bus: BusRealtimeData): boolean => bus.liveStatus === BusLiveStatus.ARRIVED;
+
+const isBusStationed = (bus: BusRealtimeData): boolean =>
+  bus.liveStatus === BusLiveStatus.STOPPED || bus.liveStatus === BusLiveStatus.IDLE;
 
 // Token Mapbox depuis les variables d'environnement
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -136,24 +197,17 @@ export const GodViewPage = () => {
   // État pour forcer la mise à jour des positions simulées
   const [simulationTick, setSimulationTick] = useState(0);
 
-  // Suivre les bus qui sont arrivés pour éviter les mises à jour multiples
-  const arrivedBusesRef = useRef<Set<string>>(new Set());
-  // Suivre le moment où chaque bus est arrivé (pour gérer le redépart)
-  const arrivalTimesRef = useRef<Map<string, number>>(new Map());
-  // Délai avant qu'un bus reparte après arrivée (en millisecondes) - 30 secondes
-  const ARRIVAL_STAY_DURATION_MS = 30000;
+  // Suivre l'état local du statut pour éviter le flickering
+  const localStatusRef = useRef<Map<string, BusLiveStatus>>(new Map());
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
     return schoolBuses
-      // Filtrer : ne garder que les bus EN_ROUTE (en course) ou ARRIVED (arrivés)
-      // Les bus arrêtés (STOPPED, IDLE, stationed) ne sont pas affichés sur la carte
-      .filter((bus) => {
-        const isEnRoute = bus.liveStatus === BusLiveStatus.EN_ROUTE || 
-                          bus.liveStatus === BusLiveStatus.DELAYED;
-        const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
-        return (isEnRoute || isArrived) && bus.isActive;
-      })
+      // Filtrer : conserver uniquement les bus en course ou à l'école
+      .filter((bus) => (isBusEnCourse(bus) || isBusAtSchool(bus)) && bus.isActive)
       .map((bus) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:156',message:'Processing bus - entry',data:{busId:bus.id,busLiveStatus:bus.liveStatus,localStatus:localStatusRef.current.get(bus.id),isActive:bus.isActive},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         const { classification, distance } = classifyBus(bus, school?.location);
         
         // Déterminer la position d'affichage
@@ -171,53 +225,20 @@ export const GodViewPage = () => {
           const cycleLength = Math.floor(1 / busSpeed);
           const progress = (simulationTick % cycleLength) * busSpeed;
           
-          // Si le bus est déjà arrivé, vérifier s'il doit repartir
-          if (bus.liveStatus === BusLiveStatus.ARRIVED) {
-            const arrivalTime = arrivalTimesRef.current.get(bus.id);
-            const now = Date.now();
-            
-            // Si le bus est arrivé depuis plus de ARRIVAL_STAY_DURATION_MS, le remettre en route
-            if (arrivalTime && (now - arrivalTime) > ARRIVAL_STAY_DURATION_MS) {
-              // Le bus repart après le délai
-              if (arrivedBusesRef.current.has(bus.id)) {
-                arrivedBusesRef.current.delete(bus.id);
-                arrivalTimesRef.current.delete(bus.id);
-                updateBusStatus(bus.id, 'en_route').catch((error) => {
-                  console.error(`Erreur lors de la remise en route du bus ${bus.id}:`, error);
-                });
-              }
-              // Continuer avec la simulation normale (le bus repart)
-              hasArrived = false;
-            } else {
-              // Le bus reste à l'école
-              displayPosition = school.location;
-              hasArrived = true;
-              
-              // Enregistrer le moment d'arrivée si ce n'est pas déjà fait
-              if (!arrivalTimesRef.current.has(bus.id)) {
-                arrivalTimesRef.current.set(bus.id, now);
-              }
-            }
-          } else if (progress >= 1 || (bus.currentPosition && calculateDistanceMeters(
-            bus.currentPosition.lat,
-            bus.currentPosition.lng,
-            school.location.lat,
-            school.location.lng
-          ) < 100)) {
-            // Le bus est arrivé à l'école (progress >= 1 ou distance < 100m)
+          // Utiliser le statut local si disponible, sinon le statut Firestore
+          const effectiveStatus = localStatusRef.current.get(bus.id) ?? bus.liveStatus;
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:179',message:'Effective status calculated',data:{busId:bus.id,effectiveStatus,firestoreStatus:bus.liveStatus,localStatus:localStatusRef.current.get(bus.id),progress:progress.toFixed(3)},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'MANUAL_ARRIVAL'})}).catch(()=>{});
+          // #endregion
+          
+          // Si le bus est arrivé (statut ARRIVED défini manuellement), afficher à l'école
+          if (effectiveStatus === BusLiveStatus.ARRIVED) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:185',message:'Bus is ARRIVED - displaying at school',data:{busId:bus.id,effectiveStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'MANUAL_ARRIVAL'})}).catch(()=>{});
+            // #endregion
             displayPosition = school.location;
             hasArrived = true;
-            
-            // Mettre à jour le statut dans Firestore si ce n'est pas déjà fait
-            if (!arrivedBusesRef.current.has(bus.id)) {
-              arrivedBusesRef.current.add(bus.id);
-              arrivalTimesRef.current.set(bus.id, Date.now());
-              updateBusStatus(bus.id, 'arrived').catch((error) => {
-                console.error(`Erreur lors de la mise à jour du statut du bus ${bus.id}:`, error);
-                arrivedBusesRef.current.delete(bus.id); // Réessayer au prochain tick
-                arrivalTimesRef.current.delete(bus.id);
-              });
-            }
           } else {
             // Si le bus a une position réelle, l'utiliser comme point de départ
             if (bus.currentPosition) {
@@ -234,8 +255,33 @@ export const GodViewPage = () => {
           }
         }
         
+        // Si aucune position calculée, fallback sur la position réelle si dispo,
+        // sinon sur l'école ou le centre par défaut pour éviter les null
+        if (!displayPosition) {
+          if (bus.currentPosition) {
+            displayPosition = {
+              lat: bus.currentPosition.lat,
+              lng: bus.currentPosition.lng,
+            };
+          } else if (school?.location) {
+            displayPosition = {
+              lat: school.location.lat,
+              lng: school.location.lng,
+            };
+          } else {
+            displayPosition = { lat: ABIDJAN_CENTER[1], lng: ABIDJAN_CENTER[0] };
+          }
+        }
+        
+        // Utiliser le statut local si disponible
+        const effectiveLiveStatus = localStatusRef.current.get(bus.id) ?? bus.liveStatus;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:248',message:'Final effectiveLiveStatus for bus',data:{busId:bus.id,effectiveLiveStatus,firestoreStatus:bus.liveStatus,localStatus:localStatusRef.current.get(bus.id),hasArrived},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        
         return {
           ...bus,
+          liveStatus: effectiveLiveStatus, // Utiliser le statut local pour éviter le flickering
           classification,
           distanceFromSchool: distance,
           displayPosition,
@@ -243,6 +289,10 @@ export const GodViewPage = () => {
         };
       });
   }, [schoolBuses, school, simulationTick]);
+
+  const stationedBuses = useMemo(() => {
+    return schoolBuses.filter((bus) => bus.isActive && isBusStationed(bus));
+  }, [schoolBuses]);
 
   const schoolAlerts = useMemo(() => {
     if (alertsError) return [];
@@ -274,17 +324,10 @@ export const GodViewPage = () => {
     const cleanupInterval = setInterval(() => {
       const currentBusIds = new Set(schoolBuses.map((bus) => bus.id));
       
-      // Nettoyer arrivedBusesRef
-      arrivedBusesRef.current.forEach((busId) => {
+      // Nettoyer localStatusRef
+      localStatusRef.current.forEach((_, busId) => {
         if (!currentBusIds.has(busId)) {
-          arrivedBusesRef.current.delete(busId);
-        }
-      });
-      
-      // Nettoyer arrivalTimesRef (Map - itérer sur les clés)
-      arrivalTimesRef.current.forEach((_, busId) => {
-        if (!currentBusIds.has(busId)) {
-          arrivalTimesRef.current.delete(busId);
+          localStatusRef.current.delete(busId);
         }
       });
     }, 60000); // Nettoyage toutes les 60 secondes
@@ -449,14 +492,15 @@ export const GodViewPage = () => {
   }, [getMarkerColor, school]);
 
   // Compteurs de flotte (pour la sidebar)
+  // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
   const fleetEnCourseCount = useMemo(
-    () =>
-      schoolBuses.filter(
-        (bus) => bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED
-      ).length,
+    () => schoolBuses.filter((bus) => bus.liveStatus === BusLiveStatus.EN_ROUTE).length,
     [schoolBuses]
   );
-  const fleetAtSchoolCount = Math.max(0, schoolBuses.length - fleetEnCourseCount);
+  const fleetAtSchoolCount = useMemo(
+    () => schoolBuses.filter((bus) => isBusStationed(bus)).length,
+    [schoolBuses]
+  );
 
   // Créer le HTML du popup
   const createPopupHTML = useCallback(
@@ -703,7 +747,8 @@ export const GodViewPage = () => {
       {/* Sidebar Alertes - 30% */}
       <AlertsSidebar 
         alerts={schoolAlerts} 
-        buses={processedBuses} 
+        buses={processedBuses}
+        stationedBuses={stationedBuses}
         studentsCounts={studentsCounts}
         totalBusCount={schoolBuses.length}
         enCourseCount={fleetEnCourseCount}

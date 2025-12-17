@@ -193,9 +193,37 @@ class AttendanceService {
     });
   }
 
+  /// Réinitialise les statuts d'attendance d'un bus pour le trajet en cours
+  static Future<void> resetAttendanceForTrip({
+    required String busId,
+    required String tripType,
+  }) async {
+    try {
+      final date = _formatDate(DateTime.now());
+      final query = await _firestore
+          .collection('attendance')
+          .where('busId', isEqualTo: busId)
+          .where('date', isEqualTo: date)
+          .where('tripType', isEqualTo: tripType)
+          .get();
+
+      if (query.docs.isEmpty) {
+        return;
+      }
+
+      final batch = _firestore.batch();
+      for (final doc in query.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      debugPrint('🧹 Attendance réinitialisée pour bus $busId ($tripType)');
+    } catch (e) {
+      debugPrint('❌ Erreur reset attendance: $e');
+    }
+  }
+
   /// Formate une date en YYYY-MM-DD
   static String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

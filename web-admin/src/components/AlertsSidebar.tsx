@@ -3,7 +3,7 @@
  * Affiche uniquement les problèmes critiques (Management by Exception)
  */
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   AlertTriangle,
   Clock,
@@ -15,14 +15,18 @@ import {
   Phone,
   MapPin,
   ChevronRight,
+  ChevronDown,
+  Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
+import { getBusStudents, watchBusAttendance, type Student, type AttendanceRecord } from '@/services/students.firestore';
 
 interface AlertsSidebarProps {
   alerts: Alert[];
   buses: BusRealtimeData[];
+  stationedBuses?: BusRealtimeData[];
   studentsCounts?: Record<string, { scanned: number; unscanned: number; total: number }>;
   totalBusCount?: number;
   enCourseCount?: number;
@@ -32,6 +36,7 @@ interface AlertsSidebarProps {
 export const AlertsSidebar = ({
   alerts,
   buses,
+  stationedBuses = [],
   studentsCounts = {},
   totalBusCount,
   enCourseCount,
@@ -44,68 +49,347 @@ export const AlertsSidebar = ({
 
   // Filtre flotte sélectionné (single selection)
   const [selectedFleetFilter, setSelectedFleetFilter] = useState<
-    'all' | 'delays' | 'stopped' | 'en_course' | 'at_school'
+    'all' | 'delays' | 'en_course' | 'at_school'
   >('all');
 
   // État pour les filtres de type d'alerte élèves
   const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>(['UNSCANNED_CHILD']);
   const [expandedInfoBusId, setExpandedInfoBusId] = useState<string | null>(null);
+  
+  // État pour gérer les accordéons des bus (section ÉLÈVES)
+  const [expandedBusIds, setExpandedBusIds] = useState<Set<string>>(new Set());
+  
+  // État pour gérer l'ouverture des sections "Présents" par bus
+  const [expandedPresentSections, setExpandedPresentSections] = useState<Set<string>>(new Set());
+  
+  // État pour stocker les données détaillées des élèves par bus
+  const [busStudentsData, setBusStudentsData] = useState<
+    Record<string, {
+      students: Student[];
+      scanned: Student[];
+      unscanned: Student[];
+      attendanceMap: Map<string, AttendanceRecord>;
+    }>
+  >({});
+  
+  // Barre de recherche pour les élèves
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Compteurs pour chaque type d'alerte
   const delayCount = alerts.filter((a) => a.type === 'DELAY').length;
-  const stoppedCount = alerts.filter((a) => a.type === 'STOPPED').length;
   const unscannedCount = alerts.filter((a) => a.type === 'UNSCANNED_CHILD').length;
   
+  // Combiner tous les bus (buses + stationedBuses) pour le filtre "all"
+  const allBuses = useMemo(() => {
+    const busMap = new Map<string, BusRealtimeData>();
+    // Ajouter tous les bus de la liste principale
+    buses.forEach((bus) => busMap.set(bus.id, bus));
+    // Ajouter les bus stationnés (peuvent être déjà dans buses, mais on veut s'assurer qu'ils sont inclus)
+    stationedBuses.forEach((bus) => busMap.set(bus.id, bus));
+    return Array.from(busMap.values());
+  }, [buses, stationedBuses]);
+
+  // Calculer le total de la flotte en incluant tous les bus (buses + stationedBuses)
+  const totalFleet = useMemo(() => {
+    if (totalBusCount) return totalBusCount;
+    return allBuses.length;
+  }, [totalBusCount, allBuses]);
+
+  // Identifier les bus EN_ROUTE pour filtrer les comptages d'élèves
+  const busesEnRouteIds = useMemo(() => {
+    return new Set(allBuses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE).map((b) => b.id));
+  }, [allBuses]);
+
   // Calculer les totaux de scannés/non scannés depuis studentsCounts
-  const totalScanned = Object.values(studentsCounts).reduce((acc, counts) => acc + counts.scanned, 0);
-  const totalUnscanned = Object.values(studentsCounts).reduce((acc, counts) => acc + counts.unscanned, 0);
+  // IMPORTANT: Ne compter que les élèves des bus EN_ROUTE (trajets actifs uniquement)
+  // NOTE: totalUnscanned est la source de vérité pour le KPI car il vient directement des données de comptage
+  // filteredStudentAlerts peut être vide même si totalUnscanned > 0 si les alertes ne sont pas encore créées
+  // Dans ce cas, on affiche un message informatif plutôt que le checkmark vert
+  const totalScanned = useMemo(() => {
+    return Object.entries(studentsCounts)
+      .filter(([busId]) => busesEnRouteIds.has(busId))
+      .reduce((acc, [, counts]) => acc + counts.scanned, 0);
+  }, [studentsCounts, busesEnRouteIds]);
+  
+  const totalUnscanned = useMemo(() => {
+    return Object.entries(studentsCounts)
+      .filter(([busId]) => busesEnRouteIds.has(busId))
+      .reduce((acc, [, counts]) => acc + counts.unscanned, 0);
+  }, [studentsCounts, busesEnRouteIds]);
 
   // Compteurs pour les bus par statut
-  const effectiveEnCourse =
-    enCourseCount ??
-    buses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED).length;
-  const effectiveAtSchool =
-    atSchoolCount ??
-    buses.filter(
-      (b) => b.liveStatus === BusLiveStatus.ARRIVED || (b.liveStatus !== BusLiveStatus.EN_ROUTE && b.liveStatus !== BusLiveStatus.DELAYED)
+  // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
+  const effectiveEnCourse = useMemo(() => {
+    return enCourseCount ?? allBuses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE).length;
+  }, [enCourseCount, allBuses]);
+  
+  const effectiveAtSchool = useMemo(() => {
+    return atSchoolCount ?? allBuses.filter(
+      (b) => b.liveStatus === BusLiveStatus.ARRIVED ||
+             b.liveStatus === BusLiveStatus.STOPPED ||
+             b.liveStatus === BusLiveStatus.IDLE
     ).length;
-  const totalFleet = totalBusCount ?? buses.length;
+  }, [atSchoolCount, allBuses]);
 
   // Séparation des alertes par contexte
-  const fleetAlerts = alerts.filter((a) => a.type === 'DELAY' || a.type === 'STOPPED');
+  const fleetAlerts = alerts.filter((a) => a.type === 'DELAY');
   const studentAlerts = alerts.filter((a) => a.type === 'UNSCANNED_CHILD');
 
+  // Compteur pour les bus en retard (statut DELAYED uniquement)
+  const delaysBusCount = useMemo(() => {
+    return allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED).length;
+  }, [allBuses]);
+
   // Filtrer les bus selon le filtre sélectionné pour FLOTTE
-  const getFilteredBuses = () => {
+  const filteredBuses = useMemo(() => {
     if (activeTab !== 'fleet') return [];
 
     switch (selectedFleetFilter) {
       case 'delays':
-        // Seulement les bus avec alerte retard
-        return buses.filter((b) => alerts.some((a) => a.busId === b.id && a.type === 'DELAY'));
-      case 'stopped':
-        // Seulement les bus avec alerte arrêt
-        return buses.filter((b) => alerts.some((a) => a.busId === b.id && a.type === 'STOPPED'));
+        // Afficher uniquement les bus avec le statut DELAYED
+        return allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED);
       case 'en_course':
-        // Tous les bus en course
-        return buses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED);
+        return allBuses.filter(
+          (b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED
+        );
       case 'at_school':
-        // Tous les bus à l'école (arrivés ou autres statuts)
-        return buses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED || 
-          (b.liveStatus !== BusLiveStatus.EN_ROUTE && b.liveStatus !== BusLiveStatus.DELAYED));
+        // Afficher tous les bus à l'école (ARRIVED, STOPPED, IDLE, ou ceux dans stationedBuses)
+        return allBuses.filter(
+          (b) =>
+            b.liveStatus === BusLiveStatus.ARRIVED ||
+            b.liveStatus === BusLiveStatus.STOPPED ||
+            b.liveStatus === BusLiveStatus.IDLE ||
+            stationedBuses.some((sb) => sb.id === b.id)
+        );
       case 'all':
       default:
-        // Tous les bus
-        return buses;
+        // Afficher tous les bus, y compris ceux à l'école
+        return allBuses;
     }
+  }, [activeTab, selectedFleetFilter, allBuses, stationedBuses]);
+
+  const getStationedDurationLabel = (bus: BusRealtimeData): string | null => {
+    const timestamp =
+      typeof bus.currentPosition?.timestamp === 'number'
+        ? bus.currentPosition.timestamp
+        : null;
+    if (!timestamp) return null;
+    return formatDurationFromMs(Date.now() - timestamp);
   };
 
-  const filteredBuses = getFilteredBuses();
+  const emptyFleetStateTitle =
+    selectedFleetFilter === 'at_school' ? 'Aucun bus stationné' : 'Aucun bus en course';
+  const emptyFleetStateDescription =
+    selectedFleetFilter === 'at_school'
+      ? 'Tous les bus sont actuellement en circulation.'
+      : 'Aucun bus en course, aucune alerte active.';
 
   // Filtrer les alertes pour l'onglet ÉLÈVES
   const filteredStudentAlerts = studentAlerts.filter((alert) =>
     selectedTypes.includes(alert.type)
   );
+
+  // Grouper les alertes par bus pour la section ÉLÈVES
+  const alertsByBus = useMemo(() => {
+    const grouped: Record<string, Alert[]> = {};
+    filteredStudentAlerts.forEach((alert) => {
+      if (!grouped[alert.busId]) {
+        grouped[alert.busId] = [];
+      }
+      grouped[alert.busId].push(alert);
+    });
+    return grouped;
+  }, [filteredStudentAlerts]);
+
+  // Récupérer les bus actifs avec des élèves (uniquement ceux en course)
+  const busesWithStudents = useMemo(() => {
+    return allBuses.filter((bus) => busesEnRouteIds.has(bus.id));
+  }, [allBuses, busesEnRouteIds]);
+
+  // Charger les données des élèves pour chaque bus en course
+  useEffect(() => {
+    if (busesWithStudents.length === 0) {
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const unsubscribes: (() => void)[] = [];
+    const busStudentsMap = new Map<string, Student[]>();
+
+    // Récupérer d'abord la liste des élèves pour chaque bus
+    const fetchBusStudents = async () => {
+      const promises = busesWithStudents.map(async (bus) => {
+        try {
+          const students = await getBusStudents(bus.id);
+          busStudentsMap.set(bus.id, students);
+        } catch (error) {
+          console.error(`Erreur lors de la récupération des élèves pour le bus ${bus.id}:`, error);
+          busStudentsMap.set(bus.id, []);
+        }
+      });
+      await Promise.all(promises);
+    };
+
+    fetchBusStudents().then(() => {
+      // Pour chaque bus, écouter les changements d'attendance en temps réel
+      busesWithStudents.forEach((bus) => {
+        const unsubscribe = watchBusAttendance(
+          bus.id,
+          today,
+          (attendance) => {
+            const students = busStudentsMap.get(bus.id) || [];
+            const attendanceMap = new Map<string, AttendanceRecord>();
+            
+            attendance.forEach((record) => {
+              attendanceMap.set(record.studentId, record);
+            });
+
+            // Séparer les élèves scannés et non scannés
+            const scanned: Student[] = [];
+            const unscanned: Student[] = [];
+
+            students.forEach((student) => {
+              const record = attendanceMap.get(student.id);
+              const isScanned = record && (
+                record.morningStatus === 'present' || 
+                record.eveningStatus === 'present'
+              );
+
+              if (isScanned) {
+                scanned.push(student);
+              } else {
+                unscanned.push(student);
+              }
+            });
+
+            setBusStudentsData((prev) => ({
+              ...prev,
+              [bus.id]: {
+                students,
+                scanned,
+                unscanned,
+                attendanceMap,
+              },
+            }));
+          },
+          (error) => {
+            console.error(`Erreur lors de l'écoute de l'attendance pour le bus ${bus.id}:`, error);
+          }
+        );
+        unsubscribes.push(unsubscribe);
+      });
+    });
+
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [busesWithStudents]);
+
+  // Toggle l'accordéon d'un bus
+  const toggleBusAccordion = (busId: string) => {
+    setExpandedBusIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(busId)) {
+        newSet.delete(busId);
+      } else {
+        newSet.add(busId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle la section "Présents" d'un bus
+  const togglePresentSection = (busId: string) => {
+    setExpandedPresentSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(busId)) {
+        newSet.delete(busId);
+      } else {
+        newSet.add(busId);
+      }
+      return newSet;
+    });
+  };
+
+  // Ouvrir automatiquement les bus avec des alertes
+  useEffect(() => {
+    const busIdsWithAlerts = Object.keys(alertsByBus);
+    if (busIdsWithAlerts.length > 0) {
+      setExpandedBusIds((prev) => {
+        const newSet = new Set(prev);
+        busIdsWithAlerts.forEach((busId) => newSet.add(busId));
+        return newSet;
+      });
+    }
+  }, [alertsByBus]);
+
+  // Ouvrir automatiquement les bus qui correspondent à la recherche
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+
+    const query = searchQuery.toLowerCase();
+    const filterStudentsFn = (students: Student[]): Student[] => {
+      return students.filter(
+        (student) =>
+          student.firstName.toLowerCase().includes(query) ||
+          student.lastName.toLowerCase().includes(query) ||
+          `${student.firstName} ${student.lastName}`.toLowerCase().includes(query)
+      );
+    };
+
+    const matchingBusIds = new Set<string>();
+    busesWithStudents.forEach((bus) => {
+      const busData = busStudentsData[bus.id];
+      if (!busData) return;
+
+      const filteredScanned = filterStudentsFn(busData.scanned);
+      const filteredUnscanned = filterStudentsFn(busData.unscanned);
+
+      if (filteredScanned.length > 0 || filteredUnscanned.length > 0) {
+        matchingBusIds.add(bus.id);
+        // Ouvrir aussi la section "Présents" si des élèves scannés correspondent
+        if (filteredScanned.length > 0) {
+          setExpandedPresentSections((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(bus.id);
+            return newSet;
+          });
+        }
+      }
+    });
+
+    if (matchingBusIds.size > 0) {
+      setExpandedBusIds((prev) => {
+        const newSet = new Set(prev);
+        matchingBusIds.forEach((busId) => newSet.add(busId));
+        return newSet;
+      });
+    }
+  }, [searchQuery, busesWithStudents, busStudentsData]);
+
+  // Extraire le nom de l'élève depuis une alerte
+  const extractStudentNameFromAlert = (alert: Alert): string => {
+    const messageParts = alert.message.split(' - ');
+    return messageParts[0] || alert.message.split(' ').slice(0, 2).join(' ') || 'Élève';
+  };
+
+  // Extraire l'arrêt depuis une alerte
+  const extractStopFromAlert = (alert: Alert): string => {
+    const messageParts = alert.message.split(' - ');
+    return messageParts[1] || 'Arrêt non spécifié';
+  };
+
+  // Filtrer les élèves selon la recherche
+  const filterStudents = (students: Student[]): Student[] => {
+    if (!searchQuery.trim()) return students;
+    const query = searchQuery.toLowerCase();
+    return students.filter(
+      (student) =>
+        student.firstName.toLowerCase().includes(query) ||
+        student.lastName.toLowerCase().includes(query) ||
+        `${student.firstName} ${student.lastName}`.toLowerCase().includes(query)
+    );
+  };
 
 
   const handleAlertClick = (busId: string) => {
@@ -184,7 +468,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
 };
 
   return (
-    <div className="w-96 bg-slate-50 border-l border-slate-200 flex flex-col h-full">
+    <div className="w-96 bg-[#F9FAFB] border-l border-slate-200 flex flex-col h-full">
       {/* Header */}
       <div className="p-6 bg-white border-b border-slate-200">
         <div className="flex items-center justify-between mb-3">
@@ -266,33 +550,17 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               {/* Retards */}
               <button
                 onClick={() => setSelectedFleetFilter('delays')}
-                disabled={delayCount === 0}
+                disabled={delaysBusCount === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   selectedFleetFilter === 'delays'
                     ? 'bg-danger-600 text-white'
-                    : delayCount === 0
+                    : delaysBusCount === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-danger-300'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
-                Retards ({delayCount})
-              </button>
-
-              {/* Arrêts */}
-              <button
-                onClick={() => setSelectedFleetFilter('stopped')}
-                disabled={stoppedCount === 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
-                  selectedFleetFilter === 'stopped'
-                    ? 'bg-blue-600 text-white'
-                    : stoppedCount === 0
-                    ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-300'
-                }`}
-              >
-                <XCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                Arrêts ({stoppedCount})
+                Retards ({delaysBusCount})
               </button>
 
               {/* En course */}
@@ -301,10 +569,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 disabled={effectiveEnCourse === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   selectedFleetFilter === 'en_course'
-                    ? 'bg-success-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : effectiveEnCourse === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-success-300'
+                    : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-300'
                 }`}
               >
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -331,61 +599,68 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
         </>
       )}
 
-      {/* Section ÉLÈVES */}
-      {activeTab === 'students' && (
+      {/* Section ÉLÈVES - Header avec KPI uniquement si service actif */}
+      {activeTab === 'students' && effectiveEnCourse > 0 && (
         <>
-          {/* Résumé de Sécurité */}
+          {/* Résumé de Sécurité - KPI */}
           <div className="px-4 py-3 bg-white border-b border-slate-200">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               Résumé Sécurité
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="px-3 py-2.5 bg-success-50 border border-success-200 rounded-lg">
+              <div className="px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle2 className="w-4 h-4 text-success-700" strokeWidth={2.5} />
-                  <span className="text-xs font-medium text-success-700">Scannés</span>
+                  <CheckCircle2 className="w-4 h-4 text-slate-600" strokeWidth={2.5} />
+                  <span className="text-xs font-medium text-slate-700">À bord</span>
                 </div>
-                <div className="text-2xl font-bold text-success-900">
+                <div className="text-2xl font-bold text-slate-900">
                   {totalScanned}
                 </div>
               </div>
               <div className="px-3 py-2.5 bg-warning-50 border border-warning-200 rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
                   <Users className="w-4 h-4 text-warning-700" strokeWidth={2.5} />
-                  <span className="text-xs font-medium text-warning-700">Non scannés</span>
+                  <span className="text-xs font-medium text-warning-700">En attente</span>
                 </div>
                 <div className="text-2xl font-bold text-warning-900">{totalUnscanned}</div>
               </div>
             </div>
           </div>
 
-          {/* Info supplémentaire */}
-          <div className="px-4 py-2 bg-white border-b border-slate-200">
-            <p className="text-xs text-slate-500 italic">
-              Liste des élèves nécessitant une attention
-            </p>
+          {/* Barre de recherche */}
+          <div className="px-4 py-3 bg-white border-b border-slate-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Chercher un élève..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </>
       )}
 
       {/* Liste des alertes / bus */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 bg-[#F9FAFB]">
         {activeTab === 'fleet' && filteredBuses.length === 0 ? (
           <>
-            {/* État vide - Tout va bien */}
+            {/* État vide - flotte */}
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-              <div className="w-20 h-20 bg-success-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-10 h-10 text-success-600" strokeWidth={2} />
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-10 h-10 text-slate-600" strokeWidth={2} />
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
-                Tout est opérationnel
+                {emptyFleetStateTitle}
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Aucune alerte active. Tous les bus sont à l'heure et les enfants sont scannés correctement.
+                {emptyFleetStateDescription}
               </p>
               <div className="mt-6 w-full space-y-2 text-xs text-slate-500">
                 <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                  <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
                   <span>Surveillance active</span>
                 </div>
               </div>
@@ -400,81 +675,123 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               const hasAlert = busAlert !== undefined;
               const isNormalBus = !hasAlert; // Bus normal sans problème
               const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
+              const stationedDuration = getStationedDurationLabel(bus);
 
               if (isNormalBus) {
                 // Carte pour bus normaux avec statut et comptages
                 const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
-                const isEnRoute = bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
+                const isEnRoute =
+                  bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
+                const showStationedLabel =
+                  selectedFleetFilter === 'at_school' || (!isArrived && !isEnRoute);
+                const statusLabel = showStationedLabel
+                  ? 'Stationné'
+                  : isArrived
+                  ? '✓ Arrivé'
+                  : 'En course';
+                const statusClass = showStationedLabel
+                  ? 'text-slate-700'
+                  : isArrived
+                  ? 'text-slate-700'
+                  : 'text-blue-700';
+                const dotColorClass = showStationedLabel
+                  ? 'bg-slate-400'
+                  : isArrived
+                  ? 'bg-slate-500'
+                  : 'bg-blue-500';
                 
                 return (
                   <div
                     key={bus.id}
                     className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 ${
-                      isArrived ? 'border-l-4 border-success-500' : ''
+                      isArrived ? 'border-l-4 border-slate-400' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-2 h-2 rounded-full ${
-                          isArrived ? 'bg-success-500' : 'bg-blue-500'
-                        }`}></div>
+                        <div className={`w-2 h-2 rounded-full ${dotColorClass}`}></div>
                         <div className="flex-1">
                           <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
-                          <p className={`text-sm font-semibold ${
-                            isArrived ? 'text-success-700' : 'text-blue-700'
-                          }`}>
-                            {isArrived ? '✓ Arrivé' : 'En course'}
+                          <p className={`text-sm font-semibold ${statusClass}`}>
+                            {statusLabel}
                           </p>
+                          {showStationedLabel && (
+                            <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                              {bus.driver?.name && (
+                                <div className="flex items-center gap-1">
+                                  <Users className="w-3 h-3 text-slate-400" strokeWidth={2.5} />
+                                  <span>Chauffeur: {bus.driver.name}</span>
+                                </div>
+                              )}
+                              {bus.currentZone && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-slate-400" strokeWidth={2.5} />
+                                  <span>Zone: {bus.currentZone}</span>
+                                </div>
+                              )}
+                              {stationedDuration && (
+                                <div className="text-slate-500">
+                                  Stationné depuis {stationedDuration}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleAlertClick(bus.id)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5"
-                        >
-                          <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
-                          Carte
-                        </button>
-                        <button
-                          onClick={() =>
-                            setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id))
-                          }
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 ${
-                            expandedInfoBusId === bus.id
-                              ? 'bg-primary-100 text-primary-700'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          Voir info
-                        </button>
-                      </div>
+                      {selectedFleetFilter !== 'at_school' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAlertClick(bus.id)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5"
+                          >
+                            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            Carte
+                          </button>
+                          <button
+                            onClick={() =>
+                              setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id))
+                            }
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 ${
+                              expandedInfoBusId === bus.id
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            Voir info
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {isArrived && (
-                      <div className="mt-2 pt-2 border-t border-slate-200">
-                        <p className="text-xs text-slate-600 mb-1">
-                          <span className="font-semibold text-green-700">{counts.scanned}</span> scannés,{' '}
-                          <span className="font-semibold text-red-700">{counts.unscanned}</span> non scannés
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Total: {counts.total} / {bus.capacity} élèves
-                        </p>
-                      </div>
-                    )}
-                    {expandedInfoBusId === bus.id && (
-                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
-                        <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
-                        <InfoRow
-                          label="Durée"
-                          value={
-                            typeof bus.tripStartTime === 'number'
-                              ? formatDurationFromMs(Date.now() - bus.tripStartTime)
-                              : '—'
-                          }
-                        />
-                        <InfoRow label="Élèves total" value={`${counts.total}`} />
-                        <InfoRow label="Récupérés" value={`${counts.scanned}`} />
-                        <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
-                      </div>
+                    {selectedFleetFilter !== 'at_school' && (
+                      <>
+                        {isArrived && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <p className="text-xs text-slate-600 mb-1">
+                              <span className="font-semibold text-slate-700">{counts.scanned}</span> scannés,{' '}
+                              <span className="font-semibold text-amber-700">{counts.unscanned}</span> non scannés
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              Total: {counts.total} / {bus.capacity} élèves
+                            </p>
+                          </div>
+                        )}
+                        {expandedInfoBusId === bus.id && (
+                          <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
+                            <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
+                            <InfoRow
+                              label="Durée"
+                              value={
+                                typeof bus.tripStartTime === 'number'
+                                  ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+                                  : '—'
+                              }
+                            />
+                            <InfoRow label="Élèves total" value={`${counts.total}`} />
+                            <InfoRow label="Récupérés" value={`${counts.scanned}`} />
+                            <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -568,74 +885,258 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               );
             })}
           </div>
-        ) : filteredStudentAlerts.length === 0 ? (
-          // Aucune alerte élève
+        ) : activeTab === 'students' && effectiveEnCourse === 0 ? (
+          // ÉTAT A : Mode Veille (Aucun bus en course) - Vue principale
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-            <div className="w-20 h-20 bg-success-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-10 h-10 text-success-600" strokeWidth={2} />
+            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <Navigation className="w-10 h-10 text-slate-400" strokeWidth={2} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Tous les élèves scannés</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Aucun problème de scan détecté.
+            <h3 className="text-lg font-bold text-slate-700 mb-2">
+              Aucun ramassage en cours
+            </h3>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              La supervision des élèves démarrera automatiquement avec le premier bus.
             </p>
+            <div className="mt-6 w-full space-y-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                <span>Système en attente</span>
+              </div>
+            </div>
           </div>
-        ) : (
-          // Liste des alertes élèves
+        ) : activeTab === 'students' && totalUnscanned === 0 ? (
+          // ÉTAT B : Tous les élèves sont à bord (Succès !)
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-10 h-10 text-slate-600" strokeWidth={2} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              Tous les élèves sont à bord !
+            </h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Aucun élève en attente sur les trajets actifs.
+            </p>
+            <div className="mt-6 w-full space-y-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
+                <span>Supervision active - Tout est en ordre</span>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'students' && totalUnscanned > 0 ? (
+          // Liste des bus avec accordéons (section ÉLÈVES)
           <div className="space-y-3">
-            {filteredStudentAlerts.map((alert) => {
-              const Icon = Users;
-              const borderColor = 'border-l-warning-600';
-              const iconColor = 'text-warning-600';
-              const textColor = 'text-warning-700';
+            {busesWithStudents.map((bus) => {
+              const busData = busStudentsData[bus.id];
+              const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
+              const busAlerts = alertsByBus[bus.id] || [];
+              const isExpanded = expandedBusIds.has(bus.id);
+              const hasUnscanned = counts.unscanned > 0;
+
+              // Filtrer les élèves selon la recherche
+              const filteredScanned = busData
+                ? filterStudents(busData.scanned)
+                : [];
+              const filteredUnscanned = busData
+                ? filterStudents(busData.unscanned)
+                : [];
+
+              // Si recherche active, ne montrer que les bus avec résultats
+              if (searchQuery.trim() && filteredScanned.length === 0 && filteredUnscanned.length === 0) {
+                return null;
+              }
 
               return (
                 <div
-                  key={alert.id}
-                  className={`bg-white rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200`}
+                  key={bus.id}
+                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
                 >
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={2.5} />
-                        <h3 className="text-lg font-bold text-slate-900">
-                          {alert.message.split(' ')[0]} {alert.message.split(' ')[1]}
+                  {/* En-tête de la carte (toujours visible) */}
+                  <button
+                    onClick={() => toggleBusAccordion(bus.id)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors duration-200"
+                  >
+                    <div className="flex items-center gap-3 flex-1 text-left">
+                      <div className={`flex-shrink-0 transition-transform duration-200 ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}>
+                        <ChevronRight className="w-5 h-5 text-slate-400" strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-slate-900">
+                          Bus {bus.number}
                         </h3>
+                        {bus.route?.name && (
+                          <p className="text-xs text-slate-500 truncate">
+                            {bus.route.name}
+                          </p>
+                        )}
                       </div>
                     </div>
-
-                    <p className={`text-base font-semibold ${textColor} mb-2`}>
-                      Bus {alert.busNumber} - {alert.message}
-                    </p>
-                    <p className="text-xs text-slate-500 mb-3">{formatTimestamp(alert.timestamp)}</p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Call parent for alert', alert.id);
-                        }}
-                        className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
-                      >
-                        <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        Parent
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Call driver for bus', alert.busId);
-                        }}
-                        className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
-                      >
-                        <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        Chauffeur
-                      </button>
+                    <div className="flex-shrink-0 ml-3">
+                      {hasUnscanned ? (
+                        <div className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-700" strokeWidth={2.5} />
+                          {counts.unscanned} Manquant{counts.unscanned > 1 ? 's' : ''}
+                        </div>
+                      ) : (
+                        <div className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-slate-600" strokeWidth={2.5} />
+                          {counts.scanned}/{counts.total} Présents
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </button>
+
+                  {/* Corps de la carte (dépliable) */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-200">
+                      {/* Zone 1 : Élèves non scannés (Alertes) - Zone critique avec fond ambre pâle */}
+                      {filteredUnscanned.length > 0 && (
+                        <div className="bg-amber-50 border-t border-amber-100 border-b border-amber-100 p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-700" strokeWidth={2.5} />
+                            <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                              En attente ({filteredUnscanned.length})
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {filteredUnscanned.map((student) => {
+                              // Trouver l'alerte correspondante si elle existe
+                              const alert = busAlerts.find((a) => {
+                                const alertName = extractStudentNameFromAlert(a);
+                                return (
+                                  alertName.toLowerCase() ===
+                                  `${student.firstName} ${student.lastName}`.toLowerCase()
+                                );
+                              });
+
+                              const attendance = busData?.attendanceMap.get(student.id);
+                              const scanTime = attendance?.timestamp
+                                ? formatTimestamp(attendance.timestamp)
+                                : null;
+
+                              return (
+                                <div
+                                  key={student.id}
+                                  className="bg-white rounded-lg border border-amber-200 p-3 shadow-sm"
+                                >
+                                  <div className="flex items-start gap-3 mb-3">
+                                    {/* Pastille ambre pour indiquer l'alerte */}
+                                    <div className="flex-shrink-0 w-2 h-2 bg-amber-600 rounded-full mt-1.5"></div>
+                                    <div className="flex-1 min-w-0">
+                                      {/* Nom en noir/gris foncé et gras */}
+                                      <h4 className="text-sm font-bold text-slate-900">
+                                        {student.firstName} {student.lastName}
+                                      </h4>
+                                      {alert && (
+                                        <p className="text-xs text-slate-600 mt-1">
+                                          Arrêt : {extractStopFromAlert(alert)}
+                                        </p>
+                                      )}
+                                      {scanTime && (
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                          Dernière mise à jour : {scanTime}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Bouton outline (bordure fine, texte gris foncé) */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      console.log('Call parent for student', student.id);
+                                    }}
+                                    className="w-full px-3 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
+                                  >
+                                    <Phone className="w-3.5 h-3.5 text-slate-600" strokeWidth={2.5} />
+                                    Appeler Parent
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Zone 2 : Élèves scannés (Présents) */}
+                      {filteredScanned.length > 0 && (
+                        <div className="p-4 bg-white">
+                          <button
+                            onClick={() => togglePresentSection(bus.id)}
+                            className="w-full cursor-pointer text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+                          >
+                            <ChevronDown
+                              className={`w-3 h-3 transition-transform duration-200 ${
+                                expandedPresentSections.has(bus.id) ? 'rotate-180' : ''
+                              }`}
+                            />
+                            Présents ({filteredScanned.length})
+                          </button>
+                          {expandedPresentSections.has(bus.id) && (
+                            <div className="space-y-1.5">
+                              {filteredScanned.map((student) => {
+                                const attendance = busData?.attendanceMap.get(student.id);
+                                const scanTime = attendance?.timestamp
+                                  ? formatTimestamp(attendance.timestamp)
+                                  : null;
+
+                                return (
+                                  <div
+                                    key={student.id}
+                                    className="bg-slate-50 rounded-lg p-2.5 flex items-center justify-between text-xs border border-slate-100"
+                                  >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <div className="w-2 h-2 bg-slate-400 rounded-full flex-shrink-0"></div>
+                                      <span className="font-medium text-slate-700 truncate">
+                                        {student.firstName} {student.lastName}
+                                      </span>
+                                    </div>
+                                    {scanTime && (
+                                      <span className="text-slate-400 text-[10px] flex-shrink-0 ml-2">
+                                        {scanTime}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Message si aucun élève trouvé après filtrage */}
+                      {filteredUnscanned.length === 0 && filteredScanned.length === 0 && (
+                        <div className="p-4 text-center bg-white">
+                          <p className="text-xs text-slate-500">
+                            Aucun élève ne correspond à la recherche.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
+
+            {/* Message si aucun bus trouvé après filtrage */}
+            {searchQuery.trim() &&
+              busesWithStudents.every((bus) => {
+                const busData = busStudentsData[bus.id];
+                if (!busData) return true;
+                const filteredScanned = filterStudents(busData.scanned);
+                const filteredUnscanned = filterStudents(busData.unscanned);
+                return filteredScanned.length === 0 && filteredUnscanned.length === 0;
+              }) && (
+                <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
+                  <Search className="w-12 h-12 text-slate-300 mb-3" strokeWidth={1.5} />
+                  <p className="text-sm text-slate-500">
+                    Aucun élève ne correspond à "{searchQuery}"
+                  </p>
+                </div>
+              )}
           </div>
-        )}
+        ) : null}
       </div>
 
     </div>

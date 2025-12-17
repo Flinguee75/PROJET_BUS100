@@ -28,7 +28,8 @@
       "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/backend && npx tsc:*)",
       "Bash(npx vite build)",
       "Bash(timeout 60 npm test -- --run)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(flutter pub get:*)"
     ],
     "deny": [],
     "ask": []

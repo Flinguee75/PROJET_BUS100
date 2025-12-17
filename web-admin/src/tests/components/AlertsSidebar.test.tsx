@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AlertsSidebar } from '@/components/AlertsSidebar';
 import type { Alert } from '@/types/alerts';
@@ -116,11 +116,13 @@ describe('AlertsSidebar', () => {
     expect(screen.getByText('Supervision')).toBeInTheDocument();
   });
 
-  it('should display "Tout est opérationnel" when no alerts', () => {
+  it('should display empty state when no buses', () => {
     renderSidebar({ buses: [] });
-    expect(screen.getByText(/Tout est opérationnel/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Aucune alerte active/i)
+      screen.getByRole('heading', { name: /Aucun bus en course/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Aucun bus en course, aucune alerte active\./i)
     ).toBeInTheDocument();
   });
 
@@ -168,5 +170,25 @@ describe('AlertsSidebar', () => {
     expect(categoryButtons.length).toBeGreaterThan(0);
     expect(screen.getByText('Retards (1)')).toBeInTheDocument();
     expect(screen.getByText("Arrêts (1)")).toBeInTheDocument();
+  });
+
+  it('should list stationed buses when clicking À l’école', () => {
+    renderSidebar({ stationedBuses: [mockBuses[1]] });
+    const atSchoolButton = screen.getByText(/À l'école/i);
+    fireEvent.click(atSchoolButton);
+    expect(screen.getByText(/Bus #5/)).toBeInTheDocument();
+    expect(screen.getByText(/Stationné/i)).toBeInTheDocument();
+  });
+
+  it('should show stationed empty state when no stationed buses', () => {
+    renderSidebar({ stationedBuses: [] });
+    const atSchoolButton = screen.getByText(/À l'école/i);
+    fireEvent.click(atSchoolButton);
+    expect(
+      screen.getByRole('heading', { name: /Aucun bus stationné/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Tous les bus sont actuellement en circulation\./i)
+    ).toBeInTheDocument();
   });
 });

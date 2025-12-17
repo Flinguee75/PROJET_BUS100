@@ -178,6 +178,8 @@ function mapFirestoreToLiveStatus(status: string | undefined): BusLiveStatus | n
 }
 
 export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRealtimeData => {
+  const rawPosition = data.position || data.currentPosition || null;
+
   return {
     id,
     number: data.number || data.busNumber || `BUS-${id.slice(0, 2).toUpperCase()}`,
@@ -186,15 +188,18 @@ export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRea
     year: data.year || 2020,
     capacity: data.capacity || 45,
     status: mapFirestoreToBusStatus(data.status),
-    isActive: data.status === 'en_route' || data.status === 'moving',
+    isActive:
+      typeof data.isActive === 'boolean'
+        ? data.isActive
+        : data.status === 'en_route' || data.status === 'moving',
     liveStatus: mapFirestoreToLiveStatus(data.status),
-    currentPosition: data.position
+    currentPosition: rawPosition
       ? {
-          lat: data.position.lat,
-          lng: data.position.lng,
-          speed: data.position.speed || 0,
-          heading: data.position.heading || 0,
-          timestamp: data.position.timestamp || Date.now(),
+          lat: rawPosition.lat,
+          lng: rawPosition.lng,
+          speed: rawPosition.speed || 0,
+          heading: rawPosition.heading || 0,
+          timestamp: rawPosition.timestamp || Date.now(),
         }
       : null,
     currentZone: data.currentZone || null,
@@ -365,6 +370,9 @@ export const updateBusStatus = async (
   busId: string,
   status: string
 ): Promise<void> => {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:367',message:'updateBusStatus called',data:{busId,status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   try {
     const db = getFirebaseDb();
     const busRef = doc(db, 'gps_live', busId);
@@ -373,8 +381,14 @@ export const updateBusStatus = async (
       updatedAt: Date.now(),
       lastUpdate: new Date(),
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:375',message:'updateBusStatus completed',data:{busId,status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     console.log(`✅ Statut du bus ${busId} mis à jour: ${status}`);
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:381',message:'updateBusStatus error',data:{busId,status,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     console.error(`❌ Erreur lors de la mise à jour du statut du bus ${busId}:`, error);
     throw error;
   }
