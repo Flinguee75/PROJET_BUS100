@@ -606,7 +606,7 @@ export const GodViewPage = () => {
     const fetchBusStudentsTotals = async () => {
       const promises = schoolBuses.map(async (bus) => {
         try {
-          const students = await getBusStudents(bus.id);
+          const students = await getBusStudents(bus.id, bus.tripType);
           busStudentsMap.set(bus.id, students.length);
         } catch (error) {
           console.error(`Erreur lors de la récupération des élèves pour le bus ${bus.id}:`, error);
@@ -623,10 +623,30 @@ export const GodViewPage = () => {
           bus.id,
           today,
           (attendance) => {
-            // Calculer le nombre d'élèves scannés à partir des enregistrements d'attendance
-            const scanned = attendance.filter(
-              (a) => a.morningStatus === 'present' || a.eveningStatus === 'present'
-            ).length;
+            // Calculer le nombre d'élèves scannés pour le trajet actuel uniquement
+            // en fonction du tripType du bus
+            const currentTripType = bus.tripType;
+            const scanned = attendance.filter((a) => {
+              // Si pas de tripType défini, ne considérer aucun élève comme scanné
+              if (!currentTripType) return false;
+              
+              // Vérifier que le record correspond au tripType actuel
+              if (a.tripType && a.tripType !== currentTripType) {
+                return false;
+              }
+              
+              // Selon le type de trajet, vérifier le bon statut
+              if (currentTripType === 'morning_outbound' || currentTripType === 'midday_return') {
+                // Trajets du matin/midi-retour : vérifier morningStatus
+                return a.morningStatus === 'present';
+              } else if (currentTripType === 'midday_outbound' || currentTripType === 'evening_return') {
+                // Trajets du midi/soir : vérifier eveningStatus
+                return a.eveningStatus === 'present';
+              }
+              
+              // Fallback : vérifier les deux statuts si tripType non reconnu
+              return a.morningStatus === 'present' || a.eveningStatus === 'present';
+            }).length;
 
             // Le total d'élèves du bus (récupéré précédemment)
             const total = busStudentsMap.get(bus.id) || 0;

@@ -220,7 +220,7 @@ export const AlertsSidebar = ({
     const fetchBusStudents = async () => {
       const promises = busesWithStudents.map(async (bus) => {
         try {
-          const students = await getBusStudents(bus.id);
+          const students = await getBusStudents(bus.id, bus.tripType);
           busStudentsMap.set(bus.id, students);
         } catch (error) {
           console.error(`Erreur lors de la récupération des élèves pour le bus ${bus.id}:`, error);
@@ -239,21 +239,57 @@ export const AlertsSidebar = ({
           (attendance) => {
             const students = busStudentsMap.get(bus.id) || [];
             const attendanceMap = new Map<string, AttendanceRecord>();
+            const currentTripType = bus.tripType;
             
+            // Filtrer les enregistrements d'attendance pour ne garder que ceux du trajet actuel
             attendance.forEach((record) => {
-              attendanceMap.set(record.studentId, record);
+              // Si le record a un tripType, ne garder que ceux qui correspondent au trajet actuel
+              if (record.tripType) {
+                if (record.tripType === currentTripType) {
+                  attendanceMap.set(record.studentId, record);
+                }
+              } else {
+                // Si pas de tripType dans le record, le garder (pour compatibilité avec anciennes données)
+                // Mais on vérifiera le tripType du bus lors de la vérification du statut
+                attendanceMap.set(record.studentId, record);
+              }
             });
 
             // Séparer les élèves scannés et non scannés
             const scanned: Student[] = [];
             const unscanned: Student[] = [];
 
+            // Déterminer si un élève est scanné pour le trajet actuel
+            // en fonction du tripType du bus
+            const isStudentScannedForCurrentTrip = (record: AttendanceRecord | undefined): boolean => {
+              if (!record) return false;
+              
+              const currentTripType = bus.tripType;
+              
+              // Si pas de tripType défini, on considère comme non scanné pour éviter les faux positifs
+              if (!currentTripType) return false;
+              
+              // Vérifier que le record correspond au tripType actuel
+              if (record.tripType && record.tripType !== currentTripType) {
+                return false;
+              }
+              
+              // Selon le type de trajet, vérifier le bon statut
+              if (currentTripType === 'morning_outbound' || currentTripType === 'midday_return') {
+                // Trajets du matin/midi-retour : vérifier morningStatus
+                return record.morningStatus === 'present';
+              } else if (currentTripType === 'midday_outbound' || currentTripType === 'evening_return') {
+                // Trajets du midi/soir : vérifier eveningStatus
+                return record.eveningStatus === 'present';
+              }
+              
+              // Fallback : vérifier les deux statuts si tripType non reconnu
+              return record.morningStatus === 'present' || record.eveningStatus === 'present';
+            };
+
             students.forEach((student) => {
               const record = attendanceMap.get(student.id);
-              const isScanned = record && (
-                record.morningStatus === 'present' || 
-                record.eveningStatus === 'present'
-              );
+              const isScanned = isStudentScannedForCurrentTrip(record);
 
               if (isScanned) {
                 scanned.push(student);

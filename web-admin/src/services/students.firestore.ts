@@ -15,6 +15,7 @@ import {
   Timestamp,
   type QueryDocumentSnapshot,
   type DocumentData,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
 
@@ -56,15 +57,21 @@ export interface AttendanceRecord {
 export function watchBusStudents(
   busId: string,
   onUpdate: (students: Student[]) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  tripType?: string | null
 ): Unsubscribe {
   const db = getFirebaseDb();
   const studentsRef = collection(db, 'students');
-  const studentsQuery = query(
-    studentsRef,
+  const constraints: QueryConstraint[] = [
     where('busId', '==', busId),
-    where('isActive', '==', true)
-  );
+    where('isActive', '==', true),
+  ];
+
+  if (tripType) {
+    constraints.push(where('activeTrips', 'array-contains', tripType));
+  }
+
+  const studentsQuery = query(studentsRef, ...constraints);
 
   return onSnapshot(
     studentsQuery,
@@ -105,14 +112,22 @@ export function watchBusStudents(
 /**
  * Récupérer la liste des étudiants d'un bus (one-shot)
  */
-export async function getBusStudents(busId: string): Promise<Student[]> {
+export async function getBusStudents(
+  busId: string,
+  tripType?: string | null
+): Promise<Student[]> {
   const db = getFirebaseDb();
   const studentsRef = collection(db, 'students');
-  const studentsQuery = query(
-    studentsRef,
+  const constraints: QueryConstraint[] = [
     where('busId', '==', busId),
-    where('isActive', '==', true)
-  );
+    where('isActive', '==', true),
+  ];
+
+  if (tripType) {
+    constraints.push(where('activeTrips', 'array-contains', tripType));
+  }
+
+  const studentsQuery = query(studentsRef, ...constraints);
 
   const snapshot = await getDocs(studentsQuery);
   const students: Student[] = [];
