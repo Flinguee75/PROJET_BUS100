@@ -186,6 +186,7 @@ export const GodViewPage = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const markerAnimations = useRef<Map<string, number>>(new Map());
   const popups = useRef<Map<string, mapboxgl.Popup>>(new Map());
   const schoolMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const parkingZoneMarker = useRef<mapboxgl.Marker | null>(null);
@@ -325,7 +326,7 @@ export const GodViewPage = () => {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11', // Style sombre avec fond noir/gris foncé
+      style: 'mapbox://styles/mapbox/light-v11', // Style clair vectoriel - fond blanc avec routes grises
       center: initialCenter,
       zoom: 16,
       minZoom: 13,
@@ -877,6 +878,48 @@ export const GodViewPage = () => {
     };
   }, [focusBusOnMap]);
 
+  const animateMarkerToPosition = useCallback(
+    (busId: string, marker: mapboxgl.Marker, targetLat: number, targetLng: number) => {
+      const existingRaf = markerAnimations.current.get(busId);
+      if (existingRaf) {
+        cancelAnimationFrame(existingRaf);
+        markerAnimations.current.delete(busId);
+      }
+
+      const startLngLat = marker.getLngLat();
+      const fromLat = startLngLat.lat;
+      const fromLng = startLngLat.lng;
+      const durationMs = 1500;
+      const startTime = performance.now();
+
+      const step = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        const lat = fromLat + (targetLat - fromLat) * progress;
+        const lng = fromLng + (targetLng - fromLng) * progress;
+        marker.setLngLat([lng, lat]);
+
+        if (progress < 1) {
+          const rafId = requestAnimationFrame(step);
+          markerAnimations.current.set(busId, rafId);
+        } else {
+          markerAnimations.current.delete(busId);
+        }
+      };
+
+      const rafId = requestAnimationFrame(step);
+      markerAnimations.current.set(busId, rafId);
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      markerAnimations.current.forEach((rafId) => cancelAnimationFrame(rafId));
+      markerAnimations.current.clear();
+    };
+  }, []);
+
   // Mettre à jour les marqueurs quand les bus changent
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
@@ -938,7 +981,7 @@ export const GodViewPage = () => {
       // Si le marqueur existe déjà, le mettre à jour
       if (markers.current.has(busId)) {
         const marker = markers.current.get(busId)!;
-        marker.setLngLat([lng, lat]);
+        animateMarkerToPosition(busId, marker, lat, lng);
 
         // Mettre à jour le HTML du marqueur (pour le changement de couleur)
         const el = marker.getElement();
@@ -976,12 +1019,28 @@ export const GodViewPage = () => {
     // Supprimer les marqueurs des bus qui ne sont plus dans la liste des bus déployés
     markers.current.forEach((marker, busId) => {
       if (!deployedBuses.find((b) => b.id === busId)) {
+        const rafId = markerAnimations.current.get(busId);
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          markerAnimations.current.delete(busId);
+        }
         marker.remove();
         markers.current.delete(busId);
         popups.current.delete(busId);
       }
     });
-  }, [processedBuses, mapLoaded, createMarkerHTML, createPopupHTML, studentsCounts, parkingZone, school, createParkingZoneMarkerHTML, createParkingZonePopupHTML]);
+  }, [
+    processedBuses,
+    mapLoaded,
+    createMarkerHTML,
+    createPopupHTML,
+    studentsCounts,
+    parkingZone,
+    school,
+    createParkingZoneMarkerHTML,
+    createParkingZonePopupHTML,
+    animateMarkerToPosition,
+  ]);
 
   return (
     <div className="flex h-screen bg-neutral-50">
