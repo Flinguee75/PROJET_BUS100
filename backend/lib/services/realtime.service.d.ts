@@ -1,11 +1,17 @@
 import { BusRealtimeData, BusStatistics } from '../types/realtime.types';
 export declare class RealtimeService {
-    private zones;
-    getAllBusesRealtime(): Promise<BusRealtimeData[]>;
+    private busService;
+    private gpsService;
+    private schoolService;
+    constructor();
+    getAllBusesRealtimeData(): Promise<BusRealtimeData[]>;
     getBusStatistics(): Promise<BusStatistics>;
-    private determineZone;
-    getBusRealtime(busId: string): Promise<BusRealtimeData | null>;
+    private enrichBusWithRealtimeData;
+    private getPositionWithFallback;
+    private isGPSDataStale;
+    private getAllGPSDataAsMap;
+    private getDriverInfo;
+    private getRouteInfo;
+    private getPassengersFromAttendance;
 }
-declare const _default: RealtimeService;
-export default _default;
 //# sourceMappingURL=realtime.service.d.ts.map

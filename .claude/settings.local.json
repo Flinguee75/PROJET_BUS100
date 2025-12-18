@@ -29,7 +29,9 @@
       "Bash(npx vite build)",
       "Bash(timeout 60 npm test -- --run)",
       "Bash(npx tsc:*)",
-      "Bash(flutter pub get:*)"
+      "Bash(flutter pub get:*)",
+      "Bash(xargs kill -9)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

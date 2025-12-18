@@ -51,15 +51,24 @@ export interface BusRealtimeData {
 
   // Nombre d'élèves actuels
   passengersCount: number;
+  passengersPresent?: number; // Nombre d'élèves présents actuellement
 
   // Zone actuelle (déduite de la position)
   currentZone: string | null;
 
-  // Dernière mise à jour GPS
-  lastUpdate: Date | null;
+  // Dernière mise à jour GPS (ISO string)
+  lastUpdate: string | null;
 
   // Indicateur si le bus est en course ou non
   isActive: boolean;
+
+  // École affiliée
+  schoolId?: string | null;
+
+  // Informations de trajet optionnelles
+  tripType?: string | null;
+  tripLabel?: string | null;
+  tripStartTime?: number | null;
 }
 
 /**

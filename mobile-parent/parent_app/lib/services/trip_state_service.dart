@@ -18,6 +18,7 @@ class TripStateService {
     required TripType tripType,
     required String courseHistoryId,
     required Map<String, bool> scannedStudents,
+    required int tripStartTimestamp,
     Position? currentPosition,
     Map<String, dynamic>? busMetadata,
   }) async {
@@ -32,7 +33,7 @@ class TripStateService {
         scannedStudents: scannedStudents,
         currentPosition: currentPosition,
         busMetadata: busMetadata,
-        tripStartTimestamp: DateTime.now().millisecondsSinceEpoch,
+        tripStartTimestamp: tripStartTimestamp,
       );
 
       final jsonString = jsonEncode(tripState.toJson());

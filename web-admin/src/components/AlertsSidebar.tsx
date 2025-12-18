@@ -18,7 +18,6 @@ import {
   ChevronDown,
   Search,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
 import { getBusStudents, watchBusAttendance, type Student, type AttendanceRecord } from '@/services/students.firestore';
@@ -31,6 +30,7 @@ interface AlertsSidebarProps {
   totalBusCount?: number;
   enCourseCount?: number;
   atSchoolCount?: number;
+  onFocusBus?: (busId: string) => void;
 }
 
 export const AlertsSidebar = ({
@@ -41,9 +41,8 @@ export const AlertsSidebar = ({
   totalBusCount,
   enCourseCount,
   atSchoolCount,
+  onFocusBus,
 }: AlertsSidebarProps) => {
-  const navigate = useNavigate();
-
   // Onglet actif : FLOTTE ou ÉLÈVES
   const [activeTab, setActiveTab] = useState<'fleet' | 'students'>('fleet');
 
@@ -237,21 +236,55 @@ export const AlertsSidebar = ({
           bus.id,
           today,
           (attendance) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:watchBusAttendance',message:'Attendance received for bus',data:{busId:bus.id,busTripType:bus.tripType,busTripStartTime:bus.tripStartTime,attendanceCount:attendance.length,attendanceRecords:attendance.map(a=>({studentId:a.studentId,tripType:a.tripType,timestamp:a.timestamp,morningStatus:a.morningStatus,eveningStatus:a.eveningStatus}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
             const students = busStudentsMap.get(bus.id) || [];
             const attendanceMap = new Map<string, AttendanceRecord>();
             const currentTripType = bus.tripType;
+            const currentTripStartTime = bus.tripStartTime;
             
             // Filtrer les enregistrements d'attendance pour ne garder que ceux du trajet actuel
             attendance.forEach((record) => {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Filtering attendance record',data:{busId:bus.id,recordTripType:record.tripType,currentTripType,recordTimestamp:record.timestamp,currentTripStartTime,matchesTripType:record.tripType===currentTripType,isAfterTripStart:currentTripStartTime?record.timestamp&&record.timestamp>=currentTripStartTime:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+              // #endregion
+              
               // Si le record a un tripType, ne garder que ceux qui correspondent au trajet actuel
               if (record.tripType) {
                 if (record.tripType === currentTripType) {
-                  attendanceMap.set(record.studentId, record);
+                  // Vérifier aussi que le record a été créé après le début de la course actuelle
+                  if (currentTripStartTime && record.timestamp) {
+                    if (record.timestamp >= currentTripStartTime) {
+                      attendanceMap.set(record.studentId, record);
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - matches tripType and after tripStart',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                      // #endregion
+                    } else {
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - before tripStart',data:{busId:bus.id,studentId:record.studentId,recordTimestamp:record.timestamp,currentTripStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                      // #endregion
+                    }
+                  } else {
+                    // Si pas de tripStartTime, garder le record (compatibilité)
+                    attendanceMap.set(record.studentId, record);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripStartTime to filter',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                    // #endregion
+                  }
+                } else {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - different tripType',data:{busId:bus.id,studentId:record.studentId,recordTripType:record.tripType,currentTripType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                  // #endregion
                 }
               } else {
                 // Si pas de tripType dans le record, le garder (pour compatibilité avec anciennes données)
                 // Mais on vérifiera le tripType du bus lors de la vérification du statut
                 attendanceMap.set(record.studentId, record);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripType in record',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
               }
             });
 
@@ -290,6 +323,10 @@ export const AlertsSidebar = ({
             students.forEach((student) => {
               const record = attendanceMap.get(student.id);
               const isScanned = isStudentScannedForCurrentTrip(record);
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:classifyStudent',message:'Classifying student as scanned/unscanned',data:{busId:bus.id,studentId:student.id,hasRecord:!!record,recordTripType:record?.tripType,recordTimestamp:record?.timestamp,isScanned},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+              // #endregion
 
               if (isScanned) {
                 scanned.push(student);
@@ -297,6 +334,10 @@ export const AlertsSidebar = ({
                 unscanned.push(student);
               }
             });
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:finalCounts',message:'Final student counts',data:{busId:bus.id,scannedCount:scanned.length,unscannedCount:unscanned.length,totalStudents:students.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
 
             setBusStudentsData((prev) => ({
               ...prev,
@@ -429,6 +470,10 @@ export const AlertsSidebar = ({
 
 
   const handleAlertClick = (busId: string) => {
+    if (onFocusBus) {
+      onFocusBus(busId);
+      return;
+    }
     // TODO: Naviguer vers /buses/:busId/manifest quand la page sera créée
     console.log('Navigating to bus manifest:', busId);
     // navigate(`/buses/${busId}/manifest`);

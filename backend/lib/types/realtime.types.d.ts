@@ -24,9 +24,14 @@ export interface BusRealtimeData {
     driver: DriverInfo | null;
     route: RouteInfo | null;
     passengersCount: number;
+    passengersPresent?: number;
     currentZone: string | null;
-    lastUpdate: Date | null;
+    lastUpdate: string | null;
     isActive: boolean;
+    schoolId?: string | null;
+    tripType?: string | null;
+    tripLabel?: string | null;
+    tripStartTime?: number | null;
 }
 export interface BusStatistics {
     total: number;

@@ -14,6 +14,7 @@ class AttendanceService {
     required String busId,
     required String tripType, // ex: 'morning_outbound'
     required String driverId,
+    required int tripStartTime,
     Map<String, double>? location,
   }) async {
     try {
@@ -27,6 +28,7 @@ class AttendanceService {
           .where('busId', isEqualTo: busId)
           .where('date', isEqualTo: date)
           .where('tripType', isEqualTo: tripType)
+          .where('tripStartTime', isEqualTo: tripStartTime)
           .limit(1)
           .get();
 
@@ -35,6 +37,7 @@ class AttendanceService {
         'busId': busId,
         'date': date,
         'tripType': tripType,
+        'tripStartTime': tripStartTime,
         'status': 'present',
         'scannedAt': FieldValue.serverTimestamp(),
         'driverId': driverId,
@@ -64,6 +67,7 @@ class AttendanceService {
     required String busId,
     required String tripType,
     required String driverId,
+    required int tripStartTime,
   }) async {
     try {
       final date = _formatDate(DateTime.now());
@@ -75,6 +79,7 @@ class AttendanceService {
           .where('busId', isEqualTo: busId)
           .where('date', isEqualTo: date)
           .where('tripType', isEqualTo: tripType)
+          .where('tripStartTime', isEqualTo: tripStartTime)
           .limit(1)
           .get();
 
@@ -93,6 +98,7 @@ class AttendanceService {
           'busId': busId,
           'date': date,
           'tripType': tripType,
+          'tripStartTime': tripStartTime,
           'status': 'absent',
           'driverId': driverId,
           'createdAt': FieldValue.serverTimestamp(),
@@ -139,19 +145,24 @@ class AttendanceService {
   static Future<Map<String, bool>> getAttendanceStatusForBus({
     required String busId,
     required String tripType,
+    int? tripStartTime,
   }) async {
     try {
       final date = _formatDate(DateTime.now());
-      
-      final query = await _firestore
+      Query<Map<String, dynamic>> query = _firestore
           .collection('attendance')
           .where('busId', isEqualTo: busId)
           .where('date', isEqualTo: date)
-          .where('tripType', isEqualTo: tripType)
-          .get();
+          .where('tripType', isEqualTo: tripType);
+
+      if (tripStartTime != null) {
+        query = query.where('tripStartTime', isEqualTo: tripStartTime);
+      }
+
+      final snapshot = await query.get();
 
       final Map<String, bool> result = {};
-      for (final doc in query.docs) {
+      for (final doc in snapshot.docs) {
         final data = doc.data();
         final studentId = data['studentId'] as String?;
         final status = data['status'] as String?;
@@ -170,15 +181,21 @@ class AttendanceService {
   static Stream<Map<String, bool>> watchAttendanceForBus({
     required String busId,
     required String tripType,
+    int? tripStartTime,
   }) {
     final date = _formatDate(DateTime.now());
     
-    return _firestore
+    Query<Map<String, dynamic>> query = _firestore
         .collection('attendance')
         .where('busId', isEqualTo: busId)
         .where('date', isEqualTo: date)
-        .where('tripType', isEqualTo: tripType)
-        .snapshots()
+        .where('tripType', isEqualTo: tripType);
+
+    if (tripStartTime != null) {
+      query = query.where('tripStartTime', isEqualTo: tripStartTime);
+    }
+
+    return query.snapshots()
         .map((snapshot) {
       final Map<String, bool> result = {};
       for (final doc in snapshot.docs) {
@@ -193,30 +210,41 @@ class AttendanceService {
     });
   }
 
-  /// Réinitialise les statuts d'attendance d'un bus pour le trajet en cours
+  /// Réinitialise les statuts d'attendance du jour pour un bus et un type de trajet.
+  /// Si un tripStartTime est fourni, seule la course correspondante est supprimée.
   static Future<void> resetAttendanceForTrip({
     required String busId,
     required String tripType,
+    int? tripStartTime,
   }) async {
     try {
       final date = _formatDate(DateTime.now());
-      final query = await _firestore
+
+      Query<Map<String, dynamic>> query = _firestore
           .collection('attendance')
           .where('busId', isEqualTo: busId)
-          .where('date', isEqualTo: date)
           .where('tripType', isEqualTo: tripType)
-          .get();
+          .where('date', isEqualTo: date);
 
-      if (query.docs.isEmpty) {
+      if (tripStartTime != null) {
+        query = query.where('tripStartTime', isEqualTo: tripStartTime);
+      }
+
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
         return;
       }
 
       final batch = _firestore.batch();
-      for (final doc in query.docs) {
+      for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
       await batch.commit();
-      debugPrint('🧹 Attendance réinitialisée pour bus $busId ($tripType)');
+      debugPrint(
+        '🧹 Attendance réinitialisée pour bus $busId ($tripType) le $date'
+        '${tripStartTime != null ? ' [tripStartTime: $tripStartTime]' : ''}',
+      );
     } catch (e) {
       debugPrint('❌ Erreur reset attendance: $e');
     }

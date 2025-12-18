@@ -365,13 +365,13 @@ bool _shouldSendPosition(
     newPosition.longitude,
   );
 
-  // Envoyer si déplacement > 5m
-  if (distanceMeters > 5) {
+  // Envoyer si déplacement > 2m pour un mouvement plus fluide
+  if (distanceMeters > 2) {
     debugPrint('📏 Déplacement ${distanceMeters.toStringAsFixed(1)}m, envoi');
     return true;
   }
 
-  debugPrint('🚫 Déplacement ${distanceMeters.toStringAsFixed(1)}m < 5m, skip');
+  debugPrint('🚫 Déplacement ${distanceMeters.toStringAsFixed(1)}m < 2m, skip');
   return false;
 }
 

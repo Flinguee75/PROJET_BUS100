@@ -72,6 +72,7 @@ class GPSService {
     String? driverPhone,
     String? routeId,
     Map<String, dynamic>? extraData,
+    Map<String, double>? parkingLocation,
   }) async {
     try {
       final payload = {
@@ -86,6 +87,19 @@ class GPSService {
 
       if (extraData != null) {
         payload.addAll(extraData);
+      }
+
+      if (parkingLocation != null &&
+          parkingLocation.containsKey('lat') &&
+          parkingLocation.containsKey('lng')) {
+        payload['position'] = {
+          'lat': parkingLocation['lat'],
+          'lng': parkingLocation['lng'],
+          'speed': 0.0,
+          'heading': 0.0,
+          'accuracy': 5.0,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        };
       }
 
       await _firestore.collection('gps_live').doc(busId).set(payload, SetOptions(merge: true));

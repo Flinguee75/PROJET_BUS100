@@ -15,6 +15,7 @@ import '../services/firebase_service.dart';
 import '../services/gps_service.dart';
 import '../services/student_service.dart';
 import '../services/trip_state_service.dart';
+import '../services/school_service.dart';
 import '../models/trip_state.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
@@ -39,6 +40,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isLoadingStudents = false;
   String? _currentCourseHistoryId;
   Map<String, dynamic>? _busMetadata;
+  Map<String, double>? _schoolLocation;
+  int? _currentTripStartTimestamp;
 
   // Nouveaux états pour le type de trajet et les scans
   TripType? _selectedTripType;
@@ -77,10 +80,28 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         busData = await _fetchBusMetadata(driver!.busId!);
       }
 
+      Map<String, dynamic>? schoolData;
+      if (driver?.schoolId != null) {
+        schoolData = await SchoolService.getSchoolById(driver!.schoolId!);
+      }
+
       if (!mounted) return;
       setState(() {
         _driver = driver;
         _busMetadata = busData;
+        if (schoolData != null && schoolData['location'] != null) {
+          final location = schoolData['location'];
+          if (location is Map<String, dynamic>) {
+            final lat = location['lat'];
+            final lng = location['lng'];
+            if (lat is num && lng is num) {
+              _schoolLocation = {
+                'lat': lat.toDouble(),
+                'lng': lng.toDouble(),
+              };
+            }
+          }
+        }
         _isLoading = false;
         if (driver == null) {
           _error = 'Profil chauffeur introuvable';
@@ -152,6 +173,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       final attendanceStatus = await AttendanceService.getAttendanceStatusForBus(
         busId: _driver!.busId!,
         tripType: _selectedTripType!.firestoreValue,
+        tripStartTime: _currentTripStartTimestamp,
       );
 
       setState(() {
@@ -228,6 +250,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _scannedStudents = savedState.scannedStudents;
         _currentPosition = savedState.currentPosition;
         _busMetadata = savedState.busMetadata;
+        _currentTripStartTimestamp = savedState.tripStartTimestamp;
       });
 
       // Recharger la liste des élèves
@@ -291,10 +314,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       return;
     }
 
+    final tripStartTimestamp = DateTime.now().millisecondsSinceEpoch;
+
     setState(() {
       _isTripActive = true;
       _error = null;
       _scannedStudents = {}; // Réinitialiser les scans
+      _currentTripStartTimestamp = tripStartTimestamp;
     });
     debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
 
@@ -350,6 +376,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         tripType: _selectedTripType!,
         courseHistoryId: _currentCourseHistoryId!,
         scannedStudents: _scannedStudents,
+        tripStartTimestamp: tripStartTimestamp,
         currentPosition: _currentPosition,
         busMetadata: _busMetadata,
       );
@@ -368,10 +395,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         .map((student) => student.id)
         .toList();
 
+    final tripStartTimestamp = _currentTripStartTimestamp;
+
     setState(() {
       _isTripActive = false;
       _scannedStudents = {};
       _students = [];
+      _currentTripStartTimestamp = null;
     });
 
     // Arrêter le service GPS en arrière-plan
@@ -381,7 +411,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     // Nettoyer l'état persisté du trajet
     await TripStateService.clearTripState();
 
-    await _updateLiveStatus('stopped', extraData: {
+    await _updateLiveStatus('stopped', moveToParking: true, extraData: {
       'tripType': null,
       'tripLabel': null,
       'tripStartTime': null,
@@ -398,13 +428,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       );
       _currentCourseHistoryId = null;
     }
+
+    if (tripStartTimestamp != null && _driver?.busId != null && _selectedTripType != null) {
+      await AttendanceService.resetAttendanceForTrip(
+        busId: _driver!.busId!,
+        tripType: _selectedTripType!.firestoreValue,
+        tripStartTime: tripStartTimestamp,
+      );
+    }
   }
 
   /// Toggle le scan d'un élève (présent/absent)
   Future<void> _toggleStudentScan(Student student) async {
     if (_driver == null || _selectedTripType == null) return;
 
+    final tripStartTimestamp = _currentTripStartTimestamp;
     final isCurrentlyScanned = _scannedStudents[student.id] ?? false;
+
+    if (tripStartTimestamp == null) {
+      _showError('Course invalide, redémarrez la course.');
+      return;
+    }
 
     try {
       if (isCurrentlyScanned) {
@@ -414,6 +458,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           busId: _driver!.busId!,
           tripType: _selectedTripType!.firestoreValue,
           driverId: _driver!.id,
+          tripStartTime: tripStartTimestamp,
         );
       } else {
         // Scanner l'élève
@@ -422,6 +467,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           busId: _driver!.busId!,
           tripType: _selectedTripType!.firestoreValue,
           driverId: _driver!.id,
+          tripStartTime: tripStartTimestamp,
           location: _currentPosition != null
               ? {
                   'lat': _currentPosition!.latitude,
@@ -444,6 +490,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           tripType: _selectedTripType!,
           courseHistoryId: _currentCourseHistoryId!,
           scannedStudents: _scannedStudents,
+          tripStartTimestamp: tripStartTimestamp,
           currentPosition: _currentPosition,
           busMetadata: _busMetadata,
         );
@@ -469,7 +516,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  Future<void> _updateLiveStatus(String status, {Map<String, dynamic>? extraData}) async {
+  Future<void> _updateLiveStatus(String status,
+      {Map<String, dynamic>? extraData, bool moveToParking = false}) async {
     final busId = _driver?.busId;
     if (busId == null) return;
     await GPSService.setBusStatus(
@@ -480,6 +528,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       driverPhone: _driver?.phoneNumber,
       routeId: _busMetadata?['routeId'] as String?,
       extraData: extraData,
+      parkingLocation: moveToParking ? _schoolLocation : null,
     );
   }
 

@@ -161,7 +161,7 @@ export class GPSService {
       route: routeInfo,
       passengersCount: passengersCount,
       currentZone: null, // TODO: calculer depuis position GPS + zones
-      lastUpdate: gpsData.lastUpdate, // Date sera convertie en Timestamp par Firestore
+      lastUpdate: gpsData.lastUpdate ? gpsData.lastUpdate.toISOString() : null,
       isActive: busStatus === 'active',
     };
   }
