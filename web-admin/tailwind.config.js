@@ -80,10 +80,12 @@ export default {
       transitionDuration: {
         '250': '250ms',
       },
-      // Animations pour GodView (Phase 1)
+      // Animations pour GodView (Phase 1 + Phase 2)
       animation: {
         'slide-down': 'slide-down 0.3s ease-out',
         'fade-in': 'fade-in 0.4s ease-in',
+        'pulse-aura-orange': 'pulse-aura-orange 2s ease-in-out infinite',
+        'pulse-aura-red': 'pulse-aura-red 2s ease-in-out infinite',
       },
       keyframes: {
         'slide-down': {
@@ -93,6 +95,14 @@ export default {
         'fade-in': {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        'pulse-aura-orange': {
+          '0%, 100%': { boxShadow: '0 0 0 0px rgba(251, 146, 60, 0.7)' },
+          '50%': { boxShadow: '0 0 0 16px rgba(251, 146, 60, 0)' },
+        },
+        'pulse-aura-red': {
+          '0%, 100%': { boxShadow: '0 0 0 0px rgba(239, 68, 68, 0.7)' },
+          '50%': { boxShadow: '0 0 0 16px rgba(239, 68, 68, 0)' },
         },
       },
     },

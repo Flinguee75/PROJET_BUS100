@@ -214,7 +214,7 @@ void onStart(ServiceInstance service) async {
       gpsTimer?.cancel();
 
       // Démarrer le polling GPS
-      gpsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      gpsTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
         if (currentBusId == null) {
           timer.cancel();
           return;
@@ -357,22 +357,9 @@ bool _shouldSendPosition(
     return false;
   }
 
-  // Calculer distance entre positions (Haversine)
-  final distanceMeters = _calculateDistance(
-    lastPosition.latitude,
-    lastPosition.longitude,
-    newPosition.latitude,
-    newPosition.longitude,
-  );
-
-  // Envoyer si déplacement > 2m pour un mouvement plus fluide
-  if (distanceMeters > 2) {
-    debugPrint('📏 Déplacement ${distanceMeters.toStringAsFixed(1)}m, envoi');
-    return true;
-  }
-
-  debugPrint('🚫 Déplacement ${distanceMeters.toStringAsFixed(1)}m < 2m, skip');
-  return false;
+  // Filtre distance désactivé pour améliorer la fluidité : on envoie tout
+  debugPrint('📡 Envoi direct (filtre distance désactivé)');
+  return true;
 }
 
 /// Calcule la distance entre deux coordonnées GPS (formule de Haversine)
