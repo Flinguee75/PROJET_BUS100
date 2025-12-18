@@ -17,7 +17,7 @@ interface MarkerOptions {
  * @returns HTML string pour le marqueur
  */
 export const generateBusMarkerHTML = ({
-  busNumber,
+  busNumber: _busNumber, // Reserved for future use (Phase 4 may display on marker)
   color,
   rotation,
   hasAlert,

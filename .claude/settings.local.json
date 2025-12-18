@@ -31,7 +31,8 @@
       "Bash(npx tsc:*)",
       "Bash(flutter pub get:*)",
       "Bash(xargs kill -9)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

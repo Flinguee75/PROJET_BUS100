@@ -1,0 +1,306 @@
+/**
+ * GodView Page Styles - Phase 3
+ * Styles extraits pour améliorer la maintenabilité
+ * Inclut: Mapbox customization, bus markers, parking zones
+ */
+
+/* ===== MAPBOX POPUP CUSTOMIZATION ===== */
+
+/* Close button styling with red hover effect */
+.mapboxgl-popup-close-button {
+  font-size: 24px !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  color: #1e293b !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 0 8px 0 4px !important;
+  opacity: 1 !important;
+  transition: all 0.2s !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.mapboxgl-popup-close-button:hover {
+  background: #ef4444 !important;
+  color: white !important;
+  transform: scale(1.1) !important;
+}
+
+/* Popup content container */
+.mapboxgl-popup-content {
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Parking zone popup background */
+.parking-zone-popup .mapboxgl-popup-content {
+  background: white !important;
+}
+
+/* Centered popup variant */
+.parking-popup-centered .mapboxgl-popup-content {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 1000 !important;
+}
+
+.parking-popup-centered .mapboxgl-popup-tip {
+  display: none !important;
+}
+
+/* ===== BUS MARKER STYLES (Phase 2) ===== */
+
+/* Container pour marqueur avec aura pulsante */
+.bus-marker-container {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  cursor: pointer;
+}
+
+/* Flèche directionnelle du bus */
+.bus-marker-arrow {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  color: white;
+}
+
+.bus-marker-container:hover .bus-marker-arrow {
+  transform: scale(1.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Legacy bus-marker for backward compatibility */
+.bus-marker {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  color: white;
+}
+
+.bus-marker:hover {
+  transform: scale(1.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== PARKING ZONE MARKER STYLES ===== */
+
+.parking-zone-marker {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.parking-icon-container {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  border: 3px solid white;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.parking-zone-marker:hover .parking-icon-container {
+  transform: scale(1.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.parking-icon {
+  width: 28px;
+  height: 28px;
+  color: white;
+}
+
+.bus-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 24px;
+  text-align: center;
+}
+
+/* ===== PARKING ZONE POPUP STYLES ===== */
+
+.parking-zone-popup {
+  min-width: 320px;
+  max-width: 400px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.popup-header-parking {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+  margin: -15px -15px 0 -15px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.parking-icon-header {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.parking-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.bus-count-badge-header {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.bus-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.parking-bus-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s;
+}
+
+.parking-bus-item:last-child {
+  border-bottom: none;
+}
+
+.parking-bus-item:hover {
+  background-color: #f9fafb;
+}
+
+.bus-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bus-number-pill {
+  background: #475569;
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.driver-name-text {
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.trip-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.trip-type-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.trip-icon {
+  color: #9ca3af;
+}
+
+.trip-time-text {
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.view-bus-details-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: white;
+  border: 1.5px solid #475569;
+  color: #475569;
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-bus-details-btn:hover {
+  background: #475569;
+  color: white;
+}
+
+/* ===== HIGHLIGHT ANIMATION ===== */
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    background-color: #f9fafb;
+  }
+  50% {
+    background-color: #dbeafe;
+  }
+}
+
+.highlight-bus {
+  animation: highlight-pulse 0.6s ease-in-out 3;
+}

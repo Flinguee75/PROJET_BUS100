@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import '@/styles/godview.css';
 import { AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
@@ -16,6 +17,7 @@ import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
 import { generateBusMarkerHTML, calculateHeadingToSchool } from '@/components/godview/BusMarkerWithAura';
+import { generateSimplifiedBusPopupHTML, generateParkingPopupHTML } from '@/components/godview/SimplifiedBusPopup';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -101,32 +103,7 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 // Centre par défaut (localisation de l'école)
 const ABIDJAN_CENTER: [number, number] = [-3.953921037595442, 5.351860986707333];
 const STATIONED_DISTANCE_THRESHOLD_METERS = 150;
-const TRIP_TYPE_LABELS: Record<string, string> = {
-  morning_outbound: 'Matin - Récupérer les élèves',
-  midday_outbound: 'Midi - Déposer les élèves',
-  midday_return: 'Après-midi - Récupérer les élèves',
-  evening_return: 'Soir - Déposer les élèves',
-};
 
-const formatTripTypeLabel = (tripType?: string | null, tripLabel?: string | null): string | null => {
-  if (tripLabel && tripLabel.trim().length > 0) return tripLabel;
-  if (tripType && TRIP_TYPE_LABELS[tripType]) {
-    return TRIP_TYPE_LABELS[tripType];
-  }
-  return tripType ?? null;
-};
-
-const formatDurationFromMs = (durationMs: number | null | undefined): string => {
-  if (durationMs == null || durationMs < 0) return '—';
-  if (durationMs < 60000) return '< 1 min';
-  const totalMinutes = Math.floor(durationMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours <= 0) {
-    return `${totalMinutes} min`;
-  }
-  return `${hours}h${minutes.toString().padStart(2, '0')}`;
-};
 
 const calculateDistanceMeters = (
   lat1: number,
@@ -558,169 +535,36 @@ export const GodViewPage = () => {
     [mapLoaded, processedBuses, stationedBuses, school, parkingZone]
   );
 
-  // Helper pour formater le temps écoulé depuis un timestamp
-  const formatTimeSince = useCallback((timestamp: number): string => {
-    const now = Date.now();
-    const diffMs = now - timestamp;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-
-    if (diffMins < 1) return "à l'instant";
-    if (diffMins < 60) return `il y a ${diffMins} min`;
-    if (diffHours < 24) return `il y a ${diffHours}h`;
-    return `il y a ${Math.floor(diffHours / 24)}j`;
-  }, []);
-
-  // Créer le HTML du popup de la zone de stationnement
+  // Créer le HTML du popup de la zone de stationnement - VERSION SIMPLIFIÉE Phase 3
   const createParkingZonePopupHTML = useCallback(
     (zone: ParkingZone): string => {
-      const busItemsHTML = zone.stationedBuses
-        .map((bus) => {
-          const tripTypeLabel = bus.tripType
-            ? TRIP_TYPE_LABELS[bus.tripType] || bus.tripType
-            : 'Aucune course récente';
+      // Extraire les numéros de bus pour une liste compacte
+      const busNumbers = zone.stationedBuses.map(bus => `Bus ${bus.number}`);
 
-          const tripTime = bus.tripStartTime ? formatTimeSince(bus.tripStartTime) : 'N/A';
-
-          const driverName = bus.driver?.name || 'Aucun conducteur';
-
-          return `
-            <div class="parking-bus-item" data-bus-id="${bus.id}">
-              <div class="bus-info-row">
-                <span class="bus-number-pill">${bus.number}</span>
-                <span class="driver-name-text">${driverName}</span>
-              </div>
-              <div class="trip-info-row">
-                <div class="trip-type-label">
-                  <svg class="trip-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                  <span>${tripTypeLabel}</span>
-                </div>
-                ${
-                  bus.tripStartTime
-                    ? `<span class="trip-time-text">Terminé ${tripTime}</span>`
-                    : ''
-                }
-              </div>
-              <button
-                class="view-bus-details-btn"
-                onclick="window.focusBusFromParkingZone('${bus.id}')"
-              >
-                Voir détails →
-              </button>
-            </div>
-          `;
-        })
-        .join('');
-
-      return `
-        <div class="parking-zone-popup">
-          <div class="popup-header-parking">
-            <div class="header-left">
-              <svg class="parking-icon-header" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M8 8h4a3 3 0 0 1 0 6H8V8z" />
-                <line x1="8" y1="8" x2="8" y2="17" />
-              </svg>
-              <h3 class="parking-title">Zone de Stationnement</h3>
-            </div>
-            <span class="bus-count-badge-header">${zone.count} bus</span>
-          </div>
-
-          <div class="bus-list-container">
-            ${busItemsHTML}
-          </div>
-        </div>
-      `;
+      // Utiliser le helper pour générer le popup simplifié
+      return generateParkingPopupHTML(busNumbers);
     },
-    [formatTimeSince]
+    []
   );
 
-  // Créer le HTML du popup - VERSION SIMPLIFIÉE avec hiérarchie visuelle claire
+  // Créer le HTML du popup - VERSION SIMPLIFIÉE Phase 3 avec ratio géant
   const createPopupHTML = useCallback(
     (bus: ClassifiedBus): string => {
-      const tripLabel = formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini';
-      const tripDuration =
-        typeof bus.tripStartTime === 'number'
-          ? formatDurationFromMs(Date.now() - bus.tripStartTime)
-          : '—';
-
       // Récupérer les comptages d'élèves pour ce bus
       const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
 
-      // Statut avec icône
-      const getStatusBadge = () => {
-        if (bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED) {
-          const color = bus.liveStatus === BusLiveStatus.DELAYED ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800';
-          const label = bus.liveStatus === BusLiveStatus.DELAYED ? 'En retard' : 'En course';
-          return `<span class="px-2 py-1 ${color} rounded-full text-xs font-semibold">${label}</span>`;
-        }
-        return `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">Stationné</span>`;
-      };
+      // Générer callback pour centrer sur le bus (sera attaché au window)
+      const centerCallbackId = `centerOnBus_${bus.id}`;
 
-      return `
-      <div class="p-3 min-w-[200px] max-w-[280px]">
-        <!-- Header compact avec numéro bus + statut -->
-        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
-          <h3 class="text-xl font-bold text-slate-900">${bus.number}</h3>
-          ${getStatusBadge()}
-        </div>
-
-        <!-- Section CRITIQUE : Élèves (si en course) -->
-        ${
-          (bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED)
-            ? `
-        <div class="mb-3 p-2.5 bg-primary-50 border border-primary-100 rounded-lg">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs font-bold text-primary-900 uppercase tracking-wide">Élèves</span>
-            <span class="text-xs font-semibold text-slate-600">${counts.total} / ${bus.capacity}</span>
-          </div>
-          <div class="grid grid-cols-2 gap-2 text-sm">
-            <div class="text-center">
-              <div class="text-xl font-bold text-green-600">${counts.scanned}</div>
-              <div class="text-[10px] text-slate-600 uppercase">À bord</div>
-            </div>
-            <div class="text-center">
-              <div class="text-xl font-bold ${counts.unscanned > 0 ? 'text-red-600' : 'text-slate-400'}">${counts.unscanned}</div>
-              <div class="text-[10px] text-slate-600 uppercase">Manquants</div>
-            </div>
-          </div>
-        </div>
-        `
-            : ''
-        }
-
-        <!-- Infos secondaires -->
-        <div class="space-y-2 text-xs">
-          ${
-            bus.driver
-              ? `
-          <div class="flex items-start gap-2">
-            <svg class="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7Z"/></svg>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-slate-900 truncate">${bus.driver.name}</p>
-              <p class="text-slate-500 text-[11px]">${bus.driver.phone}</p>
-            </div>
-          </div>
-          `
-              : ''
-          }
-
-          <div class="pt-2 border-t border-slate-200">
-            <div class="flex justify-between mb-1">
-              <span class="text-slate-500">Course</span>
-              <span class="font-semibold text-slate-800">${tripLabel}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-slate-500">Durée</span>
-              <span class="font-semibold text-slate-800">${tripDuration}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+      // Utiliser le helper pour générer le popup simplifié
+      return generateSimplifiedBusPopupHTML({
+        busNumber: bus.number,
+        driverName: bus.driver?.name,
+        driverPhone: bus.driver?.phone,
+        scannedCount: counts.scanned,
+        totalCount: counts.total,
+        onCenterClick: `window.${centerCallbackId} && window.${centerCallbackId}()`,
+      });
     },
     [studentsCounts]
   );
@@ -1065,296 +909,6 @@ export const GodViewPage = () => {
         atSchoolCount={fleetAtSchoolCount}
         onFocusBus={focusBusOnMap}
       />
-
-      <style>{`
-        /* Bus Marker Styles - Phase 2 (avec aura) */
-        .bus-marker-container {
-          position: relative;
-          width: 52px;
-          height: 52px;
-          cursor: pointer;
-        }
-
-        .bus-marker-arrow {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 3px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          color: white;
-        }
-
-        .bus-marker-container:hover .bus-marker-arrow {
-          transform: scale(1.15);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-        }
-
-        /* Legacy bus-marker for backward compatibility */
-        .bus-marker {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          border: 3px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          color: white;
-        }
-
-        .bus-marker:hover {
-          transform: scale(1.15);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-        }
-
-        /* Parking Zone Marker Styles */
-        .parking-zone-marker {
-          width: 60px;
-          height: 60px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          position: relative;
-        }
-
-        .parking-icon-container {
-          width: 52px;
-          height: 52px;
-          background: linear-gradient(135deg, #475569 0%, #334155 100%);
-          border: 3px solid white;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .parking-zone-marker:hover .parking-icon-container {
-          transform: scale(1.15);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-        }
-
-        .parking-icon {
-          width: 28px;
-          height: 28px;
-          color: white;
-        }
-
-        .bus-count-badge {
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          background: #ef4444;
-          color: white;
-          font-weight: 700;
-          font-size: 12px;
-          padding: 4px 8px;
-          border-radius: 12px;
-          border: 2px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-          min-width: 24px;
-          text-align: center;
-        }
-
-        /* Parking Zone Popup Styles */
-        .parking-zone-popup {
-          min-width: 320px;
-          max-width: 400px;
-          font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .popup-header-parking {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px;
-          background: linear-gradient(135deg, #475569 0%, #334155 100%);
-          color: white;
-          border-radius: 8px 8px 0 0;
-          margin: -15px -15px 0 -15px;
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .parking-icon-header {
-          width: 24px;
-          height: 24px;
-          color: white;
-        }
-
-        .parking-title {
-          font-size: 16px;
-          font-weight: 700;
-          margin: 0;
-        }
-
-        .bus-count-badge-header {
-          background: rgba(255,255,255,0.25);
-          color: white;
-          font-weight: 700;
-          font-size: 12px;
-          padding: 6px 12px;
-          border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.4);
-        }
-
-        .bus-list-container {
-          max-height: 400px;
-          overflow-y: auto;
-          padding: 12px 0;
-        }
-
-        .parking-bus-item {
-          padding: 14px 16px;
-          border-bottom: 1px solid #e5e7eb;
-          transition: background-color 0.15s;
-        }
-
-        .parking-bus-item:last-child {
-          border-bottom: none;
-        }
-
-        .parking-bus-item:hover {
-          background-color: #f9fafb;
-        }
-
-        .bus-info-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-
-        .bus-number-pill {
-          background: #475569;
-          color: white;
-          font-weight: 700;
-          font-size: 12px;
-          padding: 4px 10px;
-          border-radius: 6px;
-        }
-
-        .driver-name-text {
-          color: #374151;
-          font-weight: 500;
-          font-size: 14px;
-        }
-
-        .trip-info-row {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          margin-bottom: 10px;
-        }
-
-        .trip-type-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: #6b7280;
-          font-size: 13px;
-        }
-
-        .trip-icon {
-          color: #9ca3af;
-        }
-
-        .trip-time-text {
-          color: #9ca3af;
-          font-size: 12px;
-          font-style: italic;
-        }
-
-        .view-bus-details-btn {
-          width: 100%;
-          padding: 8px 12px;
-          background: white;
-          border: 1.5px solid #475569;
-          color: #475569;
-          font-weight: 600;
-          font-size: 13px;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .view-bus-details-btn:hover {
-          background: #475569;
-          color: white;
-        }
-
-        /* Highlight animation for bus item */
-        @keyframes highlight-pulse {
-          0%, 100% { background-color: #f9fafb; }
-          50% { background-color: #dbeafe; }
-        }
-
-        .highlight-bus {
-          animation: highlight-pulse 0.6s ease-in-out 3;
-        }
-
-        /* Améliorer la visibilité du bouton de fermeture des popups Mapbox */
-        .mapboxgl-popup-close-button {
-          font-size: 24px !important;
-          width: 32px !important;
-          height: 32px !important;
-          line-height: 32px !important;
-          color: #1e293b !important;
-          background: rgba(255, 255, 255, 0.9) !important;
-          border-radius: 0 8px 0 4px !important;
-          opacity: 1 !important;
-          transition: all 0.2s !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-        }
-
-        .mapboxgl-popup-close-button:hover {
-          background: #ef4444 !important;
-          color: white !important;
-          transform: scale(1.1) !important;
-        }
-
-        /* Style du popup pour parking zone */
-        .mapboxgl-popup-content {
-          padding: 0 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
-        }
-
-        /* Améliorer le contraste du popup */
-        .parking-zone-popup .mapboxgl-popup-content {
-          background: white !important;
-        }
-
-        /* Centrer le popup de parking sur la page */
-        .parking-popup-centered .mapboxgl-popup-content {
-          position: fixed !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) !important;
-          z-index: 1000 !important;
-        }
-
-        .parking-popup-centered .mapboxgl-popup-tip {
-          display: none !important;
-        }
-      `}</style>
     </div>
   );
 };
