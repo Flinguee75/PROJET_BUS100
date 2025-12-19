@@ -21,6 +21,7 @@ import {
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
 import { getBusStudents, watchBusAttendance, type Student, type AttendanceRecord } from '@/services/students.firestore';
+import { UrgencySection, SafetyRatioBadge } from '@/components/godview';
 
 interface AlertsSidebarProps {
   alerts: Alert[];
@@ -565,11 +566,14 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
         <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
           <button
             onClick={() => setActiveTab('fleet')}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
               activeTab === 'fleet'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
+            role="tab"
+            aria-selected={activeTab === 'fleet'}
+            aria-controls="fleet-panel"
           >
             <div className="flex items-center justify-center gap-2">
               <span>FLOTTE</span>
@@ -586,11 +590,14 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
           </button>
           <button
             onClick={() => setActiveTab('students')}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
               activeTab === 'students'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
+            role="tab"
+            aria-selected={activeTab === 'students'}
+            aria-controls="students-panel"
           >
             <div className="flex items-center justify-center gap-2">
               <span>ÉLÈVES</span>
@@ -610,6 +617,21 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
         </div>
       </div>
 
+      {/* UrgencySection - Management by Exception (Phase 4) */}
+      <UrgencySection
+        unscannedCount={unscannedCount}
+        delayedBusCount={delayCount}
+        onExpand={() => {
+          // Switch to appropriate tab based on which urgency is higher
+          if (unscannedCount > 0) {
+            setActiveTab('students');
+          } else if (delayCount > 0) {
+            setActiveTab('fleet');
+            setSelectedFleetFilter('delays');
+          }
+        }}
+      />
+
       {/* Section FLOTTE */}
       {activeTab === 'fleet' && (
         <>
@@ -619,11 +641,13 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               {/* Tout */}
               <button
                 onClick={() => setSelectedFleetFilter('all')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
                   selectedFleetFilter === 'all'
                     ? 'bg-slate-900 text-white'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300'
                 }`}
+                aria-pressed={selectedFleetFilter === 'all'}
+                aria-label="Afficher tous les bus"
               >
                 Tout ({totalFleet})
               </button>
@@ -632,13 +656,15 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               <button
                 onClick={() => setSelectedFleetFilter('delays')}
                 disabled={delaysBusCount === 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-500 focus:ring-offset-1 ${
                   selectedFleetFilter === 'delays'
                     ? 'bg-danger-600 text-white'
                     : delaysBusCount === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-danger-300'
                 }`}
+                aria-pressed={selectedFleetFilter === 'delays'}
+                aria-label={`Afficher les bus en retard (${delaysBusCount})`}
               >
                 <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
                 Retards ({delaysBusCount})
@@ -648,13 +674,15 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               <button
                 onClick={() => setSelectedFleetFilter('en_course')}
                 disabled={effectiveEnCourse === 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                   selectedFleetFilter === 'en_course'
                     ? 'bg-blue-600 text-white'
                     : effectiveEnCourse === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-300'
                 }`}
+                aria-pressed={selectedFleetFilter === 'en_course'}
+                aria-label={`Afficher les bus en course (${effectiveEnCourse})`}
               >
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
                 En course ({effectiveEnCourse})
@@ -664,13 +692,15 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               <button
                 onClick={() => setSelectedFleetFilter('at_school')}
                 disabled={effectiveAtSchool === 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
                   selectedFleetFilter === 'at_school'
                     ? 'bg-blue-400 text-white'
                     : effectiveAtSchool === 0
                     ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-200'
                 }`}
+                aria-pressed={selectedFleetFilter === 'at_school'}
+                aria-label={`Afficher les bus à l'école (${effectiveAtSchool})`}
               >
                 <School className="w-3.5 h-3.5" strokeWidth={2.5} />
                 À l'école ({effectiveAtSchool})
@@ -718,6 +748,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                aria-label="Rechercher un élève par nom"
               />
             </div>
           </div>
@@ -789,13 +820,45 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-2 h-2 rounded-full ${dotColorClass}`}></div>
-                        <div className="flex-1">
-                          <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
-                          <p className={`text-sm font-semibold ${statusClass}`}>
-                            {statusLabel}
-                          </p>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColorClass}`}></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
+                            {/* SafetyRatioBadge - Phase 4 */}
+                            {(isEnRoute || isArrived) && (
+                              <SafetyRatioBadge
+                                scanned={counts.scanned}
+                                total={counts.total}
+                                size="sm"
+                              />
+                            )}
+                          </div>
+                          {/* Driver info - inline avec icônes (Phase 4) */}
+                          {bus.driver && !showStationedLabel && (
+                            <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                              <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                              <span className="truncate flex-1">{bus.driver.name}</span>
+                              {bus.driver.phone && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`tel:${bus.driver.phone}`, '_self');
+                                  }}
+                                  className="ml-auto p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+                                  aria-label={`Appeler ${bus.driver.name}`}
+                                >
+                                  <Phone className="w-3 h-3 text-slate-500" strokeWidth={2.5} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* Trip type - single line (Phase 4) */}
+                          {!showStationedLabel && (
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              {formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Course en cours'}
+                            </div>
+                          )}
                           {showStationedLabel && (
                             <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
                               {bus.driver?.name && (
@@ -807,7 +870,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                               {bus.currentZone && (
                                 <div className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3 text-slate-400" strokeWidth={2.5} />
-                                  <span>Zone: {bus.currentZone}</span>
+                                  <span>{bus.currentZone}</span>
                                 </div>
                               )}
                               {stationedDuration && (
@@ -820,10 +883,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                         </div>
                       </div>
                       {selectedFleetFilter !== 'at_school' && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleAlertClick(bus.id)}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1"
+                            aria-label={`Voir le bus ${bus.number} sur la carte`}
                           >
                             <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
                             Carte
@@ -832,11 +896,13 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             onClick={() =>
                               setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id))
                             }
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
                               expandedInfoBusId === bus.id
                                 ? 'bg-primary-100 text-primary-700'
                                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                             }`}
+                            aria-expanded={expandedInfoBusId === bus.id}
+                            aria-label={`${expandedInfoBusId === bus.id ? 'Masquer' : 'Afficher'} les informations du bus ${bus.number}`}
                           >
                             Voir info
                           </button>
@@ -1035,7 +1101,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   {/* En-tête de la carte (toujours visible) */}
                   <button
                     onClick={() => toggleBusAccordion(bus.id)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors duration-200"
+                    className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+                    aria-expanded={isExpanded}
+                    aria-controls={`bus-students-${bus.id}`}
+                    aria-label={`${isExpanded ? 'Masquer' : 'Afficher'} les élèves du bus ${bus.number}`}
                   >
                     <div className="flex items-center gap-3 flex-1 text-left">
                       <div className={`flex-shrink-0 transition-transform duration-200 ${
@@ -1071,7 +1140,12 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
 
                   {/* Corps de la carte (dépliable) */}
                   {isExpanded && (
-                    <div className="border-t border-slate-200">
+                    <div 
+                      id={`bus-students-${bus.id}`}
+                      className="border-t border-slate-200"
+                      role="region"
+                      aria-label={`Liste des élèves du bus ${bus.number}`}
+                    >
                       {/* Zone 1 : Élèves non scannés (Alertes) - Zone critique avec fond ambre pâle */}
                       {filteredUnscanned.length > 0 && (
                         <div className="bg-amber-50 border-t border-amber-100 border-b border-amber-100 p-4 space-y-3">
@@ -1100,38 +1174,30 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                               return (
                                 <div
                                   key={student.id}
-                                  className="bg-white rounded-lg border border-amber-200 p-3 shadow-sm"
+                                  className="flex items-center justify-between gap-3 py-2 px-3 bg-white rounded-lg border border-amber-200 hover:bg-amber-50 transition-colors"
                                 >
-                                  <div className="flex items-start gap-3 mb-3">
-                                    {/* Pastille ambre pour indiquer l'alerte */}
-                                    <div className="flex-shrink-0 w-2 h-2 bg-amber-600 rounded-full mt-1.5"></div>
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-600 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
-                                      {/* Nom en noir/gris foncé et gras */}
-                                      <h4 className="text-sm font-bold text-slate-900">
+                                      <span className="text-sm font-medium text-slate-900 truncate block">
                                         {student.firstName} {student.lastName}
-                                      </h4>
+                                      </span>
                                       {alert && (
-                                        <p className="text-xs text-slate-600 mt-1">
-                                          Arrêt : {extractStopFromAlert(alert)}
-                                        </p>
-                                      )}
-                                      {scanTime && (
-                                        <p className="text-xs text-slate-400 mt-0.5">
-                                          Dernière mise à jour : {scanTime}
-                                        </p>
+                                        <span className="text-xs text-slate-500 truncate block">
+                                          {extractStopFromAlert(alert)}
+                                        </span>
                                       )}
                                     </div>
                                   </div>
-                                  {/* Bouton outline (bordure fine, texte gris foncé) */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       console.log('Call parent for student', student.id);
                                     }}
-                                    className="w-full px-3 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
+                                    className="flex-shrink-0 p-1.5 hover:bg-white rounded-lg transition-colors"
+                                    aria-label={`Appeler le parent de ${student.firstName} ${student.lastName}`}
                                   >
-                                    <Phone className="w-3.5 h-3.5 text-slate-600" strokeWidth={2.5} />
-                                    Appeler Parent
+                                    <Phone className="w-4 h-4 text-amber-700" strokeWidth={2.5} />
                                   </button>
                                 </div>
                               );
@@ -1145,7 +1211,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                         <div className="p-4 bg-white">
                           <button
                             onClick={() => togglePresentSection(bus.id)}
-                            className="w-full cursor-pointer text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2 hover:text-slate-800 transition-colors duration-200"
+                            className="w-full cursor-pointer text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2 hover:text-slate-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                            aria-expanded={expandedPresentSections.has(bus.id)}
+                            aria-controls={`present-students-${bus.id}`}
+                            aria-label={`${expandedPresentSections.has(bus.id) ? 'Masquer' : 'Afficher'} les élèves présents (${filteredScanned.length})`}
                           >
                             <ChevronDown
                               className={`w-3 h-3 transition-transform duration-200 ${
@@ -1155,7 +1224,12 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             Présents ({filteredScanned.length})
                           </button>
                           {expandedPresentSections.has(bus.id) && (
-                            <div className="space-y-1.5">
+                            <div 
+                              id={`present-students-${bus.id}`}
+                              className="space-y-1.5"
+                              role="list"
+                              aria-label="Élèves présents"
+                            >
                               {filteredScanned.map((student) => {
                                 const attendance = busData?.attendanceMap.get(student.id);
                                 const scanTime = attendance?.timestamp
