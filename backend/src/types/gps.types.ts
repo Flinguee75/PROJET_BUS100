@@ -52,6 +52,7 @@ export interface GPSUpdateInput {
   heading?: number;
   accuracy?: number;
   timestamp: number;
+  arrived?: boolean; // Flag explicite du chauffeur pour indiquer l'arrivée à l'école
 }
 
 export interface GPSHistoryQuery {

@@ -46,6 +46,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   // Nouveaux états pour le type de trajet et les scans
   TripType? _selectedTripType;
   Map<String, bool> _scannedStudents = {}; // studentId -> isScanned
+  bool _isTripActionLoading = false;
 
   @override
   void initState() {
@@ -294,147 +295,163 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _startTrip() async {
     debugPrint('🚀 Tentative de lancement de la course');
 
+    if (_isTripActionLoading) return;
+
     // Vérifier qu'un type de trajet est sélectionné
     if (_selectedTripType == null) {
       _showError('Veuillez sélectionner un type de course');
       return;
     }
 
-    if (_driver == null || !_driver!.hasAssignedBus) {
-      debugPrint('❌ Lancement impossible: chauffeur sans bus assigné');
-      _showError('Aucun bus assigné');
-      return;
-    }
+    _setTripActionLoading(true);
 
-    // Vérifier les permissions de localisation
-    final hasPermission = await GPSService.checkLocationPermission();
-    if (!hasPermission) {
-      debugPrint('❌ Permissions de localisation refusées');
-      _showError('Permissions de localisation requises');
-      return;
-    }
+    try {
+      if (_driver == null || !_driver!.hasAssignedBus) {
+        debugPrint('❌ Lancement impossible: chauffeur sans bus assigné');
+        _showError('Aucun bus assigné');
+        return;
+      }
 
-    final tripStartTimestamp = DateTime.now().millisecondsSinceEpoch;
+      // Vérifier les permissions de localisation
+      final permissionStatus = await GPSService.checkLocationPermissionStatus();
+      if (permissionStatus != LocationPermissionStatus.granted) {
+        debugPrint('❌ Permissions de localisation non accordées: $permissionStatus');
+        await _showLocationPermissionDialog(permissionStatus);
+        return;
+      }
 
-    setState(() {
-      _isTripActive = true;
-      _error = null;
-      _scannedStudents = {}; // Réinitialiser les scans
-      _currentTripStartTimestamp = tripStartTimestamp;
-    });
-    debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
+      final tripStartTimestamp = DateTime.now().millisecondsSinceEpoch;
 
-    final tripValue = _selectedTripType!.firestoreValue;
-    await _updateLiveStatus('en_route', extraData: {
-      'tripType': tripValue,
-      'tripLabel': _selectedTripType!.label,
-      'tripStartTime': FieldValue.serverTimestamp(),
-    });
-    final busInfo = await _ensureBusMetadata();
-    final historyId = await CourseHistoryService.startCourse(
-      busId: _driver!.busId!,
-      driverId: _driver!.id,
-      routeId: busInfo?['routeId'] as String?,
-      tripType: tripValue,
-      tripLabel: _selectedTripType!.label,
-      busInfo: busInfo,
-      driverInfo: {
-        'id': _driver!.id,
-        'name': _driver!.displayName,
-        'phoneNumber': _driver!.phoneNumber,
-        'email': _driver!.email,
-      },
-      schoolId: _driver!.schoolId,
-    );
-    _currentCourseHistoryId = historyId;
+      setState(() {
+        _isTripActive = true;
+        _error = null;
+        _scannedStudents = {}; // Réinitialiser les scans
+        _currentTripStartTimestamp = tripStartTimestamp;
+      });
+      debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
 
-    // Charger la liste des élèves filtrés
-    await AttendanceService.resetAttendanceForTrip(
-      busId: _driver!.busId!,
-      tripType: tripValue,
-    );
-    await _loadStudents();
+      final tripValue = _selectedTripType!.firestoreValue;
+      await _updateLiveStatus('en_route', extraData: {
+        'tripType': tripValue,
+        'tripLabel': _selectedTripType!.label,
+        'tripStartTime': FieldValue.serverTimestamp(),
+      });
+      final busInfo = await _ensureBusMetadata();
+      final historyId = await CourseHistoryService.startCourse(
+        busId: _driver!.busId!,
+        driverId: _driver!.id,
+        routeId: busInfo?['routeId'] as String?,
+        tripType: _selectedTripType!,
+        tripLabel: _selectedTripType!.label,
+        busInfo: busInfo,
+        driverInfo: {
+          'id': _driver!.id,
+          'name': _driver!.displayName,
+          'phoneNumber': _driver!.phoneNumber,
+          'email': _driver!.email,
+        },
+        schoolId: _driver!.schoolId,
+      );
+      _currentCourseHistoryId = historyId;
 
-    // Démarrer le service GPS en arrière-plan
-    final success = await BackgroundGpsService.instance.startTracking(
-      busId: _driver!.busId!,
-      driverId: _driver!.id,
-      tripType: _selectedTripType!,
-      routeId: _busMetadata?['routeId'] as String?,
-    );
+      // Charger la liste des élèves filtrés
+      await AttendanceService.resetAttendanceForTrip(
+        busId: _driver!.busId!,
+        tripType: tripValue,
+      );
+      await _loadStudents();
 
-    if (!success) {
-      debugPrint('❌ Échec démarrage service GPS background');
-      _showError('Impossible de démarrer le tracking GPS');
-    } else {
-      debugPrint('✅ Service GPS background démarré');
-
-      // Sauvegarder l'état du trajet pour récupération après crash
-      await TripStateService.saveTripState(
+      // Démarrer le service GPS en arrière-plan
+      final success = await BackgroundGpsService.instance.startTracking(
         busId: _driver!.busId!,
         driverId: _driver!.id,
         tripType: _selectedTripType!,
-        courseHistoryId: _currentCourseHistoryId!,
-        scannedStudents: _scannedStudents,
-        tripStartTimestamp: tripStartTimestamp,
-        currentPosition: _currentPosition,
-        busMetadata: _busMetadata,
+        routeId: _busMetadata?['routeId'] as String?,
       );
+
+      if (!success) {
+        debugPrint('❌ Échec démarrage service GPS background');
+        _showError('Impossible de démarrer le tracking GPS');
+      } else {
+        debugPrint('✅ Service GPS background démarré');
+
+        // Sauvegarder l'état du trajet pour récupération après crash
+        await TripStateService.saveTripState(
+          busId: _driver!.busId!,
+          driverId: _driver!.id,
+          tripType: _selectedTripType!,
+          courseHistoryId: _currentCourseHistoryId!,
+          scannedStudents: _scannedStudents,
+          tripStartTimestamp: tripStartTimestamp,
+          currentPosition: _currentPosition,
+          busMetadata: _busMetadata,
+        );
+      }
+    } finally {
+      _setTripActionLoading(false);
     }
   }
 
   /// Arrête la course
   Future<void> _stopTrip({bool completed = true}) async {
-    final totalStudents = _students.length;
-    final scannedIds = _scannedStudents.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
-    final missedIds = _students
-        .where((student) => !(_scannedStudents[student.id] ?? false))
-        .map((student) => student.id)
-        .toList();
+    if (_isTripActionLoading) return;
 
-    final tripStartTimestamp = _currentTripStartTimestamp;
+    _setTripActionLoading(true);
 
-    setState(() {
-      _isTripActive = false;
-      _scannedStudents = {};
-      _students = [];
-      _currentTripStartTimestamp = null;
-    });
+    try {
+      final totalStudents = _students.length;
+      final scannedIds = _scannedStudents.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      final missedIds = _students
+          .where((student) => !(_scannedStudents[student.id] ?? false))
+          .map((student) => student.id)
+          .toList();
 
-    // Arrêter le service GPS en arrière-plan
-    await BackgroundGpsService.instance.stopTracking();
-    debugPrint('✅ Service GPS background arrêté');
+      final tripStartTimestamp = _currentTripStartTimestamp;
 
-    // Nettoyer l'état persisté du trajet
-    await TripStateService.clearTripState();
+      setState(() {
+        _isTripActive = false;
+        _scannedStudents = {};
+        _students = [];
+        _currentTripStartTimestamp = null;
+      });
 
-    await _updateLiveStatus('stopped', moveToParking: true, extraData: {
-      'tripType': null,
-      'tripLabel': null,
-      'tripStartTime': null,
-    });
+      // Arrêter le service GPS en arrière-plan
+      await BackgroundGpsService.instance.stopTracking();
+      debugPrint('✅ Service GPS background arrêté');
 
-    if (_currentCourseHistoryId != null) {
-      await CourseHistoryService.endCourse(
-        historyId: _currentCourseHistoryId!,
-        status: completed ? 'completed' : 'stopped',
-        totalStudents: totalStudents > 0 ? totalStudents : null,
-        scannedCount: scannedIds.length,
-        scannedStudentIds: scannedIds,
-        missedStudentIds: missedIds,
-      );
-      _currentCourseHistoryId = null;
-    }
+      // Nettoyer l'état persisté du trajet
+      await TripStateService.clearTripState();
 
-    if (tripStartTimestamp != null && _driver?.busId != null && _selectedTripType != null) {
-      await AttendanceService.resetAttendanceForTrip(
-        busId: _driver!.busId!,
-        tripType: _selectedTripType!.firestoreValue,
-        tripStartTime: tripStartTimestamp,
-      );
+      await _updateLiveStatus('stopped', moveToParking: true, extraData: {
+        'tripType': null,
+        'tripLabel': null,
+        'tripStartTime': null,
+      });
+
+      if (_currentCourseHistoryId != null) {
+        await CourseHistoryService.endCourse(
+          historyId: _currentCourseHistoryId!,
+          status: completed ? 'completed' : 'stopped',
+          totalStudents: totalStudents > 0 ? totalStudents : null,
+          scannedCount: scannedIds.length,
+          scannedStudentIds: scannedIds,
+          missedStudentIds: missedIds,
+        );
+        _currentCourseHistoryId = null;
+      }
+
+      if (tripStartTimestamp != null && _driver?.busId != null && _selectedTripType != null) {
+        await AttendanceService.resetAttendanceForTrip(
+          busId: _driver!.busId!,
+          tripType: _selectedTripType!.firestoreValue,
+          tripStartTime: tripStartTimestamp,
+        );
+      }
+    } finally {
+      _setTripActionLoading(false);
     }
   }
 
@@ -534,7 +551,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   Future<void> _handleLogout() async {
     final authProvider = context.read<AuthProvider>();
-    await _stopTrip(completed: false);
+    if (_isTripActive) {
+      await _stopTrip(completed: false);
+    }
     await authProvider.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -545,6 +564,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   // Méthode _startGPSTracking supprimée - remplacée par BackgroundGpsService
 
+  void _setTripActionLoading(bool value) {
+    if (!mounted) {
+      _isTripActionLoading = value;
+      return;
+    }
+    setState(() {
+      _isTripActionLoading = value;
+    });
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -552,6 +581,68 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         backgroundColor: AppColors.danger,
       ),
     );
+  }
+
+  Future<void> _showLocationPermissionDialog(LocationPermissionStatus status) async {
+    if (!mounted) return;
+
+    String message;
+    String title = 'Permission localisation requise';
+    String? settingsLabel;
+    bool openLocationSettings = false;
+
+    switch (status) {
+      case LocationPermissionStatus.denied:
+        message =
+            'Cette application ne peut pas fonctionner sans GPS. Veuillez autoriser l\'accès à votre position dans les paramètres.';
+        settingsLabel = 'Ouvrir les paramètres';
+        break;
+      case LocationPermissionStatus.deniedForever:
+        message =
+            'Vous avez refusé définitivement l\'accès à la localisation. Activez la permission dans les paramètres de l\'application pour démarrer une course.';
+        settingsLabel = 'Ouvrir les paramètres';
+        break;
+      case LocationPermissionStatus.serviceDisabled:
+        message =
+            'Le service de localisation du téléphone est désactivé. Activez le GPS pour pouvoir lancer la course.';
+        settingsLabel = 'Activer le GPS';
+        openLocationSettings = true;
+        break;
+      case LocationPermissionStatus.granted:
+        return;
+    }
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+          if (settingsLabel != null)
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, 'settings'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(settingsLabel),
+            ),
+        ],
+      ),
+    );
+
+    if (result == 'settings') {
+      if (openLocationSettings) {
+        await Geolocator.openLocationSettings();
+      } else {
+        await Geolocator.openAppSettings();
+      }
+    }
   }
 
   /// Compte le nombre d'élèves scannés
@@ -603,6 +694,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ),
       );
     }
+
+    final canInteractWithTripAction =
+        !_isTripActionLoading && (_isTripActive || _selectedTripType != null);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -772,7 +866,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
               // Bouton Lancer/Arrêter la course
               ElevatedButton(
-                onPressed: (_isTripActive || _selectedTripType != null)
+                onPressed: canInteractWithTripAction
                     ? () async {
                         if (_isTripActive) {
                           await _stopTrip();
@@ -791,27 +885,36 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isTripActive ? Icons.stop : Icons.play_arrow,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isTripActive
-                          ? 'Arrêter la course'
-                          : _selectedTripType != null
-                              ? 'Lancer: ${_selectedTripType!.shortLabel}'
-                              : 'Sélectionnez un type de course',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                child: _isTripActionLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isTripActive ? Icons.stop : Icons.play_arrow,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isTripActive
+                                ? 'Arrêter la course'
+                                : _selectedTripType != null
+                                    ? 'Lancer: ${_selectedTripType!.shortLabel}'
+                                    : 'Sélectionnez un type de course',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
 
               if (_isTripActive) ...[

@@ -8,6 +8,7 @@
 
 export { SafetyRatioBadge } from './SafetyRatioBadge';
 export { UrgencySection } from './UrgencySection';
+export { RecentlyArrivedSection } from './RecentlyArrivedSection';
 export { generateBusMarkerHTML, calculateHeadingToSchool } from './BusMarkerWithAura';
 export { generateSimplifiedBusPopupHTML, generateParkingPopupHTML } from './SimplifiedBusPopup';
 export { CompactStudentRow } from './CompactStudentRow';

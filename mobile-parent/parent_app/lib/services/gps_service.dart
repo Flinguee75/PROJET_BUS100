@@ -3,6 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'firebase_service.dart';
 
+/// Statut détaillé des permissions de localisation
+enum LocationPermissionStatus {
+  granted,
+  denied,
+  deniedForever,
+  serviceDisabled,
+}
+
 /// Service pour gérer l'écriture GPS dans Firestore
 class GPSService {
   static final FirebaseFirestore _firestore = FirebaseService.firestore;
@@ -162,34 +170,35 @@ class GPSService {
     }
   }
 
-  /// Vérifie les permissions de localisation
-  static Future<bool> checkLocationPermission() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // Vérifier si le service de localisation est activé
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  /// Vérifie les permissions de localisation et retourne un statut détaillé
+  static Future<LocationPermissionStatus> checkLocationPermissionStatus() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       debugPrint('⚠️ Le service de localisation est désactivé');
-      return false;
+      return LocationPermissionStatus.serviceDisabled;
     }
 
-    // Vérifier les permissions
-    permission = await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         debugPrint('⚠️ Les permissions de localisation sont refusées');
-        return false;
+        return LocationPermissionStatus.denied;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
       debugPrint('⚠️ Les permissions de localisation sont définitivement refusées');
-      return false;
+      return LocationPermissionStatus.deniedForever;
     }
 
-    return true;
+    return LocationPermissionStatus.granted;
+  }
+
+  /// Historique : garde une version booléenne pour compatibilité
+  static Future<bool> checkLocationPermission() async {
+    final status = await checkLocationPermissionStatus();
+    return status == LocationPermissionStatus.granted;
   }
 
   /// Obtient la position actuelle

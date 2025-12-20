@@ -4,12 +4,7 @@
  */
 
 import { getDb, collections } from '../config/firebase.config';
-import {
-  GPSUpdateInput,
-  GPSLiveData,
-  GPSHistoryEntry,
-  BusLiveStatus
-} from '../types';
+import { GPSUpdateInput, GPSLiveData, GPSHistoryEntry, BusLiveStatus } from '../types';
 import { BusStatus } from '../types/bus.types';
 import type { BusRealtimeData, DriverInfo, RouteInfo } from '../types/realtime.types';
 
@@ -21,7 +16,7 @@ export class GPSService {
    * - Calcule le statut du bus (en route, arrêté, etc.)
    */
   async updateGPSPosition(data: GPSUpdateInput): Promise<GPSLiveData> {
-    const { busId, lat, lng, speed, heading, accuracy, timestamp } = data;
+    const { busId, lat, lng, speed, heading, accuracy, timestamp, arrived } = data;
 
     // Validation business: vérifier que le bus existe
     const db = getDb();
@@ -35,8 +30,10 @@ export class GPSService {
       throw new Error(`Bus ${busId} has no data`);
     }
 
-    // Déterminer le statut du bus basé sur la vitesse
-    const status = this.determineBusStatus(speed);
+    // Déterminer le statut du bus
+    // Si le chauffeur a explicitement indiqué qu'il est arrivé, utiliser ARRIVED
+    // Sinon, déterminer basé sur la vitesse
+    const status = arrived === true ? BusLiveStatus.ARRIVED : await this.determineBusStatus(speed);
 
     // Créer l'objet GPS Live
     const gpsLive: GPSLiveData = {
@@ -54,6 +51,8 @@ export class GPSService {
       status,
       passengersCount: 0, // TODO: Implémenter comptage passagers
       lastUpdate: new Date(),
+      // Si le bus vient d'arriver, enregistrer le timestamp
+      ...(arrived === true && { arrivedAt: new Date() }),
     };
 
     // NOUVEAU : Enrichir avec les infos du bus avant de sauvegarder
@@ -135,10 +134,7 @@ export class GPSService {
         }
       });
     } catch (error) {
-      console.warn(
-        `⚠️ Erreur lors du comptage des passagers pour le bus ${gpsData.busId}:`,
-        error
-      );
+      console.warn(`⚠️ Erreur lors du comptage des passagers pour le bus ${gpsData.busId}:`, error);
       // En cas d'erreur, utiliser la valeur par défaut (0 ou celle déjà dans gpsData)
       passengersCount = gpsData.passengersCount;
     }
@@ -198,8 +194,9 @@ export class GPSService {
 
   /**
    * Détermine le statut du bus basé sur la vitesse
+   * Note: Le statut ARRIVED est géré explicitement par le chauffeur via le flag 'arrived'
    */
-  private determineBusStatus(speed: number): BusLiveStatus {
+  private async determineBusStatus(speed: number): Promise<BusLiveStatus> {
     if (speed === 0) {
       return BusLiveStatus.STOPPED;
     } else if (speed > 0 && speed < 5) {

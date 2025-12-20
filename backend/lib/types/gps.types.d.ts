@@ -42,6 +42,7 @@ export interface GPSUpdateInput {
     heading?: number;
     accuracy?: number;
     timestamp: number;
+    arrived?: boolean;
 }
 export interface GPSHistoryQuery {
     busId: string;

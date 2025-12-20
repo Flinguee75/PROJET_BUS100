@@ -1,3 +1,4 @@
+
 /**
  * SimplifiedBusPopup - Helper pour générer le HTML des popups simplifiés
  * Layout épuré avec ratio géant en couleur et infos essentielles

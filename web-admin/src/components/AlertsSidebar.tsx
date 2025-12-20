@@ -21,7 +21,7 @@ import {
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
 import { getBusStudents, watchBusAttendance, type Student, type AttendanceRecord } from '@/services/students.firestore';
-import { UrgencySection, SafetyRatioBadge } from '@/components/godview';
+import { UrgencySection, SafetyRatioBadge, RecentlyArrivedSection } from '@/components/godview';
 
 interface AlertsSidebarProps {
   alerts: Alert[];
@@ -641,6 +641,12 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
             setSelectedFleetFilter('delays');
           }
         }}
+      />
+
+      {/* Section Bus Arrivés Récemment */}
+      <RecentlyArrivedSection
+        buses={allBuses.filter((bus) => bus.liveStatus === BusLiveStatus.ARRIVED)}
+        onBusClick={onFocusBus}
       />
 
       {/* Section FLOTTE */}
