@@ -6,6 +6,8 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { GPSLiveData } from '../types';
 
+const DEFAULT_WEBSOCKET_PORT = 8181;
+
 class WebSocketManager {
   private wss: WebSocketServer | null = null;
   private clients: Set<WebSocket> = new Set();
@@ -13,7 +15,7 @@ class WebSocketManager {
   /**
    * Initialise le serveur WebSocket
    */
-  initialize(port = 8080): void {
+  initialize(port = DEFAULT_WEBSOCKET_PORT): void {
     try {
       this.wss = new WebSocketServer({ port });
 

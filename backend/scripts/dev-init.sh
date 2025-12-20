@@ -29,8 +29,9 @@ ensure_port_free() {
 }
 
 # Vérifier que les ports clés sont libres
-ensure_port_free 8080
-ensure_port_free 9099
+ensure_port_free 8080 # Firestore
+ensure_port_free 9099 # Auth
+ensure_port_free 8181 # WebSocket local
 
 # Lancer les émulateurs en arrière-plan
 echo -e "${BLUE}🔧 Lancement des émulateurs Firebase...${NC}"

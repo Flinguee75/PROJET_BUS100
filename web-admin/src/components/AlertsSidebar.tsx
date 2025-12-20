@@ -247,44 +247,55 @@ export const AlertsSidebar = ({
             const currentTripStartTime = bus.tripStartTime;
             
             // Filtrer les enregistrements d'attendance pour ne garder que ceux du trajet actuel
+            // MODE TOLÉRANT : Accepter les scans récents même si tripType pas parfaitement aligné
             attendance.forEach((record) => {
               // #region agent log
               fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Filtering attendance record',data:{busId:bus.id,recordTripType:record.tripType,currentTripType,recordTimestamp:record.timestamp,currentTripStartTime,matchesTripType:record.tripType===currentTripType,isAfterTripStart:currentTripStartTime?record.timestamp&&record.timestamp>=currentTripStartTime:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
               // #endregion
               
-              // Si le record a un tripType, ne garder que ceux qui correspondent au trajet actuel
-              if (record.tripType) {
-                if (record.tripType === currentTripType) {
-                  // Vérifier aussi que le record a été créé après le début de la course actuelle
-                  if (currentTripStartTime && record.timestamp) {
-                    if (record.timestamp >= currentTripStartTime) {
-                      attendanceMap.set(record.studentId, record);
-                      // #region agent log
-                      fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - matches tripType and after tripStart',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                      // #endregion
-                    } else {
-                      // #region agent log
-                      fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - before tripStart',data:{busId:bus.id,studentId:record.studentId,recordTimestamp:record.timestamp,currentTripStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                      // #endregion
-                    }
-                  } else {
-                    // Si pas de tripStartTime, garder le record (compatibilité)
-                    attendanceMap.set(record.studentId, record);
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripStartTime to filter',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                    // #endregion
-                  }
+              // RÈGLE 1 : Si pas de tripType dans le record, TOUJOURS garder (compatibilité)
+              if (!record.tripType) {
+                attendanceMap.set(record.studentId, record);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripType in record (always accept)',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
+                return;
+              }
+              
+              // RÈGLE 2 : Si pas de currentTripType défini, TOUJOURS garder (mode tolérant)
+              if (!currentTripType) {
+                attendanceMap.set(record.studentId, record);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no currentTripType (tolerant mode)',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                // #endregion
+                return;
+              }
+              
+              // RÈGLE 3 : Vérifier correspondance tripType
+              if (record.tripType !== currentTripType) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - different tripType',data:{busId:bus.id,studentId:record.studentId,recordTripType:record.tripType,currentTripType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                return;
+              }
+              
+              // RÈGLE 4 : Vérifier timestamp (seulement si tripStartTime défini)
+              if (currentTripStartTime && record.timestamp) {
+                if (record.timestamp >= currentTripStartTime) {
+                  attendanceMap.set(record.studentId, record);
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - matches tripType and after tripStart',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                  // #endregion
                 } else {
                   // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - different tripType',data:{busId:bus.id,studentId:record.studentId,recordTripType:record.tripType,currentTripType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - before tripStart',data:{busId:bus.id,studentId:record.studentId,recordTimestamp:record.timestamp,currentTripStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                   // #endregion
                 }
               } else {
-                // Si pas de tripType dans le record, le garder (pour compatibilité avec anciennes données)
-                // Mais on vérifiera le tripType du bus lors de la vérification du statut
+                // Pas de tripStartTime, garder le record
                 attendanceMap.set(record.studentId, record);
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripType in record',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripStartTime to filter',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                 // #endregion
               }
             });

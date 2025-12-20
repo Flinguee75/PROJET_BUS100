@@ -29,7 +29,9 @@ class FirebaseService {
     try {
       await FirebaseAuth.instance.useAuthEmulator(host, 9099);
       FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-      print('✅ Connecté aux émulateurs Firebase');
+      // Aide au debug: affiche l'hôte utilisé pour vérifier la configuration ADB
+      // sur un appareil physique.
+      print('✅ Connecté aux émulateurs Firebase via $host');
     } catch (e) {
       print('⚠️ Erreur connexion émulateurs: $e');
     }
@@ -37,10 +39,27 @@ class FirebaseService {
 
   /// Retourne l'hôte à utiliser selon la plateforme
   static String get _emulatorHost {
+    const overrideHost = String.fromEnvironment('FIREBASE_EMULATOR_HOST');
+    if (overrideHost.isNotEmpty) {
+      return _normalizeHostForAndroid(overrideHost);
+    }
+
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return '10.0.2.2';
     }
     return 'localhost';
+  }
+
+  /// Firebase Android remappe 127.0.0.1/localhost -> 10.0.2.2.
+  /// Sur appareil physique avec adb reverse, on contourne en
+  /// utilisant un domaine wildcard qui pointe vers 127.0.0.1.
+  static String _normalizeHostForAndroid(String host) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      if (host == '127.0.0.1' || host == 'localhost') {
+        return '127.0.0.1.nip.io';
+      }
+    }
+    return host;
   }
 
   /// Connexion avec email et mot de passe

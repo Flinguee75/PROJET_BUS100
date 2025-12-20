@@ -27,6 +27,9 @@ class AuthProvider with ChangeNotifier {
   bool get isParent => userRole == 'parent';
 
   AuthProvider() {
+    // Restaurer immédiatement la session Firebase si un utilisateur existe déjà
+    _restoreAuthState();
+
     // Écouter les changements d'état d'authentification
     FirebaseService.auth.authStateChanges().listen((User? user) async {
       _user = user;
@@ -38,6 +41,16 @@ class AuthProvider with ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  /// Restaure l'utilisateur Firebase courant (session persistée)
+  Future<void> _restoreAuthState() async {
+    final currentUser = FirebaseService.auth.currentUser;
+    if (currentUser != null) {
+      _user = currentUser;
+      await _loadUserProfile(currentUser.uid);
+      notifyListeners();
+    }
   }
 
   /// Charge le profil utilisateur depuis Firestore
@@ -93,4 +106,3 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 }
-

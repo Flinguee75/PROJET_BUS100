@@ -68,10 +68,10 @@ describe('WebSocketManager', () => {
 
       WebSocketManager.initialize();
 
-      expect(WebSocketServer).toHaveBeenCalledWith({ port: 8080 });
+      expect(WebSocketServer).toHaveBeenCalledWith({ port: 8181 });
       expect(mockWss.on).toHaveBeenCalledWith('connection', expect.any(Function));
       expect(consoleSpy).toHaveBeenCalledWith(
-        '✅ Serveur WebSocket démarré sur port 8080'
+        '✅ Serveur WebSocket démarré sur port 8181'
       );
 
       consoleSpy.mockRestore();

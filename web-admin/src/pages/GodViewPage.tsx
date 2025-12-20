@@ -623,10 +623,13 @@ export const GodViewPage = () => {
             // #endregion
             
             const scanned = attendance.filter((a) => {
-              // Si pas de tripType défini, ne considérer aucun élève comme scanné
-              if (!currentTripType) return false;
+              // MODE TOLÉRANT : Si pas de tripType défini, accepter tous les scans valides
+              if (!currentTripType) {
+                // Accepter si au moins un statut est 'present'
+                return a.morningStatus === 'present' || a.eveningStatus === 'present';
+              }
               
-              // Vérifier que le record correspond au tripType actuel
+              // Vérifier que le record correspond au tripType actuel (seulement si record a un tripType)
               if (a.tripType && a.tripType !== currentTripType) {
                 return false;
               }

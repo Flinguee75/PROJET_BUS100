@@ -77,8 +77,9 @@ export const api = onRequest(
 // Initialisation WebSocket (en local uniquement, pas sur Cloud Functions)
 // En production, utiliser Firebase Realtime Database ou Firestore listeners
 if (process.env.FUNCTIONS_EMULATOR === 'true') {
-  websocketManager.initialize(8080);
-  console.log('🚀 Mode Emulator: WebSocket activé sur port 8080');
+  const websocketPort = parseInt(process.env.WEBSOCKET_PORT ?? '8181', 10);
+  websocketManager.initialize(websocketPort);
+  console.log(`🚀 Mode Emulator: WebSocket activé sur port ${websocketPort}`);
 }
 
 // Export fonction de test

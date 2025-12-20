@@ -7,6 +7,15 @@ import 'providers/auth_provider.dart';
 import 'providers/bus_provider.dart';
 import 'utils/app_colors.dart';
 
+// Pour Firebase Auth
+// adb reverse tcp:9099 tcp:9099
+//
+// Pour Firestore (si tu l'utilises)
+// adb reverse tcp:8080 tcp:8080
+//
+// Pour Cloud Functions (si tu l'utilises)
+// adb reverse tcp:5001 tcp:5001
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
