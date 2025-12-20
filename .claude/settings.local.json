@@ -32,7 +32,8 @@
       "Bash(flutter pub get:*)",
       "Bash(xargs kill -9)",
       "Bash(node:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm test:*)"
     ],
     "deny": [],
     "ask": []

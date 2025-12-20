@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Clock,
   Users,
-  XCircle,
   CheckCircle2,
   Navigation,
   School,
@@ -54,9 +53,8 @@ export const AlertsSidebar = ({
   >('all');
 
   // État pour les filtres de type d'alerte élèves
-  const [selectedTypes, setSelectedTypes] = useState<Alert['type'][]>(['UNSCANNED_CHILD']);
-  const [expandedInfoBusId, setExpandedInfoBusId] = useState<string | null>(null);
-  
+  const [selectedTypes] = useState<Alert['type'][]>(['UNSCANNED_CHILD']);
+
   // État pour gérer les accordéons des bus (section ÉLÈVES)
   const [expandedBusIds, setExpandedBusIds] = useState<Set<string>>(new Set());
   
@@ -81,8 +79,7 @@ export const AlertsSidebar = ({
 
   // Compteurs pour chaque type d'alerte
   const delayCount = alerts.filter((a) => a.type === 'DELAY').length;
-  const unscannedCount = alerts.filter((a) => a.type === 'UNSCANNED_CHILD').length;
-  
+
   // Combiner tous les bus (buses + stationedBuses) pour le filtre "all"
   const allBuses = useMemo(() => {
     const busMap = new Map<string, BusRealtimeData>();
@@ -502,6 +499,53 @@ export const AlertsSidebar = ({
     );
   };
 
+  // Surligner les termes de recherche dans le texte
+  const highlightMatch = (text: string, query: string): React.ReactNode => {
+    if (!query.trim()) return text;
+
+    try {
+      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      const parts = text.split(regex);
+
+      return parts.map((part, index) => {
+        if (regex.test(part)) {
+          // Réinitialiser lastIndex pour les tests suivants
+          regex.lastIndex = 0;
+          return (
+            <mark key={index} className="bg-yellow-200 px-0.5 rounded">
+              {part}
+            </mark>
+          );
+        }
+        return part;
+      });
+    } catch (error) {
+      // En cas d'erreur regex, retourner le texte original
+      return text;
+    }
+  };
+
+  // Fonction helper pour obtenir les classes de fond coloré selon le statut
+  const getStatusBackground = (liveStatus: BusLiveStatus | null): string => {
+    if (!liveStatus) {
+      return 'bg-white border-l-4 border-slate-300';
+    }
+
+    switch (liveStatus) {
+      case BusLiveStatus.DELAYED:
+        return 'bg-red-50 border-l-4 border-red-600';
+      case BusLiveStatus.ARRIVED:
+        return 'bg-green-50 border-l-4 border-green-500';
+      case BusLiveStatus.EN_ROUTE:
+        return 'bg-blue-50 border-l-4 border-blue-500';
+      case BusLiveStatus.STOPPED:
+      case BusLiveStatus.IDLE:
+        return 'bg-slate-50 border-l-4 border-slate-400';
+      default:
+        return 'bg-white border-l-4 border-slate-300';
+    }
+  };
+
 
   const handleAlertClick = (busId: string) => {
     if (onFocusBus) {
@@ -511,17 +555,6 @@ export const AlertsSidebar = ({
     // TODO: Naviguer vers /buses/:busId/manifest quand la page sera créée
     console.log('Navigating to bus manifest:', busId);
     // navigate(`/buses/${busId}/manifest`);
-  };
-
-  const getAlertIcon = (type: Alert['type']) => {
-    switch (type) {
-      case 'DELAY':
-        return Clock;
-      case 'STOPPED':
-        return XCircle;
-      case 'UNSCANNED_CHILD':
-        return Users;
-    }
   };
 
 const formatTimestamp = (timestamp: number) => {
@@ -537,21 +570,6 @@ const formatTimestamp = (timestamp: number) => {
   if (diffHours === 1) return 'Il y a 1h';
   return `Il y a ${diffHours}h`;
 };
-
-const InfoRow = ({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) => (
-  <div className="flex justify-between text-xs">
-    <span className="text-slate-500">{label}</span>
-    <span className={`font-semibold text-slate-900 ${valueClass ?? ''}`}>{value}</span>
-  </div>
-);
 
 const TRIP_TYPE_LABELS: Record<string, string> = {
   morning_outbound: 'Matin - Récupérer les élèves',
@@ -762,6 +780,40 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 <div className="text-2xl font-bold text-warning-900">{totalUnscanned}</div>
               </div>
             </div>
+
+            {/* Barre de progression visuelle */}
+            <div className="mt-3">
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    totalScanned + totalUnscanned === 0
+                      ? 'bg-slate-400'
+                      : ((totalScanned / (totalScanned + totalUnscanned)) * 100) >= 95
+                      ? 'bg-green-500'
+                      : ((totalScanned / (totalScanned + totalUnscanned)) * 100) >= 80
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
+                  }`}
+                  style={{
+                    width: `${
+                      totalScanned + totalUnscanned === 0
+                        ? 0
+                        : Math.min(
+                            (totalScanned / (totalScanned + totalUnscanned)) * 100,
+                            100
+                          )
+                    }%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-slate-600 text-center mt-1.5">
+                {totalScanned + totalUnscanned === 0
+                  ? '0% scannés'
+                  : `${Math.round(
+                      (totalScanned / (totalScanned + totalUnscanned)) * 100
+                    )}% des élèves à bord`}
+              </p>
+            </div>
           </div>
 
           {/* Barre de recherche */}
@@ -822,45 +874,56 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
                 const showStationedLabel =
                   selectedFleetFilter === 'at_school' || (!isArrived && !isEnRoute);
-                const statusLabel = showStationedLabel
-                  ? 'Stationné'
-                  : isArrived
-                  ? '✓ Arrivé'
-                  : 'En course';
-                const statusClass = showStationedLabel
-                  ? 'text-slate-700'
-                  : isArrived
-                  ? 'text-slate-700'
-                  : 'text-blue-700';
-                const dotColorClass = showStationedLabel
-                  ? 'bg-slate-400'
-                  : isArrived
-                  ? 'bg-slate-500'
-                  : 'bg-blue-500';
-                
+
                 return (
                   <div
                     key={bus.id}
-                    className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 ${
-                      isArrived ? 'border-l-4 border-slate-400' : ''
-                    }`}
+                    onClick={() => handleAlertClick(bus.id)}
+                    className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleAlertClick(bus.id);
+                      }
+                    }}
+                    aria-label={`Bus ${bus.number}, ${counts.scanned} élèves sur ${counts.total} à bord, cliquer pour centrer sur la carte`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColorClass}`}></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
-                            {/* SafetyRatioBadge - Phase 4 */}
+                            {/* SafetyRatioBadge - agrandi pour meilleure visibilité */}
                             {(isEnRoute || isArrived) && (
                               <SafetyRatioBadge
                                 scanned={counts.scanned}
                                 total={counts.total}
-                                size="sm"
+                                size="md"
                               />
                             )}
                           </div>
-                          {/* Driver info - inline avec icônes (Phase 4) */}
+
+                          {/* Localisation + Durée - Ligne prioritaire pour répondre "Où est le bus ?" */}
+                          {!showStationedLabel && (
+                            <div className="flex items-center justify-between text-sm mt-2">
+                              <div className="flex items-center gap-1.5 text-slate-700 flex-1 min-w-0">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                                <span className="font-medium truncate">
+                                  {bus.currentZone || bus.route?.name || 'En déplacement'}
+                                </span>
+                              </div>
+                              {typeof bus.tripStartTime === 'number' && (
+                                <div className="flex items-center gap-1 text-slate-500 text-xs flex-shrink-0 ml-2">
+                                  <Clock className="w-3 h-3" strokeWidth={2.5} />
+                                  <span>{formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Driver info - inline avec icônes */}
                           {bus.driver && !showStationedLabel && (
                             <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
                               <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
@@ -911,26 +974,15 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       {selectedFleetFilter !== 'at_school' && (
                         <div className="flex gap-2 flex-shrink-0">
                           <button
-                            onClick={() => handleAlertClick(bus.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAlertClick(bus.id);
+                            }}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1"
                             aria-label={`Voir le bus ${bus.number} sur la carte`}
                           >
                             <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
                             Carte
-                          </button>
-                          <button
-                            onClick={() =>
-                              setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id))
-                            }
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
-                              expandedInfoBusId === bus.id
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            }`}
-                            aria-expanded={expandedInfoBusId === bus.id}
-                            aria-label={`${expandedInfoBusId === bus.id ? 'Masquer' : 'Afficher'} les informations du bus ${bus.number}`}
-                          >
-                            Voir info
                           </button>
                         </div>
                       )}
@@ -948,22 +1000,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             </p>
                           </div>
                         )}
-                        {expandedInfoBusId === bus.id && (
-                          <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
-                            <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
-                            <InfoRow
-                              label="Durée"
-                              value={
-                                typeof bus.tripStartTime === 'number'
-                                  ? formatDurationFromMs(Date.now() - bus.tripStartTime)
-                                  : '—'
-                              }
-                            />
-                            <InfoRow label="Élèves total" value={`${counts.total}`} />
-                            <InfoRow label="Récupérés" value={`${counts.scanned}`} />
-                            <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -971,88 +1007,86 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               }
 
               // Carte complète pour bus avec alerte
-              const Icon = getAlertIcon(busAlert.type);
               const borderColor =
                 busAlert.severity === 'HIGH' ? 'border-l-danger-600' : 'border-l-warning-600';
-              const iconColor =
-                busAlert.severity === 'HIGH' ? 'text-danger-600' : 'text-warning-600';
-              const textColor =
-                busAlert.severity === 'HIGH' ? 'text-danger-700' : 'text-warning-700';
 
               return (
                 <div
                   key={bus.id}
-                  className={`bg-white rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200`}
+                  onClick={() => handleAlertClick(bus.id)}
+                  className={`rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${getStatusBackground(bus.liveStatus)}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleAlertClick(bus.id);
+                    }
+                  }}
+                  aria-label={`Bus ${bus.number} avec alerte, ${counts.scanned} élèves sur ${counts.total}, cliquer pour centrer sur la carte`}
                 >
-                  <div className="p-4">
+                  <div className="p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={2.5} />
-                        <h3 className="text-lg font-bold text-slate-900">Bus {bus.number}</h3>
-                        {busAlert.severity === 'HIGH' && (
-                          <span className="px-2 py-0.5 bg-danger-600 text-white text-xs font-bold rounded uppercase">
-                            Urgent
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-slate-900">Bus {bus.number}</h3>
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase flex-shrink-0 ${
+                          busAlert.severity === 'HIGH'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          ⚠ {busAlert.type === 'DELAY' ? 'Retard' : 'Alerte'}
+                        </span>
                       </div>
+                      <SafetyRatioBadge
+                        scanned={counts.scanned}
+                        total={counts.total}
+                        size="md"
+                        className="ml-2"
+                      />
                     </div>
 
-                    <p className={`text-base font-semibold ${textColor} mb-2`}>{busAlert.message}</p>
-                    <p className="text-xs text-slate-500 mb-3">
-                      {formatTimestamp(busAlert.timestamp)}
-                    </p>
+                    {/* Localisation + Durée - même structure que cartes normales */}
+                    <div className="flex items-center justify-between text-sm mt-2 mb-2">
+                      <div className="flex items-center gap-1.5 text-slate-700 flex-1 min-w-0">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                        <span className="font-medium truncate">
+                          {bus.currentZone || bus.route?.name || 'En déplacement'}
+                        </span>
+                      </div>
+                      {typeof bus.tripStartTime === 'number' && (
+                        <div className="flex items-center gap-1 text-slate-500 text-xs flex-shrink-0 ml-2">
+                          <Clock className="w-3 h-3" strokeWidth={2.5} />
+                          <span>{formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Call driver for bus', bus.id);
-                        }}
-                        className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
-                      >
-                        <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        Chauffeur
-                      </button>
+                      {bus.driver?.phone && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`tel:${bus.driver?.phone}`, '_self');
+                          }}
+                          className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
+                          aria-label={`Appeler ${bus.driver?.name || 'le chauffeur'}`}
+                        >
+                          <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          Chauffeur
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAlertClick(bus.id);
                         }}
                         className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
+                        aria-label={`Voir le bus ${bus.number} sur la carte`}
                       >
                         <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
                         Carte
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedInfoBusId((prev) => (prev === bus.id ? null : bus.id));
-                        }}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5 ${
-                          expandedInfoBusId === bus.id
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        Voir info
-                      </button>
                     </div>
-                    {expandedInfoBusId === bus.id && (
-                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-2">
-                        <InfoRow label="Type de course" value={formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Non défini'} />
-                        <InfoRow
-                          label="Durée"
-                          value={
-                            typeof bus.tripStartTime === 'number'
-                              ? formatDurationFromMs(Date.now() - bus.tripStartTime)
-                              : '—'
-                          }
-                        />
-                        <InfoRow label="Élèves total" value={`${counts.total}`} />
-                        <InfoRow label="Récupérés" value={`${counts.scanned}`} />
-                        <InfoRow label="Non scannés" value={`${counts.unscanned}`} valueClass="text-danger-600 font-semibold" />
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -1192,11 +1226,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                                 );
                               });
 
-                              const attendance = busData?.attendanceMap.get(student.id);
-                              const scanTime = attendance?.timestamp
-                                ? formatTimestamp(attendance.timestamp)
-                                : null;
-
                               return (
                                 <div
                                   key={student.id}
@@ -1206,7 +1235,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-600 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
                                       <span className="text-sm font-medium text-slate-900 truncate block">
-                                        {student.firstName} {student.lastName}
+                                        {highlightMatch(`${student.firstName} ${student.lastName}`, searchQuery)}
                                       </span>
                                       {alert && (
                                         <span className="text-xs text-slate-500 truncate block">
@@ -1270,7 +1299,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                       <div className="w-2 h-2 bg-slate-400 rounded-full flex-shrink-0"></div>
                                       <span className="font-medium text-slate-700 truncate">
-                                        {student.firstName} {student.lastName}
+                                        {highlightMatch(`${student.firstName} ${student.lastName}`, searchQuery)}
                                       </span>
                                     </div>
                                     {scanTime && (
