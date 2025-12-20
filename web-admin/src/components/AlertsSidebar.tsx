@@ -21,7 +21,8 @@ import {
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
 import { getBusStudents, watchBusAttendance, type Student, type AttendanceRecord } from '@/services/students.firestore';
-import { UrgencySection, SafetyRatioBadge, RecentlyArrivedSection } from '@/components/godview';
+import { UrgencySection, SafetyRatioBadge } from '@/components/godview';
+import { getRecentCoursesWithMissedStudents, type CourseHistory } from '@/services/courseHistory.firestore';
 
 interface AlertsSidebarProps {
   alerts: Alert[];
@@ -75,6 +76,9 @@ export const AlertsSidebar = ({
   // Barre de recherche pour les élèves
   const [searchQuery, setSearchQuery] = useState('');
 
+  // État pour les courses récentes avec élèves manquants
+  const [recentCoursesWithMissed, setRecentCoursesWithMissed] = useState<CourseHistory[]>([]);
+
   // Compteurs pour chaque type d'alerte
   const delayCount = alerts.filter((a) => a.type === 'DELAY').length;
   const unscannedCount = alerts.filter((a) => a.type === 'UNSCANNED_CHILD').length;
@@ -99,6 +103,28 @@ export const AlertsSidebar = ({
   const busesEnRouteIds = useMemo(() => {
     return new Set(allBuses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE).map((b) => b.id));
   }, [allBuses]);
+
+  // Charger les courses récentes avec élèves manquants
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const courses = await getRecentCoursesWithMissedStudents(60); // Dernières 60 minutes
+        setRecentCoursesWithMissed(courses);
+      } catch (error) {
+        console.error('Erreur lors du chargement des courses avec élèves manquants:', error);
+      }
+    };
+
+    fetchCourses();
+    // Rafraîchir toutes les 30 secondes
+    const interval = setInterval(fetchCourses, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fonction pour supprimer une urgence (course) traitée
+  const handleDismissCourse = (courseId: string) => {
+    setRecentCoursesWithMissed((prev) => prev.filter((c) => c.id !== courseId));
+  };
 
   // Calculer les totaux de scannés/non scannés depuis studentsCounts
   // IMPORTANT: Ne compter que les élèves des bus EN_ROUTE (trajets actifs uniquement)
@@ -125,9 +151,7 @@ export const AlertsSidebar = ({
   
   const effectiveAtSchool = useMemo(() => {
     return atSchoolCount ?? allBuses.filter(
-      (b) => b.liveStatus === BusLiveStatus.ARRIVED ||
-             b.liveStatus === BusLiveStatus.STOPPED ||
-             b.liveStatus === BusLiveStatus.IDLE
+      (b) => b.liveStatus === BusLiveStatus.STOPPED
     ).length;
   }, [atSchoolCount, allBuses]);
 
@@ -153,17 +177,15 @@ export const AlertsSidebar = ({
           (b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED
         );
       case 'at_school':
-        // Afficher tous les bus à l'école (ARRIVED, STOPPED, IDLE, ou ceux dans stationedBuses)
+        // Afficher tous les bus à l'école (STOPPED ou ceux dans stationedBuses)
         return allBuses.filter(
           (b) =>
-            b.liveStatus === BusLiveStatus.ARRIVED ||
             b.liveStatus === BusLiveStatus.STOPPED ||
-            b.liveStatus === BusLiveStatus.IDLE ||
             stationedBuses.some((sb) => sb.id === b.id)
         );
       case 'all':
       default:
-        // Afficher tous les bus, y compris ceux à l'école
+        // Afficher tous les bus
         return allBuses;
     }
   }, [activeTab, selectedFleetFilter, allBuses, stationedBuses]);
@@ -628,24 +650,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
         </div>
       </div>
 
-      {/* UrgencySection - Management by Exception (Phase 4) */}
+      {/* UrgencySection - Management by Exception (Basée sur course_history) */}
       <UrgencySection
-        unscannedCount={unscannedCount}
+        courses={recentCoursesWithMissed}
         delayedBusCount={delayCount}
-        onExpand={() => {
-          // Switch to appropriate tab based on which urgency is higher
-          if (unscannedCount > 0) {
-            setActiveTab('students');
-          } else if (delayCount > 0) {
-            setActiveTab('fleet');
-            setSelectedFleetFilter('delays');
-          }
-        }}
-      />
-
-      {/* Section Bus Arrivés Récemment */}
-      <RecentlyArrivedSection
-        buses={allBuses.filter((bus) => bus.liveStatus === BusLiveStatus.ARRIVED)}
+        onDismissCourse={handleDismissCourse}
         onBusClick={onFocusBus}
       />
 
@@ -856,14 +865,14 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
                               <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
                               <span className="truncate flex-1">{bus.driver.name}</span>
-                              {bus.driver.phone && (
+                              {bus.driver?.phone && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    window.open(`tel:${bus.driver.phone}`, '_self');
+                                    window.open(`tel:${bus.driver?.phone}`, '_self');
                                   }}
                                   className="ml-auto p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                                  aria-label={`Appeler ${bus.driver.name}`}
+                                  aria-label={`Appeler ${bus.driver?.name || 'le chauffeur'}`}
                                 >
                                   <Phone className="w-3 h-3 text-slate-500" strokeWidth={2.5} />
                                 </button>

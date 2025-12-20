@@ -37,6 +37,9 @@ class GPSService {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
 
+      // Déterminer le statut du bus
+      final finalStatus = statusOverride ?? _determineBusStatus(position.speed);
+
       // Créer l'objet GPS Live selon le format backend
       final gpsLiveData = {
         'busId': busId,
@@ -50,7 +53,7 @@ class GPSService {
         },
         'driverId': driverId ?? '',
         'routeId': routeId,
-        'status': statusOverride ?? _determineBusStatus(position.speed),
+        'status': finalStatus,
         'passengersCount': 0, // TODO: Implémenter comptage passagers
         'tripType': tripType,
         'tripLabel': tripLabel,
@@ -63,7 +66,7 @@ class GPSService {
           .doc(busId)
           .set(gpsLiveData, SetOptions(merge: true));
 
-      debugPrint('✅ Position GPS mise à jour pour le bus $busId');
+      debugPrint('✅ Position GPS mise à jour pour le bus $busId (status: $finalStatus)');
       return true; // Succès
     } catch (e) {
       debugPrint('❌ Erreur lors de la mise à jour GPS: $e');

@@ -23,11 +23,9 @@ export interface GPSLiveData {
 }
 
 export enum BusLiveStatus {
-  IDLE = 'idle', // En attente
   EN_ROUTE = 'en_route', // En route
   STOPPED = 'stopped', // Arrêté
   DELAYED = 'delayed', // En retard
-  ARRIVED = 'arrived', // Arrivé
 }
 
 export interface GPSHistoryEntry {
@@ -52,7 +50,6 @@ export interface GPSUpdateInput {
   heading?: number;
   accuracy?: number;
   timestamp: number;
-  arrived?: boolean; // Flag explicite du chauffeur pour indiquer l'arrivée à l'école
 }
 
 export interface GPSHistoryQuery {

@@ -173,8 +173,10 @@ service cloud.firestore {
       // Utilisateurs authentifiés: lecture si même école
       allow read: if isAdmin() || 
         (isAuthenticated() && resource.data.busId != null);
-      allow write: if isAdmin() || 
+      allow create, update: if isAdmin() || 
         (isDriver() && request.resource.data.busId == getUserData().busId);
+      allow delete: if isAdmin() ||
+        (isDriver() && resource.data.busId == getUserData().busId);
     }
 
     // ========================================

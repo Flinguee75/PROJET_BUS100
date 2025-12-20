@@ -341,7 +341,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         busId: _driver!.busId!,
         driverId: _driver!.id,
         routeId: busInfo?['routeId'] as String?,
-        tripType: _selectedTripType!,
+        tripType: tripValue,
         tripLabel: _selectedTripType!.label,
         busInfo: busInfo,
         driverInfo: {
@@ -399,6 +399,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _setTripActionLoading(true);
 
     try {
+      // 1. Calcul des statistiques de la course
       final totalStudents = _students.length;
       final scannedIds = _scannedStudents.entries
           .where((entry) => entry.value)
@@ -418,19 +419,29 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _currentTripStartTimestamp = null;
       });
 
-      // Arrêter le service GPS en arrière-plan
+      // 2. Arrêter le service GPS en arrière-plan
       await BackgroundGpsService.instance.stopTracking();
       debugPrint('✅ Service GPS background arrêté');
 
-      // Nettoyer l'état persisté du trajet
+      // 3. Nettoyer l'état persisté du trajet
       await TripStateService.clearTripState();
 
-      await _updateLiveStatus('stopped', moveToParking: true, extraData: {
-        'tripType': null,
-        'tripLabel': null,
-        'tripStartTime': null,
-      });
+      // 4. Mettre le bus en statut STOPPED et nettoyer les métadonnées
+      if (_driver?.busId != null) {
+        await FirebaseService.firestore
+            .collection('gps_live')
+            .doc(_driver!.busId!)
+            .update({
+          'status': 'stopped',
+          'tripType': null,
+          'tripLabel': null,
+          'tripStartTime': null,
+          'lastUpdate': FieldValue.serverTimestamp(),
+        });
+        debugPrint('✅ Bus mis en statut STOPPED');
+      }
 
+      // 5. Finaliser l'historique de course
       if (_currentCourseHistoryId != null) {
         await CourseHistoryService.endCourse(
           historyId: _currentCourseHistoryId!,
@@ -443,6 +454,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _currentCourseHistoryId = null;
       }
 
+      // 6. Réinitialiser l'attendance
       if (tripStartTimestamp != null && _driver?.busId != null && _selectedTripType != null) {
         await AttendanceService.resetAttendanceForTrip(
           busId: _driver!.busId!,

@@ -1,9 +1,11 @@
 import {
   collection,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
+  where,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -13,6 +15,7 @@ import { getFirebaseDb } from './firebase';
 export interface CourseHistoryEntry {
   id: string;
   busId: string;
+  busNumber?: string;
   driverId: string;
   status: string;
   tripType?: string;
@@ -32,6 +35,45 @@ export interface CourseHistoryEntry {
   };
   scannedStudentIds: string[];
   missedStudentIds: string[];
+}
+
+// Alias pour compatibilité avec UrgencySection
+export type CourseHistory = CourseHistoryEntry;
+
+/**
+ * Récupère les courses récentes avec élèves manquants (pour la section Urgence)
+ * @param recentMinutes - Nombre de minutes dans le passé à considérer (défaut: 60)
+ * @returns Promise avec la liste des courses ayant des élèves manquants
+ */
+export async function getRecentCoursesWithMissedStudents(
+  recentMinutes: number = 60
+): Promise<CourseHistoryEntry[]> {
+  const db = getFirebaseDb();
+  const cutoffTime = Date.now() - recentMinutes * 60 * 1000;
+
+  const historyRef = collection(db, 'course_history');
+  const historyQuery = query(
+    historyRef,
+    where('endTime', '>=', cutoffTime),
+    where('status', 'in', ['completed', 'stopped']),
+    orderBy('endTime', 'desc'),
+    limit(50)
+  );
+
+  try {
+    const snapshot = await getDocs(historyQuery);
+    const courses = snapshot.docs
+      .map((docSnapshot) => mapCourseHistory(docSnapshot))
+      .filter((course) => {
+        const missedCount = course.stats?.unscannedCount ?? course.missedStudentIds?.length ?? 0;
+        return missedCount > 0;
+      });
+
+    return courses;
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des courses avec élèves manquants:', error);
+    return [];
+  }
 }
 
 export function watchRecentCourseHistory(
@@ -83,6 +125,7 @@ function mapCourseHistory(
   return {
     id: docSnapshot.id,
     busId: data.busId || '',
+    busNumber: busInfo.busNumber,
     driverId: data.driverId || '',
     status: data.status || 'completed',
     tripType: data.tripType,
