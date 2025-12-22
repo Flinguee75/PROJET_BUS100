@@ -42,6 +42,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Map<String, dynamic>? _busMetadata;
   Map<String, double>? _schoolLocation;
   int? _currentTripStartTimestamp;
+  int _currentStudentIndex = 0;
+  bool _showSummary = false;
+  Set<String> _handledStudents = {};
 
   // Nouveaux états pour le type de trajet et les scans
   TripType? _selectedTripType;
@@ -170,6 +173,23 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _selectedTripType!.firestoreValue,
       );
 
+      final busInfo = await _ensureBusMetadata();
+      final routeId = busInfo?['routeId'] as String?;
+      final stopOrderMap = routeId != null
+          ? await _fetchStopOrder(routeId, _selectedTripType!.firestoreValue)
+          : <String, int>{};
+
+      if (stopOrderMap.isNotEmpty) {
+        students.sort((a, b) {
+          final orderA = stopOrderMap[a.id] ?? 9999;
+          final orderB = stopOrderMap[b.id] ?? 9999;
+          if (orderA != orderB) {
+            return orderA.compareTo(orderB);
+          }
+          return a.fullName.compareTo(b.fullName);
+        });
+      }
+
       // Charger les statuts d'attendance existants
       final attendanceStatus = await AttendanceService.getAttendanceStatusForBus(
         busId: _driver!.busId!,
@@ -177,16 +197,50 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         tripStartTime: _currentTripStartTimestamp,
       );
 
+      final handled = attendanceStatus.keys.toSet();
+      final nextIndex = _findNextStudentIndex(0, students, handled);
+
       setState(() {
         _students = students;
         _scannedStudents = attendanceStatus;
+        _handledStudents = handled;
         _isLoadingStudents = false;
+        _currentStudentIndex = nextIndex ?? 0;
+        _showSummary = students.isNotEmpty && nextIndex == null;
       });
     } catch (e) {
       debugPrint('❌ Erreur chargement élèves: $e');
       setState(() {
         _isLoadingStudents = false;
       });
+    }
+  }
+
+  Future<Map<String, int>> _fetchStopOrder(String routeId, String tripType) async {
+    try {
+      final doc = await FirebaseService.firestore.collection('routes').doc(routeId).get();
+      if (!doc.exists) return {};
+      final data = doc.data();
+      if (data == null) return {};
+      final stops = data['stops'];
+      if (stops is! List) return {};
+
+      final Map<String, int> result = {};
+      for (final stop in stops) {
+        if (stop is! Map<String, dynamic>) continue;
+        final studentId = stop['studentId'];
+        final orderValue = stop['order'];
+        if (studentId is! String || orderValue is! num) continue;
+        final activeSlots = stop['activeTimeSlots'];
+        if (activeSlots is List && !activeSlots.contains(tripType)) {
+          continue;
+        }
+        result[studentId] = orderValue.toInt();
+      }
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur chargement ordre des arrêts: $e');
+      return {};
     }
   }
 
@@ -249,6 +303,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _selectedTripType = savedState.tripType;
         _currentCourseHistoryId = savedState.courseHistoryId;
         _scannedStudents = savedState.scannedStudents;
+        _handledStudents = savedState.scannedStudents.keys.toSet();
+        _currentStudentIndex = 0;
+        _showSummary = false;
         _currentPosition = savedState.currentPosition;
         _busMetadata = savedState.busMetadata;
         _currentTripStartTimestamp = savedState.tripStartTimestamp;
@@ -326,6 +383,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _isTripActive = true;
         _error = null;
         _scannedStudents = {}; // Réinitialiser les scans
+        _handledStudents = {};
+        _currentStudentIndex = 0;
+        _showSummary = false;
         _currentTripStartTimestamp = tripStartTimestamp;
       });
       debugPrint('✅ Course démarrée pour le bus ${_driver?.busId} - Type: ${_selectedTripType?.firestoreValue}');
@@ -416,6 +476,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         _isTripActive = false;
         _scannedStudents = {};
         _students = [];
+        _handledStudents = {};
+        _currentStudentIndex = 0;
+        _showSummary = false;
         _currentTripStartTimestamp = null;
       });
 
@@ -467,12 +530,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  /// Toggle le scan d'un élève (présent/absent)
-  Future<void> _toggleStudentScan(Student student) async {
+  /// Marque un élève comme présent/absent
+  Future<void> _setStudentAttendance(
+    Student student,
+    bool isPresent, {
+    bool shouldAdvance = true,
+  }) async {
     if (_driver == null || _selectedTripType == null) return;
 
     final tripStartTimestamp = _currentTripStartTimestamp;
-    final isCurrentlyScanned = _scannedStudents[student.id] ?? false;
 
     if (tripStartTimestamp == null) {
       _showError('Course invalide, redémarrez la course.');
@@ -480,17 +546,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
 
     try {
-      if (isCurrentlyScanned) {
-        // Annuler le scan
-        await AttendanceService.unscanStudent(
-          studentId: student.id,
-          busId: _driver!.busId!,
-          tripType: _selectedTripType!.firestoreValue,
-          driverId: _driver!.id,
-          tripStartTime: tripStartTimestamp,
-        );
-      } else {
-        // Scanner l'élève
+      if (isPresent) {
         await AttendanceService.scanStudent(
           studentId: student.id,
           busId: _driver!.busId!,
@@ -504,11 +560,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 }
               : null,
         );
+      } else {
+        await AttendanceService.unscanStudent(
+          studentId: student.id,
+          busId: _driver!.busId!,
+          tripType: _selectedTripType!.firestoreValue,
+          driverId: _driver!.id,
+          tripStartTime: tripStartTimestamp,
+        );
       }
 
       // Mettre à jour l'état local
       setState(() {
-        _scannedStudents[student.id] = !isCurrentlyScanned;
+        _scannedStudents[student.id] = isPresent;
+        _handledStudents.add(student.id);
       });
 
       // Mettre à jour l'état persisté (si trajet actif)
@@ -530,14 +595,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isCurrentlyScanned
-                  ? '${student.firstName} marqué comme absent'
-                  : '${student.firstName} confirmé présent',
+              isPresent
+                  ? '${student.firstName} confirmé présent'
+                  : '${student.firstName} marqué absent',
             ),
             duration: const Duration(seconds: 1),
-            backgroundColor: isCurrentlyScanned ? Colors.orange : Colors.green,
+            backgroundColor: isPresent ? Colors.green : Colors.orange,
           ),
         );
+      }
+
+      if (shouldAdvance) {
+        _advanceToNextStudent();
       }
     } catch (e) {
       debugPrint('❌ Erreur lors du scan: $e');
@@ -593,6 +662,63 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         backgroundColor: AppColors.danger,
       ),
     );
+  }
+
+  int? _findNextStudentIndex(
+    int start, [
+    List<Student>? studentsOverride,
+    Set<String>? handledOverride,
+  ]) {
+    final students = studentsOverride ?? _students;
+    final handled = handledOverride ?? _handledStudents;
+    for (var i = start; i < students.length; i++) {
+      if (!handled.contains(students[i].id)) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  Student? get _currentStudent {
+    if (_students.isEmpty || _currentStudentIndex >= _students.length) {
+      return null;
+    }
+    return _students[_currentStudentIndex];
+  }
+
+  void _advanceToNextStudent() {
+    final nextIndex = _findNextStudentIndex(_currentStudentIndex + 1);
+    if (nextIndex == null) {
+      setState(() {
+        _showSummary = _students.isNotEmpty;
+      });
+      return;
+    }
+    setState(() {
+      _currentStudentIndex = nextIndex;
+    });
+  }
+
+  void _goToPreviousStudent() {
+    for (var i = _currentStudentIndex - 1; i >= 0; i--) {
+      if (_students[i].id.isNotEmpty) {
+        setState(() {
+          _currentStudentIndex = i;
+        });
+        return;
+      }
+    }
+  }
+
+  void _returnToActiveStudent() {
+    final nextIndex = _findNextStudentIndex(0);
+    if (nextIndex == null) {
+      return;
+    }
+    setState(() {
+      _showSummary = false;
+      _currentStudentIndex = nextIndex;
+    });
   }
 
   Future<void> _showLocationPermissionDialog(LocationPermissionStatus status) async {
@@ -707,9 +833,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       );
     }
 
-    final canInteractWithTripAction =
-        !_isTripActionLoading && (_isTripActive || _selectedTripType != null);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -722,345 +845,389 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: _isTripActive ? _buildTripActiveView() : _buildTripSetupView(),
+      ),
+    );
+  }
+
+  Widget _buildTripSetupView() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Choisissez le type de course',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...TripType.values.map((tripType) => _buildTripTypeOption(tripType)),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _isTripActionLoading || _selectedTripType == null
+                ? null
+                : () async {
+                    await _startTrip();
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.grey.shade300,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isTripActionLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    _selectedTripType != null
+                        ? 'Lancer: ${_selectedTripType!.shortLabel}'
+                        : 'Sélectionnez un type de course',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripActiveView() {
+    if (_isLoadingStudents) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_students.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 48,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Aucun élève pour ce trajet',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _isTripActionLoading ? null : () async => _stopTrip(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Terminer la course'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_showSummary) {
+      return _buildSummaryView();
+    }
+
+    final student = _currentStudent;
+    if (student == null) {
+      return const Center(child: Text('Aucun élève actif'));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTripHeader(),
+          const SizedBox(height: 16),
+          _buildStudentCard(student),
+          const SizedBox(height: 20),
+          Row(
             children: [
-              // Carte de bienvenue
-              Card(
-                color: AppColors.primary,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.person,
-                        size: 64,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _driver?.displayName ?? 'Chauffeur',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _driver?.email ?? '',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isTripActionLoading
+                      ? null
+                      : () => _setStudentAttendance(student, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
+                  child: const Text('Présent'),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Informations du bus
-              if (_driver?.hasAssignedBus ?? false) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Bus Assigné',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'ID: ${_driver!.busId}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        if (_driver!.schoolId != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'École: ${_driver!.schoolId}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isTripActionLoading
+                      ? null
+                      : () => _setStudentAttendance(student, false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange.shade700,
+                    side: BorderSide(color: Colors.orange.shade700),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
+                  child: const Text('Absent'),
                 ),
-                const SizedBox(height: 24),
-              ],
-
-              // Sélecteur de type de course (affiché seulement si course inactive)
-              if (!_isTripActive) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.route, color: AppColors.primary),
-                            SizedBox(width: 8),
-                            Text(
-                              'Type de course',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        ...TripType.values.map((tripType) => _buildTripTypeOption(tripType)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Position actuelle
-              if (_currentPosition != null) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Position Actuelle',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          'Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          'Vitesse: ${(_currentPosition!.speed * 3.6).toStringAsFixed(1)} km/h',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Bouton Lancer/Arrêter la course
-              ElevatedButton(
-                onPressed: canInteractWithTripAction
-                    ? () async {
-                        if (_isTripActive) {
-                          await _stopTrip();
-                        } else {
-                          await _startTrip();
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _isTripActive ? AppColors.danger : AppColors.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isTripActionLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _isTripActive ? Icons.stop : Icons.play_arrow,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _isTripActive
-                                ? 'Arrêter la course'
-                                : _selectedTripType != null
-                                    ? 'Lancer: ${_selectedTripType!.shortLabel}'
-                                    : 'Sélectionnez un type de course',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _currentStudentIndex > 0 ? _goToPreviousStudent : null,
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Revenir à l’élève précédent'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Élève ${_currentStudentIndex + 1} sur ${_students.length}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              if (_isTripActive) ...[
-                const SizedBox(height: 16),
-                Card(
-                  color: Colors.green,
+  Widget _buildTripHeader() {
+    final handledCount = _handledStudents.length;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _selectedTripType?.actionDescription ?? 'Course en cours',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$handledCount/${_students.length}',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStudentCard(Student student) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+              backgroundImage:
+                  student.photoUrl != null ? NetworkImage(student.photoUrl!) : null,
+              child: student.photoUrl == null
+                  ? Text(
+                      student.firstName.isNotEmpty
+                          ? student.firstName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              student.fullName,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Classe: ${student.grade}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryView() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Résumé de la course',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Corrigez si besoin avant de terminer.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _students.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final student = _students[index];
+                final hasStatus = _handledStudents.contains(student.id);
+                final isPresent = _scannedStudents[student.id] ?? false;
+                final statusLabel = hasStatus ? (isPresent ? 'Présent' : 'Absent') : 'Non marqué';
+                final statusColor = hasStatus
+                    ? (isPresent ? Colors.green : Colors.orange)
+                    : Colors.grey;
+                return Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 8),
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: statusColor.withValues(alpha: 0.15),
+                          backgroundImage: student.photoUrl != null
+                              ? NetworkImage(student.photoUrl!)
+                              : null,
+                          child: student.photoUrl == null
+                              ? Text(
+                                  student.firstName.isNotEmpty
+                                      ? student.firstName[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: statusColor,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Course en cours - GPS actif',
+                              Text(
+                                student.fullName,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                student.grade,
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
-                              if (_selectedTripType != null)
-                                Text(
-                                  _selectedTripType!.label,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-
-              // Liste des élèves (affichée uniquement quand la course est active)
-              if (_isTripActive) ...[
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Icon(Icons.people, color: AppColors.primary),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _selectedTripType?.actionDescription ?? 'Élèves',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
                               ),
                             ),
-                            // Compteur de progression
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _scannedCount == _students.length && _students.isNotEmpty
-                                    ? Colors.green.withValues(alpha: 0.2)
-                                    : AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '$_scannedCount/${_students.length}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: _scannedCount == _students.length && _students.isNotEmpty
-                                      ? Colors.green
-                                      : AppColors.primary,
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed: () =>
+                                      _setStudentAttendance(student, true, shouldAdvance: false),
+                                  child: const Text('Présent'),
                                 ),
-                              ),
+                                TextButton(
+                                  onPressed: () =>
+                                      _setStudentAttendance(student, false, shouldAdvance: false),
+                                  child: const Text('Absent'),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Appuyez sur un élève pour confirmer sa présence',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (_isLoadingStudents)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        else if (_students.isEmpty)
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 48,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Aucun élève pour ce trajet',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          ...(_students.map((student) => _buildStudentTile(student))),
                       ],
                     ),
                   ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _returnToActiveStudent,
+                  child: const Text('Revenir'),
                 ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isTripActionLoading ? null : () async => _stopTrip(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Terminer'),
+                ),
+              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1139,80 +1306,5 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
-  /// Construit une tuile d'élève avec possibilité de toggle scan
-  Widget _buildStudentTile(Student student) {
-    final isScanned = _scannedStudents[student.id] ?? false;
-
-    return InkWell(
-      onTap: () => _toggleStudentScan(student),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        decoration: BoxDecoration(
-          color: isScanned
-              ? Colors.green.withValues(alpha: 0.1)
-              : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isScanned ? Colors.green.withValues(alpha: 0.3) : Colors.grey.shade200,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Avatar
-            CircleAvatar(
-              backgroundColor:
-                  isScanned ? Colors.green.withValues(alpha: 0.2) : AppColors.primary.withValues(alpha: 0.2),
-              child: Text(
-                student.firstName.isNotEmpty
-                    ? student.firstName[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  color: isScanned ? Colors.green : AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Infos élève
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    student.fullName,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isScanned ? Colors.green.shade800 : Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    '${student.grade}${student.quartier != null ? " • ${student.quartier}" : ""}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Icône de statut
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isScanned ? Colors.green : Colors.grey.shade300,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isScanned ? Icons.check : Icons.person_outline,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  
 }

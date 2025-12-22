@@ -8,6 +8,7 @@ class Student {
   final String firstName;
   final String lastName;
   final String grade; // Classe
+  final String? photoUrl;
   final String? commune;
   final String? quartier;
   final Map<String, dynamic>? locations;
@@ -18,6 +19,7 @@ class Student {
     required this.firstName,
     required this.lastName,
     required this.grade,
+    this.photoUrl,
     this.commune,
     this.quartier,
     this.locations,
@@ -39,6 +41,7 @@ class Student {
       firstName: json['firstName'] as String? ?? json['prenom'] as String? ?? '',
       lastName: json['lastName'] as String? ?? json['nom'] as String? ?? '',
       grade: json['grade'] as String? ?? json['classe'] as String? ?? '',
+      photoUrl: json['photoUrl'] as String?,
       commune: json['commune'] as String?,
       quartier: json['quartier'] as String?,
       locations: json['locations'] as Map<String, dynamic>?,
@@ -126,4 +129,3 @@ class StudentService {
     });
   }
 }
-
