@@ -542,7 +542,11 @@ export const AlertsSidebar = ({
     // navigate(`/buses/${busId}/manifest`);
   };
 
-const formatTimestamp = (timestamp: number) => {
+const formatTimestamp = (timestamp: number | null) => {
+  if (timestamp == null || Number.isNaN(timestamp)) {
+    return '—';
+  }
+
   const date = new Date(timestamp);
   const now = new Date();
   const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
@@ -554,6 +558,17 @@ const formatTimestamp = (timestamp: number) => {
     const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours === 1) return 'Il y a 1h';
   return `Il y a ${diffHours}h`;
+};
+
+const getBusUpdateTimestamp = (bus: BusRealtimeData): number | null => {
+  if (typeof bus.currentPosition?.timestamp === 'number') {
+    return bus.currentPosition.timestamp;
+  }
+  if (bus.lastUpdate) {
+    const parsed = Date.parse(bus.lastUpdate);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
 };
 
 // Fonction inutilisée - supprimée pour simplification
@@ -823,6 +838,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   ? formatDurationFromMs(Date.now() - bus.tripStartTime)
                   : null;
                 const speed = bus.currentPosition?.speed ?? 0;
+                const busUpdatedAt = getBusUpdateTimestamp(bus);
 
                 return (
                   <div
@@ -878,9 +894,8 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                           <span className="font-semibold text-slate-700"> {counts.total}</span> élèves
                         </div>
                         {tripDuration && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                            <Clock className="w-3 h-3" strokeWidth={2.5} />
-                            <span>Durée: {tripDuration}</span>
+                          <div className="text-xs text-slate-500">
+                            <span>Trajet: {tripDuration}</span>
                           </div>
                         )}
                       </div>
@@ -894,9 +909,8 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             <span className="font-semibold text-blue-600">{Math.round(speed)} km/h</span>
                           )}
                           {tripDuration && (
-                            <div className="flex items-center gap-1.5 text-slate-500 ml-auto">
-                              <Clock className="w-3 h-3" strokeWidth={2.5} />
-                              <span>{tripDuration}</span>
+                            <div className="text-slate-500 ml-auto">
+                              <span className="text-xs">Trajet: {tripDuration}</span>
                             </div>
                           )}
                         </div>
@@ -917,9 +931,8 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                             </div>
                           </div>
                           {tripDuration && (
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                              <Clock className="w-3 h-3" strokeWidth={2.5} />
-                              <span>{tripDuration}</span>
+                            <div className="text-slate-500">
+                              <span className="text-xs">Trajet: {tripDuration}</span>
                             </div>
                           )}
                         </div>
@@ -933,6 +946,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                         <span className="truncate flex-1">{bus.driver.name}</span>
                       </div>
                     )}
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-2">
+                      <Clock className="w-3 h-3" strokeWidth={2.5} />
+                      <span>Maj: {formatTimestamp(busUpdatedAt)}</span>
+                    </div>
                   </div>
                 );
               }
@@ -940,6 +958,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               // Carte complète pour bus avec alerte
               const borderColor =
                 busAlert.severity === 'HIGH' ? 'border-l-danger-600' : 'border-l-warning-600';
+              const busUpdatedAt = getBusUpdateTimestamp(bus);
 
               return (
                 <div
@@ -985,9 +1004,8 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                         </span>
                       </div>
                       {typeof bus.tripStartTime === 'number' && (
-                        <div className="flex items-center gap-1 text-slate-500 text-xs flex-shrink-0 ml-2">
-                          <Clock className="w-3 h-3" strokeWidth={2.5} />
-                          <span>{formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
+                        <div className="text-slate-500 text-xs flex-shrink-0 ml-2">
+                          <span>Trajet: {formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
                         </div>
                       )}
                     </div>
@@ -1017,6 +1035,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                         <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
                         Carte
                       </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-3">
+                      <Clock className="w-3 h-3" strokeWidth={2.5} />
+                      <span>Maj: {formatTimestamp(busUpdatedAt)}</span>
                     </div>
                   </div>
                 </div>

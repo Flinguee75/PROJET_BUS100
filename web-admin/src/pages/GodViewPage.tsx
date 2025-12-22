@@ -18,7 +18,9 @@ import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
 import { generateBusMarkerHTML, calculateHeadingToSchool } from '@/components/godview/BusMarkerWithAura';
 import { generateSimplifiedBusPopupHTML, generateParkingPopupHTML } from '@/components/godview/SimplifiedBusPopup';
+import { generateStudentStopMarkerHTML, generateStudentStopPopupHTML } from '@/components/godview/StudentStopMarker';
 import { getNextStudent } from '@/services/bus.api';
+import { MapPin } from 'lucide-react';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -33,6 +35,22 @@ interface ParkingZone {
   location: { lat: number; lng: number };
   stationedBuses: ClassifiedBus[];
   count: number;
+}
+
+interface StudentWithLocation {
+  id: string;
+  firstName: string;
+  lastName: string;
+  grade: string;
+  busId: string | null;
+  location: {
+    lat: number;
+    lng: number;
+    address: string;
+    notes?: string;
+  };
+  order: number;
+  isScanned: boolean;
 }
 
 // Timeout pour considérer un bus comme "en route" même sans GPS récent (2 minutes)
@@ -179,17 +197,36 @@ export const GodViewPage = () => {
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const { alerts: realtimeAlerts, error: alertsError } = useRealtimeAlerts();
+  const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState<number | null>(null);
   
   // Stocker les comptages d'élèves pour chaque bus
   const [studentsCounts, setStudentsCounts] = useState<
     Record<string, { scanned: number; unscanned: number; total: number }>
   >({});
+
+  const [scannedStudentIdsByBus, setScannedStudentIdsByBus] = useState<Record<string, string[]>>({});
   
   // State pour tracker le popup actuellement ouvert (pour auto-refresh)
   const [activePopupBusId, setActivePopupBusId] = useState<string | null>(null);
-  
+
   // Suivre l'état local du statut pour éviter le flickering
   const localStatusRef = useRef<Map<string, BusLiveStatus>>(new Map());
+
+  // ===== États pour les arrêts d'élèves =====
+  // Toggle pour afficher/masquer les arrêts d'élèves
+  const [showStudentStops, setShowStudentStops] = useState<boolean>(false);
+
+  // Bus actuellement sélectionné (pour afficher ses arrêts)
+  const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
+
+  // Données des élèves avec leur emplacement
+  const [busStudents, setBusStudents] = useState<StudentWithLocation[]>([]);
+
+  // Chargement des données d'élèves
+  const [studentsLoading, setStudentsLoading] = useState<boolean>(false);
+
+  // Ref pour les marqueurs d'arrêts d'élèves (séparés des marqueurs de bus)
+  const studentMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
     return schoolBuses
@@ -272,12 +309,19 @@ export const GodViewPage = () => {
 
   const isLoading = schoolLoading || schoolBusesLoading;
   const errorMessage = schoolError || schoolBusesError || null;
+  const isRealtimeConnected = !schoolError && !schoolBusesError && !alertsError;
 
   useEffect(() => {
     if (alertsError) {
       console.error('❌ Impossible de charger les alertes temps réel:', alertsError);
     }
   }, [alertsError]);
+
+  useEffect(() => {
+    if (schoolBuses.length || realtimeAlerts.length) {
+      setLastRealtimeUpdate(Date.now());
+    }
+  }, [schoolBuses, realtimeAlerts]);
 
   // Nettoyer périodiquement les bus qui ne sont plus dans la liste (prévenir fuites mémoire)
   useEffect(() => {
@@ -391,8 +435,8 @@ export const GodViewPage = () => {
   const getMarkerColor = useCallback((bus: ClassifiedBus): string => {
     if (!bus.isActive) return '#64748b'; // Gris (inactif)
 
-    if (bus.liveStatus === BusLiveStatus.DELAYED) return '#f97316'; // Orange (retard)
-    if (bus.classification === 'stationed') return '#ef4444'; // Rouge (à l'école)
+    if (bus.liveStatus === BusLiveStatus.DELAYED) return '#dc2626'; // Rouge (retard)
+    if (bus.classification === 'stationed') return '#22c55e'; // Vert (arrivé/à l'école)
     if (bus.liveStatus === BusLiveStatus.EN_ROUTE) return '#3b82f6'; // Bleu électrique (en cours) - meilleur contraste sur fond clair
 
     return '#3b82f6'; // Bleu par défaut
@@ -454,6 +498,192 @@ export const GodViewPage = () => {
     [schoolBuses]
   );
 
+  // ===== Fonctions pour les arrêts d'élèves =====
+
+  /**
+   * Détermine le type de trajet actif pour un bus
+   */
+  const getActiveTripType = (bus: ClassifiedBus): string | null => {
+    return bus.currentTrip?.tripType ?? bus.tripType ?? null;
+  };
+
+  /**
+   * Mappe le type de trajet vers le champ location correspondant
+   */
+  const getTripLocationField = (tripType: string): 'morningPickup' | 'middayDropoff' | 'middayPickup' | 'eveningDropoff' | null => {
+    const mapping: Record<string, 'morningPickup' | 'middayDropoff' | 'middayPickup' | 'eveningDropoff'> = {
+      'morning_outbound': 'morningPickup',
+      'midday_outbound': 'middayDropoff',
+      'midday_return': 'middayPickup',
+      'evening_return': 'eveningDropoff'
+    };
+    return mapping[tripType] || null;
+  };
+
+  const studentLocationFields: Array<'morningPickup' | 'middayDropoff' | 'middayPickup' | 'eveningDropoff'> = [
+    'morningPickup',
+    'middayDropoff',
+    'middayPickup',
+    'eveningDropoff',
+  ];
+
+  /**
+   * Nettoie tous les marqueurs d'arrêts d'élèves
+   */
+  const clearStudentMarkers = useCallback(() => {
+    studentMarkers.current.forEach(marker => marker.remove());
+    studentMarkers.current.clear();
+  }, []);
+
+  /**
+   * Crée les marqueurs d'arrêts d'élèves sur la carte
+   */
+  const createStudentMarkers = useCallback((students: StudentWithLocation[], busId: string) => {
+    if (!map.current || !mapLoaded) return;
+
+    students.forEach(student => {
+      const { location, order, isScanned } = student;
+      const status = isScanned ? 'scanned' : 'pending';
+
+      // Créer l'élément du marqueur
+      const el = document.createElement('div');
+      el.innerHTML = generateStudentStopMarkerHTML({ order, status });
+
+      // Créer le popup
+      const popup = new mapboxgl.Popup({
+        offset: 20,
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: '280px'
+      }).setHTML(generateStudentStopPopupHTML({
+        studentName: `${student.firstName} ${student.lastName}`,
+        grade: student.grade,
+        address: location.address,
+        order,
+        status
+      }));
+
+      // Créer le marqueur
+      const marker = new mapboxgl.Marker({ element: el.firstElementChild as HTMLElement })
+        .setLngLat([location.lng, location.lat])
+        .setPopup(popup)
+        .addTo(map.current);
+
+      // Stocker la référence
+      const key = `student_${student.id}_${busId}`;
+      studentMarkers.current.set(key, marker);
+    });
+  }, [mapLoaded]);
+
+  /**
+   * Met à jour les statuts des marqueurs d'élèves en temps réel
+   */
+  const updateStudentMarkerStatuses = useCallback((scannedIds: string[]) => {
+    busStudents.forEach(student => {
+      const key = `student_${student.id}_${selectedBusId}`;
+      const marker = studentMarkers.current.get(key);
+
+      if (marker) {
+        const isScanned = scannedIds.includes(student.id);
+        const status = isScanned ? 'scanned' : 'pending';
+
+        // Mettre à jour le HTML du marqueur
+        const el = marker.getElement();
+        el.innerHTML = generateStudentStopMarkerHTML({
+          order: student.order,
+          status
+        });
+
+        // Mettre à jour le HTML du popup
+        const popup = marker.getPopup();
+        if (popup) {
+          popup.setHTML(generateStudentStopPopupHTML({
+            studentName: `${student.firstName} ${student.lastName}`,
+            grade: student.grade,
+            address: student.location.address,
+            order: student.order,
+            status
+          }));
+        }
+      }
+    });
+  }, [busStudents, selectedBusId]);
+
+  /**
+   * Récupère et affiche les arrêts d'élèves pour un bus donné
+   */
+  const fetchStudentStops = useCallback(async (busId: string) => {
+    setStudentsLoading(true);
+
+    try {
+      const bus = processedBuses.find(b => b.id === busId);
+      if (!bus) return;
+
+      const tripType = getActiveTripType(bus);
+      const locationField = tripType ? getTripLocationField(tripType) : null;
+
+      // Récupérer les élèves du bus
+      const students = await getBusStudents(busId, tripType ?? null);
+
+      // Filtrer uniquement les élèves avec un emplacement valide pour ce trajet
+      const studentsWithLocation = students
+        .map((student) => {
+          const locationSource = (student as any).locations;
+          const resolvedField =
+            locationField ??
+            studentLocationFields.find((field) => locationSource?.[field]);
+          const location = resolvedField ? locationSource?.[resolvedField] : null;
+          return {
+            student,
+            location,
+          };
+        })
+        .filter(({ location }) => {
+          return (
+            location &&
+            typeof location.lat === 'number' &&
+            typeof location.lng === 'number'
+          );
+        })
+        .map(({ student, location }, index) => ({
+          ...student,
+          location,
+          order: index + 1,
+          isScanned: (scannedStudentIdsByBus[busId] ?? bus.currentTrip?.scannedStudentIds ?? []).includes(student.id),
+        }));
+
+      setBusStudents(studentsWithLocation);
+
+      // Créer les marqueurs
+      createStudentMarkers(studentsWithLocation, busId);
+
+    } catch (error) {
+      console.error('Erreur lors de la récupération des arrêts:', error);
+    } finally {
+      setStudentsLoading(false);
+    }
+  }, [processedBuses, createStudentMarkers, scannedStudentIdsByBus]);
+
+  useEffect(() => {
+    if (!selectedBusId || !showStudentStops) {
+      clearStudentMarkers();
+      setBusStudents([]);
+      return;
+    }
+
+    clearStudentMarkers();
+    fetchStudentStops(selectedBusId);
+  }, [selectedBusId, showStudentStops, fetchStudentStops, clearStudentMarkers]);
+
+  useEffect(() => {
+    if (!selectedBusId || !showStudentStops) return;
+
+    const bus = processedBuses.find((candidate) => candidate.id === selectedBusId);
+    const scannedIds = scannedStudentIdsByBus[selectedBusId] ?? bus?.currentTrip?.scannedStudentIds ?? [];
+
+    updateStudentMarkerStatuses(scannedIds);
+  }, [processedBuses, scannedStudentIdsByBus, selectedBusId, showStudentStops, updateStudentMarkerStatuses]);
+
   const focusBusOnMap = useCallback(
     (busId: string) => {
       if (!map.current || !mapLoaded) return;
@@ -463,6 +693,8 @@ export const GodViewPage = () => {
       const targetBus = classifiedBus ?? fallbackBus;
 
       if (!targetBus) return;
+
+      setSelectedBusId(busId);
 
       // 🔥 FERMER TOUS LES AUTRES POPUPS AVANT D'OUVRIR LE NOUVEAU
       popups.current.forEach((popup) => {
@@ -679,7 +911,7 @@ export const GodViewPage = () => {
             fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:calculateScanned',message:'Calculating scanned students with ref data',data:{busId:bus.id,currentTripType,currentTripStartTime,fromRef:!!realtimeData,attendanceCount:attendance.length,attendanceRecords:attendance.map(a=>({studentId:a.studentId,tripType:a.tripType,timestamp:a.timestamp,morningStatus:a.morningStatus,eveningStatus:a.eveningStatus}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
-            const scanned = attendance.filter((a) => {
+            const isAttendanceScanned = (a: typeof attendance[number]) => {
               // MODE TOLÉRANT : Si pas de tripType défini, accepter tous les scans valides
               if (!currentTripType) {
                 // Accepter si au moins un statut est 'present'
@@ -712,7 +944,17 @@ export const GodViewPage = () => {
               
               // Fallback : vérifier les deux statuts si tripType non reconnu
               return a.morningStatus === 'present' || a.eveningStatus === 'present';
-            }).length;
+            };
+
+            const scannedIdsSet = new Set<string>();
+            attendance.forEach((record) => {
+              if (isAttendanceScanned(record)) {
+                scannedIdsSet.add(record.studentId);
+              }
+            });
+
+            const scanned = scannedIdsSet.size;
+            const scannedIds = Array.from(scannedIdsSet);
             
             // #region agent log
             fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:finalScanned',message:'Final scanned count',data:{busId:bus.id,scannedCount:scanned},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
@@ -726,6 +968,11 @@ export const GodViewPage = () => {
             setStudentsCounts((prev) => ({
               ...prev,
               [bus.id]: { scanned, unscanned, total },
+            }));
+
+            setScannedStudentIdsByBus((prev) => ({
+              ...prev,
+              [bus.id]: scannedIds,
             }));
           },
           (error) => {
@@ -913,6 +1160,7 @@ export const GodViewPage = () => {
           // Tracker le popup quand il est ouvert
           popup.on('open', () => {
             setActivePopupBusId(bus.id);
+            setSelectedBusId(bus.id);
           });
 
           // Cleanup quand popup fermé
@@ -958,6 +1206,10 @@ export const GodViewPage = () => {
     animateMarkerToPosition,
   ]);
 
+  const realtimeUpdateLabel = lastRealtimeUpdate
+    ? formatDurationFromMs(Date.now() - lastRealtimeUpdate)
+    : '—';
+
   return (
     <div className="flex h-screen bg-neutral-50">
       {/* Carte principale - 70% */}
@@ -985,6 +1237,76 @@ export const GodViewPage = () => {
                 dans votre fichier <code className="bg-slate-100 px-2 py-1 rounded text-xs font-mono">.env</code>
               </p>
             </div>
+          </div>
+        )}
+
+        <div
+          className="realtime-status-badge"
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            zIndex: 1,
+            backgroundColor: isRealtimeConnected ? '#16a34a' : '#dc2626',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '999px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '12px',
+            fontWeight: 700,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.18)',
+          }}
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '999px',
+              backgroundColor: 'white',
+              boxShadow: '0 0 0 2px rgba(255,255,255,0.35)',
+            }}
+          />
+          <span>{isRealtimeConnected ? 'Firebase connecté' : 'Firebase hors ligne'}</span>
+          <span style={{ fontWeight: 600, opacity: 0.85 }}>Maj: {realtimeUpdateLabel}</span>
+        </div>
+
+        <button
+          type="button"
+          className="student-stops-toggle"
+          disabled={studentsLoading}
+          onClick={() => setShowStudentStops((prev) => !prev)}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            zIndex: 1,
+            backgroundColor: showStudentStops ? '#3b82f6' : 'white',
+            color: showStudentStops ? 'white' : '#0f172a',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            border: showStudentStops ? '2px solid transparent' : '2px solid #e5e7eb',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: showStudentStops ? '0 2px 10px rgba(59,130,246,0.35)' : '0 2px 8px rgba(0,0,0,0.1)',
+            transform: showStudentStops ? 'scale(1.03)' : 'scale(1)',
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            opacity: studentsLoading ? 0.85 : 1,
+          }}
+        >
+          <MapPin size={16} />
+          {studentsLoading ? 'Chargement...' : showStudentStops ? 'Masquer arrêts' : 'Afficher arrêts'}
+          {studentsLoading && <span className="student-stops-spinner" aria-hidden="true" />}
+        </button>
+
+        {showStudentStops && !selectedBusId && (
+          <div className="student-stops-hint">
+            Sélectionnez un bus pour afficher les arrêts.
           </div>
         )}
 

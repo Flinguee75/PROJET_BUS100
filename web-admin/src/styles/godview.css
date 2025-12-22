@@ -188,3 +188,59 @@
 .highlight-bus {
   animation: highlight-pulse 0.6s ease-in-out 3;
 }
+
+/* ===== STUDENT STOP MARKER STYLES ===== */
+
+/* Animation d'apparition des marqueurs d'arrêt */
+@keyframes marker-pop-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.student-stop-marker {
+  animation: marker-pop-in 0.3s ease-out;
+}
+
+.student-stop-marker:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+
+/* Indicateur de chargement pour les arrêts d'élèves */
+@keyframes student-stops-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.student-stops-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: student-stops-spin 0.8s linear infinite;
+}
+
+.student-stops-hint {
+  position: absolute;
+  top: 56px;
+  right: 10px;
+  z-index: 1;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+}

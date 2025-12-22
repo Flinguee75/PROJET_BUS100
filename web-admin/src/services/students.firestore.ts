@@ -32,6 +32,32 @@ export interface Student {
   quartier: string;
   isActive: boolean;
   photoUrl?: string;
+  locations?: {
+    morningPickup?: {
+      address: string;
+      lat: number;
+      lng: number;
+      notes?: string;
+    };
+    middayDropoff?: {
+      address: string;
+      lat: number;
+      lng: number;
+      notes?: string;
+    };
+    middayPickup?: {
+      address: string;
+      lat: number;
+      lng: number;
+      notes?: string;
+    };
+    eveningDropoff?: {
+      address: string;
+      lat: number;
+      lng: number;
+      notes?: string;
+    };
+  };
 }
 
 export interface AttendanceRecord {
@@ -93,6 +119,7 @@ export function watchBusStudents(
           quartier: data.quartier || '',
           isActive: data.isActive !== false,
           photoUrl: data.photoUrl,
+          locations: data.locations || undefined,
         };
 
         students.push(student);
@@ -147,6 +174,7 @@ export async function getBusStudents(
       quartier: data.quartier || '',
       isActive: data.isActive !== false,
       photoUrl: data.photoUrl,
+      locations: data.locations || undefined,
     };
 
     students.push(student);
