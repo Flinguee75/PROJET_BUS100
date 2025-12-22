@@ -1,0 +1,1 @@
+{"version":3,"file":"nextStudent.service.d.ts","sourceRoot":"","sources":["../../src/services/nextStudent.service.ts"],"names":[],"mappings":"AAOA,MAAM,WAAW,eAAe;IAC9B,SAAS,EAAE,MAAM,CAAC;IAClB,WAAW,EAAE,MAAM,CAAC;IACpB,SAAS,EAAE,MAAM,CAAC;CACnB;AAED,qBAAa,kBAAkB;IAKvB,sBAAsB,CAAC,KAAK,EAAE,MAAM,GAAG,OAAO,CAAC,eAAe,GAAG,IAAI,CAAC;CAkE7E;;AAED,wBAAwC"}

@@ -3,6 +3,8 @@
  * Définit les structures de données pour les bus du système de transport scolaire
  */
 
+import { TimeOfDay } from './route.types';
+
 export interface Bus {
   id: string;
   busNumber: number; // Numéro du bus (1, 2, 3, 4...)
@@ -24,6 +26,23 @@ export interface Bus {
   assignedQuartiers?: string[]; // Sous-zones optionnelles
   preferredDepartureTime?: string; // Heure de départ du matin (ex: "07:00")
   schoolId: string | null; // ID de l'école affiliée
+
+  // Tracking en temps réel du ramassage
+  lastScan?: {
+    studentId: string;
+    studentName: string; // Dénormalisé pour affichage rapide
+    timestamp: number; // Unix timestamp en ms
+    type: 'boarding' | 'alighting';
+    location?: { lat: number; lng: number };
+  };
+
+  currentTrip?: {
+    tripType: TimeOfDay; // Type de trajet (morning_outbound, evening_return, etc.)
+    routeId: string; // Route active pour ce trajet
+    startTime: number; // Timestamp début du trajet (Unix ms)
+    scannedStudentIds: string[]; // Liste des IDs scannés pour ce trajet
+    totalStudentCount: number; // Nombre total d'élèves pour ce trajet
+  };
 
   createdAt: Date;
   updatedAt: Date;

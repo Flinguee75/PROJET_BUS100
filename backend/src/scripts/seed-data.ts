@@ -560,6 +560,58 @@ async function seedData() {
     await db.collection('buses').doc(bus.id).update({ routeId });
     bus.routeId = routeId;
 
+    // ========== NOUVEAU: Initialiser currentTrip pour le ramassage en cours ==========
+    const currentTrip = {
+      tripType: TimeOfDay.MORNING_OUTBOUND,
+      routeId,
+      startTime: Date.now() - 15 * 60 * 1000, // Commencé il y a 15 minutes
+      scannedStudentIds: [] as string[],
+      totalStudentCount: studentsOfBus.length,
+    };
+    await db.collection('buses').doc(bus.id).update({ currentTrip });
+
+    // Pour les 3 premiers bus, simuler des scans d'élèves
+    if (busIdx < 3 && studentsOfBus.length > 0) {
+      const studentsToScan = studentsOfBus.slice(0, Math.min(2 + busIdx, studentsOfBus.length));
+      const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+      for (let scanIdx = 0; scanIdx < studentsToScan.length; scanIdx++) {
+        const student = studentsToScan[scanIdx]!;
+        const minutesAgo = 10 - scanIdx * 3; // 10min, 7min, 4min, 1min...
+
+        // Créer un enregistrement d'attendance
+        await db.collection('attendance').add({
+          studentId: student.id,
+          busId: bus.id,
+          date: todayStr,
+          type: 'boarding',
+          timestamp: Date.now() - minutesAgo * 60 * 1000,
+          morningStatus: 'present',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        // Mettre à jour currentTrip.scannedStudentIds
+        currentTrip.scannedStudentIds.push(student.id);
+
+        // Mettre à jour lastScan (seulement pour le dernier scanné)
+        if (scanIdx === studentsToScan.length - 1) {
+          await db.collection('buses').doc(bus.id).update({
+            lastScan: {
+              studentId: student.id,
+              studentName: `${student.firstName} ${student.lastName}`,
+              timestamp: Date.now() - minutesAgo * 60 * 1000,
+              type: 'boarding',
+              location: student.locations?.morningPickup || null,
+            },
+            'currentTrip.scannedStudentIds': currentTrip.scannedStudentIds,
+          });
+        }
+      }
+
+      console.log(`    → ${studentsToScan.length} élèves scannés (simulation)`);
+    }
+
     // Mettre à jour les élèves avec l'ID de la route
     for (const élève of studentsOfBus) {
       await db.collection('students').doc(élève.id).update({ routeId });

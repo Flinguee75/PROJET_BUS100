@@ -40,6 +40,14 @@ router.get('/:busId/position', (req, res) => gpsController.getLivePosition(req, 
 router.get('/:busId/history', (req, res) => gpsController.getHistory(req, res));
 
 /**
+ * GET /api/buses/:busId/next-student
+ * Récupère le prochain élève à scanner pour un bus
+ * Retourne null si tous les élèves ont été scannés
+ * IMPORTANT: Doit venir AVANT la route /:busId générique
+ */
+router.get('/:busId/next-student', (req, res) => busController.getNextStudent(req, res));
+
+/**
  * GET /api/buses/:busId
  * Récupère un bus spécifique
  */

@@ -1,3 +1,4 @@
+import { TimeOfDay } from './route.types';
 export interface Bus {
     id: string;
     busNumber: number;
@@ -17,6 +18,23 @@ export interface Bus {
     assignedQuartiers?: string[];
     preferredDepartureTime?: string;
     schoolId: string | null;
+    lastScan?: {
+        studentId: string;
+        studentName: string;
+        timestamp: number;
+        type: 'boarding' | 'alighting';
+        location?: {
+            lat: number;
+            lng: number;
+        };
+    };
+    currentTrip?: {
+        tripType: TimeOfDay;
+        routeId: string;
+        startTime: number;
+        scannedStudentIds: string[];
+        totalStudentCount: number;
+    };
     createdAt: Date;
     updatedAt: Date;
 }

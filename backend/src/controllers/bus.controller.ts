@@ -5,6 +5,7 @@
 
 import { Request, Response } from 'express';
 import busService from '../services/bus.service';
+import nextStudentService from '../services/nextStudent.service';
 import { BusCreateInput, BusUpdateInput } from '../types/bus.types';
 
 export class BusController {
@@ -181,6 +182,37 @@ export class BusController {
           error: error.message || 'Failed to delete bus',
         });
       }
+    }
+  }
+
+  /**
+   * GET /api/buses/:busId/next-student
+   * Récupère le prochain élève à scanner pour un bus
+   */
+  async getNextStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const { busId } = req.params;
+
+      if (!busId) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing busId parameter',
+        });
+        return;
+      }
+
+      const nextStudent = await nextStudentService.getNextStudentToPickup(busId);
+
+      res.status(200).json({
+        success: true,
+        data: nextStudent, // Peut être null si tous les élèves sont scannés
+      });
+    } catch (error: any) {
+      console.error('Error getting next student:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get next student',
+      });
     }
   }
 }
