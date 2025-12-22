@@ -71,8 +71,11 @@ export const generateSimplifiedBusPopupHTML = ({
       <!-- NOUVEAU: Section Ramassage en cours -->
       ${scannedCount > 0 || (totalCount - scannedCount) > 0 ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
-          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0;">
-            📊 RAMASSAGE EN COURS
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+            </svg>
+            RAMASSAGE EN COURS
           </h4>
           <div style="font-size: 13px; color: #0f172a;">
             <span style="font-weight: 600; color: #16a34a;">${scannedCount}</span> élève${scannedCount > 1 ? 's' : ''} à bord •
@@ -84,8 +87,12 @@ export const generateSimplifiedBusPopupHTML = ({
       <!-- NOUVEAU: Dernier scan -->
       ${lastScan ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
-          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0;">
-            🕐 DERNIER SCAN
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+            DERNIER SCAN
           </h4>
           <div style="font-size: 13px; color: #0f172a;">
             <div style="font-weight: 600;">${lastScan.studentName}</div>
@@ -99,8 +106,11 @@ export const generateSimplifiedBusPopupHTML = ({
       <!-- NOUVEAU: Prochain élève -->
       ${nextStudent ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
-          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0;">
-            ➡️ PROCHAIN ÉLÈVE
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            PROCHAIN ÉLÈVE
           </h4>
           <div style="font-size: 13px; color: #0f172a;">
             <div style="font-weight: 600;">${nextStudent.studentName}</div>
@@ -121,7 +131,10 @@ export const generateSimplifiedBusPopupHTML = ({
       <!-- Body: Infos conducteur inline -->
       <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
         <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #475569;">
-          <span style="font-weight: 500;">👤</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
           <span>${driverName}</span>
           ${driverPhone ? `<span style="margin-left: auto; color: #0284c7; cursor: pointer;" onclick="window.location.href='tel:${driverPhone}'">${phoneIconSVG}${driverPhone}</span>` : ''}
         </div>
@@ -177,7 +190,15 @@ export const generateParkingPopupHTML = (buses: ParkingBusInfo[]): string => {
           ${displayBuses.map(bus => `
             <li style="font-size: 13px; color: #475569; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
               <div style="font-weight: 600; color: #0f172a;">${bus.busNumber}</div>
-              ${bus.driverName ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">👤 ${bus.driverName}</div>` : ''}
+              ${bus.driverName ? `
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px; display: flex; align-items: center; gap: 4px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  ${bus.driverName}
+                </div>
+              ` : ''}
             </li>
           `).join('')}
           ${hasMore ? `

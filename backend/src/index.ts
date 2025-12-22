@@ -94,3 +94,4 @@ export { helloWorld } from './test-function';
 // Export triggers
 export { onUserCreated } from './triggers/user-created.trigger';
 export { checkUnscannedStudents } from './triggers/attendance-alert.trigger';
+export { onAttendanceChange } from './triggers/attendance.trigger';

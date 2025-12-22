@@ -33,7 +33,9 @@
       "Bash(xargs kill -9)",
       "Bash(node:*)",
       "Bash(git reset:*)",
-      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm test:*)"
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm test:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/mobile-parent/parent_app && dart analyze:*)"
     ],
     "deny": [],
     "ask": []
