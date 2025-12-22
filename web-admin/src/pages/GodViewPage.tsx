@@ -191,6 +191,8 @@ export const GodViewPage = () => {
   const schoolMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const parkingZoneMarker = useRef<mapboxgl.Marker | null>(null);
   const parkingZonePopup = useRef<mapboxgl.Popup | null>(null);
+  const isMapInteracting = useRef(false);
+  const markerStateRef = useRef<Map<string, { lat: number; lng: number; heading: number }>>(new Map());
   const initialCenterRef = useRef<[number, number]>(
     school?.location ? [school.location.lng, school.location.lat] : ABIDJAN_CENTER
   );
@@ -334,6 +336,11 @@ export const GodViewPage = () => {
           localStatusRef.current.delete(busId);
         }
       });
+      markerStateRef.current.forEach((_, busId) => {
+        if (!currentBusIds.has(busId)) {
+          markerStateRef.current.delete(busId);
+        }
+      });
     }, 60000); // Nettoyage toutes les 60 secondes
 
     return () => clearInterval(cleanupInterval);
@@ -370,15 +377,38 @@ export const GodViewPage = () => {
       dragRotate: false,
     });
 
+    const handleInteractionStart = () => {
+      isMapInteracting.current = true;
+      markerAnimations.current.forEach((rafId) => cancelAnimationFrame(rafId));
+      markerAnimations.current.clear();
+    };
+
+    const handleInteractionEnd = () => {
+      isMapInteracting.current = false;
+    };
+
     map.current.on('load', () => {
       setMapLoaded(true);
     });
+
+    map.current.on('movestart', handleInteractionStart);
+    map.current.on('moveend', handleInteractionEnd);
+    map.current.on('zoomstart', handleInteractionStart);
+    map.current.on('zoomend', handleInteractionEnd);
+    map.current.on('dragstart', handleInteractionStart);
+    map.current.on('dragend', handleInteractionEnd);
 
     // Ajouter les contrôles de navigation
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     return () => {
       if (map.current) {
+        map.current.off('movestart', handleInteractionStart);
+        map.current.off('moveend', handleInteractionEnd);
+        map.current.off('zoomstart', handleInteractionStart);
+        map.current.off('zoomend', handleInteractionEnd);
+        map.current.off('dragstart', handleInteractionStart);
+        map.current.off('dragend', handleInteractionEnd);
         map.current.remove();
         map.current = null;
       }
@@ -442,6 +472,70 @@ export const GodViewPage = () => {
     return '#3b82f6'; // Bleu par défaut
   }, []);
 
+  const computeHeadingBetweenPoints = (
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number }
+  ): number => {
+    const dx = to.lng - from.lng;
+    const dy = to.lat - from.lat;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared < 1e-10) {
+      return 0;
+    }
+
+    const angleRadians = Math.atan2(dy, dx);
+    let rotation = (angleRadians * 180) / Math.PI - 90;
+    if (rotation < 0) {
+      rotation += 360;
+    }
+
+    return rotation;
+  };
+
+  const getMarkerRotation = useCallback(
+    (bus: ClassifiedBus): number => {
+      const speed = bus.currentPosition?.speed ?? 0;
+      const previous = markerStateRef.current.get(bus.id);
+      const currentPosition = bus.currentPosition ?? bus.displayPosition;
+
+      if (!currentPosition) {
+        return previous?.heading ?? 0;
+      }
+
+      let rotation = previous?.heading ?? 0;
+      const hasMovement = speed >= 5;
+
+      if (!hasMovement && previous) {
+        rotation = previous.heading;
+      } else if (hasMovement && previous) {
+        const dx = currentPosition.lng - previous.lng;
+        const dy = currentPosition.lat - previous.lat;
+        if (dx * dx + dy * dy < 1e-10) {
+          rotation = previous.heading;
+        } else {
+          rotation = computeHeadingBetweenPoints(previous, currentPosition);
+        }
+      } else if (hasMovement && typeof bus.currentPosition?.heading === 'number') {
+        rotation = bus.currentPosition.heading;
+      } else if (hasMovement && bus.displayPosition && school?.location) {
+        rotation = calculateHeadingToSchool(bus.displayPosition, school.location);
+      } else if (!previous && typeof bus.currentPosition?.heading === 'number') {
+        rotation = bus.currentPosition.heading;
+      } else if (!previous && bus.displayPosition && school?.location) {
+        rotation = calculateHeadingToSchool(bus.displayPosition, school.location);
+      }
+
+      markerStateRef.current.set(bus.id, {
+        lat: currentPosition.lat,
+        lng: currentPosition.lng,
+        heading: rotation,
+      });
+
+      return rotation;
+    },
+    [school]
+  );
+
   // Créer le HTML du marqueur de zone de stationnement
   const createParkingZoneMarkerHTML = useCallback((count: number): string => {
     return `
@@ -461,16 +555,7 @@ export const GodViewPage = () => {
   // Créer le HTML du marqueur avec flèche directionnelle
   const createMarkerHTML = useCallback((bus: ClassifiedBus): string => {
     const color = getMarkerColor(bus);
-
-    // Calculer l'angle de rotation basé sur la direction du bus vers l'école
-    let rotationAngle = 0;
-    if (bus.currentPosition?.heading !== undefined) {
-      // Utiliser le heading GPS si disponible
-      rotationAngle = bus.currentPosition.heading;
-    } else if (bus.displayPosition && school?.location) {
-      // Sinon calculer l'angle vers l'école
-      rotationAngle = calculateHeadingToSchool(bus.displayPosition, school.location);
-    }
+    const rotationAngle = getMarkerRotation(bus);
 
     // Déterminer si le bus a une alerte
     const busAlerts = realtimeAlerts.filter(a => a.busId === bus.id);
@@ -478,14 +563,14 @@ export const GodViewPage = () => {
     const alertSeverity = busAlerts.find(a => a.severity === 'HIGH') ? 'HIGH' : 'MEDIUM';
 
     // Utiliser le helper pour générer le HTML avec aura
-    return generateBusMarkerHTML({
+  return generateBusMarkerHTML({
       busNumber: bus.number,
       color,
       rotation: rotationAngle,
       hasAlert,
       alertSeverity,
     });
-  }, [getMarkerColor, school, realtimeAlerts]);
+  }, [getMarkerColor, getMarkerRotation, realtimeAlerts]);
 
   // Compteurs de flotte (pour la sidebar)
   // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
@@ -1030,6 +1115,11 @@ export const GodViewPage = () => {
 
   const animateMarkerToPosition = useCallback(
     (busId: string, marker: mapboxgl.Marker, targetLat: number, targetLng: number) => {
+      if (isMapInteracting.current || map.current?.isMoving() || map.current?.isZooming()) {
+        marker.setLngLat([targetLng, targetLat]);
+        return;
+      }
+
       const existingRaf = markerAnimations.current.get(busId);
       if (existingRaf) {
         cancelAnimationFrame(existingRaf);
@@ -1039,7 +1129,7 @@ export const GodViewPage = () => {
       const startLngLat = marker.getLngLat();
       const fromLat = startLngLat.lat;
       const fromLng = startLngLat.lng;
-      const durationMs = 1500;
+      const durationMs = 1200;
       const startTime = performance.now();
 
       const step = (currentTime: number) => {
@@ -1161,6 +1251,14 @@ export const GodViewPage = () => {
           popup.on('open', () => {
             setActivePopupBusId(bus.id);
             setSelectedBusId(bus.id);
+            popups.current.forEach((existingPopup, existingBusId) => {
+              if (existingBusId !== bus.id && existingPopup.isOpen()) {
+                existingPopup.remove();
+              }
+            });
+            if (parkingZonePopup.current?.isOpen()) {
+              parkingZonePopup.current.remove();
+            }
           });
 
           // Cleanup quand popup fermé
@@ -1191,6 +1289,7 @@ export const GodViewPage = () => {
         marker.remove();
         markers.current.delete(busId);
         popups.current.delete(busId);
+        markerStateRef.current.delete(busId);
       }
     });
   }, [
