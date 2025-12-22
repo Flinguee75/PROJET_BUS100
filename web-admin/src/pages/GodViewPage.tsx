@@ -95,7 +95,9 @@ const isBusAtSchool = (bus: BusRealtimeData): boolean =>
   bus.liveStatus === BusLiveStatus.ARRIVED || bus.liveStatus === BusLiveStatus.STOPPED;
 
 const isBusStationed = (bus: BusRealtimeData): boolean =>
-  bus.liveStatus === BusLiveStatus.STOPPED || bus.liveStatus === BusLiveStatus.IDLE;
+  bus.liveStatus === BusLiveStatus.STOPPED ||
+  bus.liveStatus === BusLiveStatus.IDLE ||
+  bus.liveStatus === BusLiveStatus.ARRIVED;
 
 // Token Mapbox depuis les variables d'environnement
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -144,6 +146,7 @@ const classifyBus = (
   const stationaryStatus =
     bus.liveStatus === BusLiveStatus.IDLE ||
     bus.liveStatus === BusLiveStatus.STOPPED ||
+    bus.liveStatus === BusLiveStatus.ARRIVED ||
     !bus.isActive;
 
   const classification: 'stationed' | 'deployed' =
@@ -538,11 +541,14 @@ export const GodViewPage = () => {
   // Créer le HTML du popup de la zone de stationnement - VERSION SIMPLIFIÉE Phase 3
   const createParkingZonePopupHTML = useCallback(
     (zone: ParkingZone): string => {
-      // Extraire les numéros de bus pour une liste compacte
-      const busNumbers = zone.stationedBuses.map(bus => `Bus ${bus.number}`);
+      // Extraire les infos de bus (numéro + chauffeur) pour le popup
+      const busesInfo = zone.stationedBuses.map(bus => ({
+        busNumber: bus.number,
+        driverName: bus.driver?.name
+      }));
 
       // Utiliser le helper pour générer le popup simplifié
-      return generateParkingPopupHTML(busNumbers);
+      return generateParkingPopupHTML(busesInfo);
     },
     []
   );

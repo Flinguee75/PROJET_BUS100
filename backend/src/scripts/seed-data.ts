@@ -572,22 +572,67 @@ async function seedData() {
   console.log(`✅ ${buses.length} routes créées\n`);
 
   // ==================================================
-  // 7. CRÉER DES POSITIONS GPS POUR QUELQUES BUS
+  // 7. CRÉER DES POSITIONS GPS AVEC DIFFÉRENTS STATUTS
   // ==================================================
-  console.log('📍 Création des positions GPS...');
+  console.log('📍 Création des positions GPS avec statuts variés...');
 
-  // Tous les bus démarrent stationnés à l'école
-  const status = BusLiveStatus.STOPPED;
+  // Configurations de statuts variés pour tester les panels colorés
+  const busStatusConfigs = [
+    // Bus arrivés à l'école (ARRIVED - fond vert)
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 5, minutesAgo: 2, atSchool: true },
+    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 6, minutesAgo: 1, atSchool: true },
+
+    // Bus en route (EN_ROUTE - fond bleu)
+    { status: BusLiveStatus.EN_ROUTE, speed: 42, passengersCount: 4, minutesAgo: 0, atSchool: false },
+    { status: BusLiveStatus.EN_ROUTE, speed: 35, passengersCount: 5, minutesAgo: 1, atSchool: false },
+
+    // Bus en retard (DELAYED - fond rouge)
+    { status: BusLiveStatus.DELAYED, speed: 12, passengersCount: 3, minutesAgo: 28, atSchool: false },
+  ];
 
   for (let i = 0; i < buses.length; i++) {
     const bus = buses[i]!;
-    const { lat, lng } = getStationedPosition(i, buses.length);
+    const statusConfig = busStatusConfigs[i] || busStatusConfigs[0]!;
     const now = Date.now();
+    const gpsTimestamp = now - statusConfig.minutesAgo * 60 * 1000;
 
     const chauffeur = chauffeurs.find((c) => c.id === bus.driverId);
     const routeMeta = routes.find((route) => route.id === bus.routeId);
 
-    // Position initiale du bus (au dépôt ou point de départ)
+    // Position du bus selon son statut
+    let position;
+    let currentZone;
+
+    if (statusConfig.atSchool) {
+      // Bus à l'école
+      position = getStationedPosition(i, buses.length);
+      currentZone = `${defaultSchool.name} - Cocody`;
+    } else {
+      // Bus en route - position aléatoire entre le départ et l'école
+      const quartier = bus.assignedQuartiers?.[0] || 'Cocody';
+      const baseKey = `Cocody-${quartier.replace(/\s+/g, '')}`;
+      const startLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.36;
+      const startLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -3.97;
+      const schoolLat = defaultSchool.location.lat;
+      const schoolLng = defaultSchool.location.lng;
+
+      // Progression (0.3 à 0.8 pour être entre le départ et l'école)
+      const progress = statusConfig.status === BusLiveStatus.DELAYED ? 0.35 : 0.65;
+      position = {
+        lat: startLat + (schoolLat - startLat) * progress,
+        lng: startLng + (schoolLng - startLng) * progress,
+      };
+      currentZone = quartier;
+    }
+
+    const statusLabels: Record<BusLiveStatus, string> = {
+      [BusLiveStatus.ARRIVED]: '✅ Arrivé à l\'école',
+      [BusLiveStatus.EN_ROUTE]: '🚌 En route',
+      [BusLiveStatus.DELAYED]: '⚠️  En retard',
+      [BusLiveStatus.STOPPED]: '🛑 Arrêté',
+      [BusLiveStatus.IDLE]: '💤 Inactif',
+    };
+
     await db.collection('gps_live').doc(bus.id).set({
       busId: bus.id,
       number: `BUS-${String(bus.busNumber).padStart(2, '0')}`,
@@ -596,37 +641,39 @@ async function seedData() {
       model: bus.model,
       year: bus.year,
       capacity: bus.capacity,
-      status,
-      liveStatus: status,
-      passengersCount: 0, // Aucun passager au démarrage
-      passengersPresent: 0, // Aucune course active
+      status: statusConfig.status,
+      liveStatus: statusConfig.status,
+      passengersCount: statusConfig.passengersCount,
+      passengersPresent: statusConfig.passengersCount,
       isActive: true,
       driverId: bus.driverId,
       driverName: bus.driverName,
       driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
-      routeId: bus.routeId || null, // Route assignée mais pas encore active
+      routeId: bus.routeId || null,
       routeName: routeMeta?.name || null,
-      fromZone: null, // Sera défini quand la course sera lancée
-      toZone: null, // Sera défini quand la course sera lancée
-      currentZone: `${defaultSchool.name} - Cocody`,
+      fromZone: statusConfig.atSchool ? null : currentZone,
+      toZone: statusConfig.atSchool ? null : 'École',
+      currentZone,
       schoolId: defaultSchoolId,
       position: {
-        lat,
-        lng,
-        speed: 0, // Bus arrêté
-        heading: 0,
-        accuracy: 10,
-        timestamp: now,
+        lat: position.lat,
+        lng: position.lng,
+        speed: statusConfig.speed,
+        heading: Math.floor(Math.random() * 360),
+        accuracy: 10 + Math.random() * 5,
+        timestamp: gpsTimestamp,
       },
-      updatedAt: now,
-      lastUpdate: Timestamp.fromMillis(now),
-      timestamp: now,
+      updatedAt: gpsTimestamp,
+      lastUpdate: Timestamp.fromMillis(gpsTimestamp),
+      timestamp: gpsTimestamp,
+      tripStartTime: statusConfig.atSchool ? null : now - 25 * 60 * 1000, // Départ il y a 25 min
     });
 
-    console.log(`  ✓ Bus ${bus.busNumber} - Positionné à l'école (${status})`);
+    const statusLabel = statusLabels[statusConfig.status] || statusConfig.status;
+    console.log(`  ✓ Bus ${bus.busNumber} - ${statusLabel} - ${statusConfig.passengersCount} élèves`);
   }
 
-  console.log(`✅ ${buses.length} positions GPS créées\n`);
+  console.log(`\n✅ ${buses.length} positions GPS créées avec statuts variés\n`);
 
   // ==================================================
   // RÉSUMÉ FINAL
@@ -640,6 +687,13 @@ async function seedData() {
   console.log(`  ✓ ${élèves.length} élèves`);
   console.log(`  ✓ ${buses.length} routes avec horaires multiples`);
   console.log(`  ✓ ${buses.length} bus avec positions GPS en temps réel\n`);
+
+  console.log('🚌 Statuts des bus (pour tester les panels colorés) :');
+  console.log(`  - ✅ ${busStatusConfigs.filter(c => c.status === BusLiveStatus.ARRIVED).length} bus arrivés (fond vert)`);
+  console.log(`  - 🚌 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.EN_ROUTE).length} bus en route (fond bleu)`);
+  console.log(`  - ⚠️  ${busStatusConfigs.filter(c => c.status === BusLiveStatus.DELAYED).length} bus en retard (fond rouge)`);
+  console.log(`  - 🛑 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.STOPPED).length} bus arrêtés (fond gris)`);
+  console.log(`  - 💤 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.IDLE).length} bus inactifs (fond gris)\n`);
 
   console.log('📈 Profils des élèves :');
   for (const profil of profils) {

@@ -30,7 +30,7 @@ interface AlertsSidebarProps {
   studentsCounts?: Record<string, { scanned: number; unscanned: number; total: number }>;
   totalBusCount?: number;
   enCourseCount?: number;
-  atSchoolCount?: number;
+  atSchoolCount?: number; // Non utilisé actuellement mais gardé pour compatibilité
   onFocusBus?: (busId: string) => void;
 }
 
@@ -41,7 +41,7 @@ export const AlertsSidebar = ({
   studentsCounts = {},
   totalBusCount,
   enCourseCount,
-  atSchoolCount,
+  atSchoolCount: _atSchoolCount, // Préfixé avec _ car non utilisé actuellement
   onFocusBus,
 }: AlertsSidebarProps) => {
   // Onglet actif : FLOTTE ou ÉLÈVES
@@ -49,7 +49,7 @@ export const AlertsSidebar = ({
 
   // Filtre flotte sélectionné (single selection)
   const [selectedFleetFilter, setSelectedFleetFilter] = useState<
-    'all' | 'delays' | 'en_course' | 'at_school'
+    'all' | 'en_course' | 'at_school'
   >('all');
 
   // État pour les filtres de type d'alerte élèves
@@ -96,9 +96,13 @@ export const AlertsSidebar = ({
     return allBuses.length;
   }, [totalBusCount, allBuses]);
 
-  // Identifier les bus EN_ROUTE pour filtrer les comptages d'élèves
+  // Identifier les bus EN_ROUTE (incluant DELAYED) pour filtrer les comptages d'élèves
   const busesEnRouteIds = useMemo(() => {
-    return new Set(allBuses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE).map((b) => b.id));
+    return new Set(
+      allBuses
+        .filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED)
+        .map((b) => b.id)
+    );
   }, [allBuses]);
 
   // Charger les courses récentes avec élèves manquants
@@ -140,44 +144,32 @@ export const AlertsSidebar = ({
       .reduce((acc, [, counts]) => acc + counts.unscanned, 0);
   }, [studentsCounts, busesEnRouteIds]);
 
-  // Compteurs pour les bus par statut
-  // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
+  // Compteur pour les bus en course (EN_ROUTE + DELAYED)
   const effectiveEnCourse = useMemo(() => {
-    return enCourseCount ?? allBuses.filter((b) => b.liveStatus === BusLiveStatus.EN_ROUTE).length;
-  }, [enCourseCount, allBuses]);
-  
-  const effectiveAtSchool = useMemo(() => {
-    return atSchoolCount ?? allBuses.filter(
-      (b) => b.liveStatus === BusLiveStatus.STOPPED
+    return enCourseCount ?? allBuses.filter(
+      (b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED
     ).length;
-  }, [atSchoolCount, allBuses]);
+  }, [enCourseCount, allBuses]);
 
   // Séparation des alertes par contexte
   const fleetAlerts = alerts.filter((a) => a.type === 'DELAY');
   const studentAlerts = alerts.filter((a) => a.type === 'UNSCANNED_CHILD');
-
-  // Compteur pour les bus en retard (statut DELAYED uniquement)
-  const delaysBusCount = useMemo(() => {
-    return allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED).length;
-  }, [allBuses]);
 
   // Filtrer les bus selon le filtre sélectionné pour FLOTTE
   const filteredBuses = useMemo(() => {
     if (activeTab !== 'fleet') return [];
 
     switch (selectedFleetFilter) {
-      case 'delays':
-        // Afficher uniquement les bus avec le statut DELAYED
-        return allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED);
       case 'en_course':
         return allBuses.filter(
           (b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED
         );
       case 'at_school':
-        // Afficher tous les bus à l'école (STOPPED ou ceux dans stationedBuses)
+        // Afficher tous les bus à l'école (STOPPED, ARRIVED ou ceux dans stationedBuses)
         return allBuses.filter(
           (b) =>
             b.liveStatus === BusLiveStatus.STOPPED ||
+            b.liveStatus === BusLiveStatus.ARRIVED ||
             stationedBuses.some((sb) => sb.id === b.id)
         );
       case 'all':
@@ -187,14 +179,7 @@ export const AlertsSidebar = ({
     }
   }, [activeTab, selectedFleetFilter, allBuses, stationedBuses]);
 
-  const getStationedDurationLabel = (bus: BusRealtimeData): string | null => {
-    const timestamp =
-      typeof bus.currentPosition?.timestamp === 'number'
-        ? bus.currentPosition.timestamp
-        : null;
-    if (!timestamp) return null;
-    return formatDurationFromMs(Date.now() - timestamp);
-  };
+  // Fonction supprimée - non nécessaire pour la nouvelle interface simplifiée
 
   const emptyFleetStateTitle =
     selectedFleetFilter === 'at_school' ? 'Aucun bus stationné' : 'Aucun bus en course';
@@ -571,22 +556,7 @@ const formatTimestamp = (timestamp: number) => {
   return `Il y a ${diffHours}h`;
 };
 
-const TRIP_TYPE_LABELS: Record<string, string> = {
-  morning_outbound: 'Matin - Récupérer les élèves',
-  midday_outbound: 'Midi - Déposer les élèves',
-  midday_return: 'Après-midi - Récupérer les élèves',
-  evening_return: 'Soir - Déposer les élèves',
-};
-
-const formatTripTypeLabel = (tripType?: string | null, tripLabel?: string | null): string | null => {
-  if (tripLabel && tripLabel.trim().length > 0) {
-    return tripLabel;
-  }
-  if (tripType && TRIP_TYPE_LABELS[tripType]) {
-    return TRIP_TYPE_LABELS[tripType];
-  }
-  return tripType ?? null;
-};
+// Fonction inutilisée - supprimée pour simplification
 
 const formatDurationFromMs = (durationMs: number | null | undefined): string => {
   if (durationMs == null || durationMs < 0) return '—';
@@ -696,58 +666,34 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 Tout ({totalFleet})
               </button>
 
-              {/* Retards */}
-              <button
-                onClick={() => setSelectedFleetFilter('delays')}
-                disabled={delaysBusCount === 0}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-500 focus:ring-offset-1 ${
-                  selectedFleetFilter === 'delays'
-                    ? 'bg-danger-600 text-white'
-                    : delaysBusCount === 0
-                    ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-danger-300'
-                }`}
-                aria-pressed={selectedFleetFilter === 'delays'}
-                aria-label={`Afficher les bus en retard (${delaysBusCount})`}
-              >
-                <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
-                Retards ({delaysBusCount})
-              </button>
-
               {/* En course */}
               <button
                 onClick={() => setSelectedFleetFilter('en_course')}
-                disabled={effectiveEnCourse === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                   selectedFleetFilter === 'en_course'
                     ? 'bg-blue-600 text-white'
-                    : effectiveEnCourse === 0
-                    ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-300'
                 }`}
                 aria-pressed={selectedFleetFilter === 'en_course'}
-                aria-label={`Afficher les bus en course (${effectiveEnCourse})`}
+                aria-label="Afficher les bus en course"
               >
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
-                En course ({effectiveEnCourse})
+                En course
               </button>
 
               {/* À l'école */}
               <button
                 onClick={() => setSelectedFleetFilter('at_school')}
-                disabled={effectiveAtSchool === 0}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
                   selectedFleetFilter === 'at_school'
                     ? 'bg-blue-400 text-white'
-                    : effectiveAtSchool === 0
-                    ? 'bg-slate-100 border-2 border-slate-200 text-slate-400 cursor-not-allowed'
                     : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-200'
                 }`}
                 aria-pressed={selectedFleetFilter === 'at_school'}
-                aria-label={`Afficher les bus à l'école (${effectiveAtSchool})`}
+                aria-label="Afficher les bus à l'école"
               >
                 <School className="w-3.5 h-3.5" strokeWidth={2.5} />
-                À l'école ({effectiveAtSchool})
+                À l'école
               </button>
             </div>
           </div>
@@ -865,15 +811,18 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               const hasAlert = busAlert !== undefined;
               const isNormalBus = !hasAlert; // Bus normal sans problème
               const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
-              const stationedDuration = getStationedDurationLabel(bus);
 
               if (isNormalBus) {
                 // Carte pour bus normaux avec statut et comptages
                 const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
                 const isEnRoute =
                   bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
-                const showStationedLabel =
-                  selectedFleetFilter === 'at_school' || (!isArrived && !isEnRoute);
+
+                const isDelayed = bus.liveStatus === BusLiveStatus.DELAYED;
+                const tripDuration = typeof bus.tripStartTime === 'number'
+                  ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+                  : null;
+                const speed = bus.currentPosition?.speed ?? 0;
 
                 return (
                   <div
@@ -890,117 +839,99 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                     }}
                     aria-label={`Bus ${bus.number}, ${counts.scanned} élèves sur ${counts.total} à bord, cliquer pour centrer sur la carte`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
-                            {/* SafetyRatioBadge - agrandi pour meilleure visibilité */}
-                            {(isEnRoute || isArrived) && (
-                              <SafetyRatioBadge
-                                scanned={counts.scanned}
-                                total={counts.total}
-                                size="md"
-                              />
-                            )}
+                    {/* Ligne 1: Nom du bus + Badge élèves */}
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
+                      {(isEnRoute || isArrived || isDelayed) && counts.total > 0 && (
+                        <SafetyRatioBadge
+                          scanned={counts.scanned}
+                          total={counts.total}
+                          size="md"
+                        />
+                      )}
+                    </div>
+
+                    {/* Ligne 2: Localisation */}
+                    {(isEnRoute || isDelayed) && (
+                      <div className="flex items-center gap-1.5 text-slate-700 mt-2">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                        <span className="text-sm font-medium truncate">
+                          {bus.currentZone || bus.route?.name || 'En déplacement'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isArrived && (
+                      <div className="flex items-center gap-1.5 text-slate-700 mt-2">
+                        <MapPin className="w-3.5 h-3.5 text-green-500 flex-shrink-0" strokeWidth={2.5} />
+                        <span className="text-sm font-medium">Arrivé à l'école</span>
+                      </div>
+                    )}
+
+                    {/* Ligne 3: Infos spécifiques selon l'état */}
+
+                    {/* BUS ARRIVÉ: Élèves scannés + Temps de course */}
+                    {isArrived && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-xs text-slate-600">
+                          <span className="font-semibold text-green-700">{counts.scanned}</span> scannés /
+                          <span className="font-semibold text-slate-700"> {counts.total}</span> élèves
+                        </div>
+                        {tripDuration && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                            <Clock className="w-3 h-3" strokeWidth={2.5} />
+                            <span>Durée: {tripDuration}</span>
                           </div>
+                        )}
+                      </div>
+                    )}
 
-                          {/* Localisation + Durée - Ligne prioritaire pour répondre "Où est le bus ?" */}
-                          {!showStationedLabel && (
-                            <div className="flex items-center justify-between text-sm mt-2">
-                              <div className="flex items-center gap-1.5 text-slate-700 flex-1 min-w-0">
-                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
-                                <span className="font-medium truncate">
-                                  {bus.currentZone || bus.route?.name || 'En déplacement'}
-                                </span>
-                              </div>
-                              {typeof bus.tripStartTime === 'number' && (
-                                <div className="flex items-center gap-1 text-slate-500 text-xs flex-shrink-0 ml-2">
-                                  <Clock className="w-3 h-3" strokeWidth={2.5} />
-                                  <span>{formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
-                                </div>
-                              )}
-                            </div>
+                    {/* BUS EN ROUTE: Vitesse + Temps */}
+                    {isEnRoute && !isDelayed && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs">
+                          {speed > 0 && (
+                            <span className="font-semibold text-blue-600">{Math.round(speed)} km/h</span>
                           )}
-
-                          {/* Driver info - inline avec icônes */}
-                          {bus.driver && !showStationedLabel && (
-                            <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                              <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
-                              <span className="truncate flex-1">{bus.driver.name}</span>
-                              {bus.driver?.phone && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(`tel:${bus.driver?.phone}`, '_self');
-                                  }}
-                                  className="ml-auto p-1 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
-                                  aria-label={`Appeler ${bus.driver?.name || 'le chauffeur'}`}
-                                >
-                                  <Phone className="w-3 h-3 text-slate-500" strokeWidth={2.5} />
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {/* Trip type - single line (Phase 4) */}
-                          {!showStationedLabel && (
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              {formatTripTypeLabel(bus.tripType, bus.tripLabel) ?? 'Course en cours'}
-                            </div>
-                          )}
-                          {showStationedLabel && (
-                            <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
-                              {bus.driver?.name && (
-                                <div className="flex items-center gap-1">
-                                  <Users className="w-3 h-3 text-slate-400" strokeWidth={2.5} />
-                                  <span>Chauffeur: {bus.driver.name}</span>
-                                </div>
-                              )}
-                              {bus.currentZone && (
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-slate-400" strokeWidth={2.5} />
-                                  <span>{bus.currentZone}</span>
-                                </div>
-                              )}
-                              {stationedDuration && (
-                                <div className="text-slate-500">
-                                  Stationné depuis {stationedDuration}
-                                </div>
-                              )}
+                          {tripDuration && (
+                            <div className="flex items-center gap-1.5 text-slate-500 ml-auto">
+                              <Clock className="w-3 h-3" strokeWidth={2.5} />
+                              <span>{tripDuration}</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      {selectedFleetFilter !== 'at_school' && (
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAlertClick(bus.id);
-                            }}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1"
-                            aria-label={`Voir le bus ${bus.number} sur la carte`}
-                          >
-                            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
-                            Carte
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {selectedFleetFilter !== 'at_school' && (
-                      <>
-                        {isArrived && (
-                          <div className="mt-2 pt-2 border-t border-slate-200">
-                            <p className="text-xs text-slate-600 mb-1">
-                              <span className="font-semibold text-slate-700">{counts.scanned}</span> scannés,{' '}
-                              <span className="font-semibold text-amber-700">{counts.unscanned}</span> non scannés
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Total: {counts.total} / {bus.capacity} élèves
-                            </p>
+                    )}
+
+                    {/* BUS EN RETARD: Vitesse + Temps + Badge retard */}
+                    {isDelayed && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            {speed > 0 && (
+                              <span className="font-semibold text-orange-600">{Math.round(speed)} km/h</span>
+                            )}
+                            <div className="flex items-center gap-1 text-red-600 font-semibold">
+                              <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
+                              <span>Retard</span>
+                            </div>
                           </div>
-                        )}
-                      </>
+                          {tripDuration && (
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                              <Clock className="w-3 h-3" strokeWidth={2.5} />
+                              <span>{tripDuration}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ligne 4: Chauffeur */}
+                    {bus.driver && (
+                      <div className="flex items-center gap-2 text-xs text-slate-600 mt-2">
+                        <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                        <span className="truncate flex-1">{bus.driver.name}</span>
+                      </div>
                     )}
                   </div>
                 );

@@ -76,17 +76,22 @@ export const generateSimplifiedBusPopupHTML = ({
   `;
 };
 
+interface ParkingBusInfo {
+  busNumber: string;
+  driverName?: string;
+}
+
 /**
  * Génère le HTML d'un popup simplifié pour la zone de parking
- * @param studentNames Liste des prénoms d'élèves
+ * @param buses Liste des bus avec leurs chauffeurs
  * @returns HTML string pour le popup
  */
-export const generateParkingPopupHTML = (studentNames: string[]): string => {
-  const studentCount = studentNames.length;
+export const generateParkingPopupHTML = (buses: ParkingBusInfo[]): string => {
+  const busCount = buses.length;
 
-  // Limiter à 8 prénoms maximum avec "..." si plus
-  const displayNames = studentNames.slice(0, 8);
-  const hasMore = studentCount > 8;
+  // Limiter à 8 bus maximum avec "..." si plus
+  const displayBuses = buses.slice(0, 8);
+  const hasMore = busCount > 8;
 
   return `
     <div class="simplified-parking-popup" style="min-width: 200px; max-width: 280px; font-family: Inter, system-ui, sans-serif;">
@@ -96,21 +101,22 @@ export const generateParkingPopupHTML = (studentNames: string[]): string => {
           Zone de parking
         </h4>
         <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0;">
-          ${studentCount} élève${studentCount > 1 ? 's' : ''}
+          ${busCount} bus
         </p>
       </div>
 
-      <!-- Liste compacte des élèves -->
+      <!-- Liste compacte des bus -->
       <div style="padding: 8px 16px; max-height: 200px; overflow-y: auto;">
         <ul style="list-style: none; padding: 0; margin: 0;">
-          ${displayNames.map(name => `
-            <li style="font-size: 13px; color: #475569; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
-              ${name}
+          ${displayBuses.map(bus => `
+            <li style="font-size: 13px; color: #475569; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+              <div style="font-weight: 600; color: #0f172a;">${bus.busNumber}</div>
+              ${bus.driverName ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">👤 ${bus.driverName}</div>` : ''}
             </li>
           `).join('')}
           ${hasMore ? `
             <li style="font-size: 13px; color: #94a3b8; padding: 4px 0; font-style: italic;">
-              ... et ${studentCount - 8} autre${studentCount - 8 > 1 ? 's' : ''}
+              ... et ${busCount - 8} autre${busCount - 8 > 1 ? 's' : ''}
             </li>
           ` : ''}
         </ul>

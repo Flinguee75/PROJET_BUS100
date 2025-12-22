@@ -26,6 +26,8 @@ export enum BusLiveStatus {
   EN_ROUTE = 'en_route', // En route
   STOPPED = 'stopped', // Arrêté
   DELAYED = 'delayed', // En retard
+  ARRIVED = 'arrived', // Arrivé à destination
+  IDLE = 'idle', // Inactif / Au repos
 }
 
 export interface GPSHistoryEntry {

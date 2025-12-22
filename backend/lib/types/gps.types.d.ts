@@ -16,11 +16,11 @@ export interface GPSLiveData {
     lastUpdate: Date;
 }
 export declare enum BusLiveStatus {
-    IDLE = "idle",
     EN_ROUTE = "en_route",
     STOPPED = "stopped",
     DELAYED = "delayed",
-    ARRIVED = "arrived"
+    ARRIVED = "arrived",
+    IDLE = "idle"
 }
 export interface GPSHistoryEntry {
     busId: string;
@@ -42,7 +42,6 @@ export interface GPSUpdateInput {
     heading?: number;
     accuracy?: number;
     timestamp: number;
-    arrived?: boolean;
 }
 export interface GPSHistoryQuery {
     busId: string;
