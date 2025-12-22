@@ -207,12 +207,19 @@ export const GodViewPage = () => {
   >({});
 
   const [scannedStudentIdsByBus, setScannedStudentIdsByBus] = useState<Record<string, string[]>>({});
+  const [notifications, setNotifications] = useState<
+    Array<{ id: number; message: string; type: 'start' | 'scan' | 'end' }>
+  >([]);
+  const notificationIdRef = useRef(0);
   
   // State pour tracker le popup actuellement ouvert (pour auto-refresh)
   const [activePopupBusId, setActivePopupBusId] = useState<string | null>(null);
 
   // Suivre l'état local du statut pour éviter le flickering
   const localStatusRef = useRef<Map<string, BusLiveStatus>>(new Map());
+  const previousBusStatusRef = useRef<Map<string, BusLiveStatus | null>>(new Map());
+  const previousTripStartRef = useRef<Map<string, number | null>>(new Map());
+  const previousScannedCountRef = useRef<Map<string, number>>(new Map());
 
   // ===== États pour les arrêts d'élèves =====
   // Toggle pour afficher/masquer les arrêts d'élèves
@@ -229,6 +236,17 @@ export const GodViewPage = () => {
 
   // Ref pour les marqueurs d'arrêts d'élèves (séparés des marqueurs de bus)
   const studentMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+
+  const addNotification = useCallback(
+    (message: string, type: 'start' | 'scan' | 'end') => {
+      const id = ++notificationIdRef.current;
+      setNotifications((prev) => [...prev, { id, message, type }]);
+      setTimeout(() => {
+        setNotifications((prev) => prev.filter((item) => item.id !== id));
+      }, 5000);
+    },
+    []
+  );
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
     return schoolBuses
@@ -324,6 +342,51 @@ export const GodViewPage = () => {
       setLastRealtimeUpdate(Date.now());
     }
   }, [schoolBuses, realtimeAlerts]);
+
+  useEffect(() => {
+    processedBuses.forEach((bus) => {
+      const previousStatus = previousBusStatusRef.current.get(bus.id);
+      if (previousStatus === undefined) {
+        previousBusStatusRef.current.set(bus.id, bus.liveStatus ?? null);
+      } else if (previousStatus !== bus.liveStatus) {
+        if (bus.liveStatus === BusLiveStatus.EN_ROUTE) {
+          addNotification(`Course démarrée • ${bus.number}`, 'start');
+        } else if (bus.liveStatus === BusLiveStatus.ARRIVED) {
+          addNotification(`Course terminée • ${bus.number}`, 'end');
+        }
+        previousBusStatusRef.current.set(bus.id, bus.liveStatus ?? null);
+      }
+
+      const previousTripStart = previousTripStartRef.current.get(bus.id);
+      if (previousTripStart === undefined) {
+        previousTripStartRef.current.set(bus.id, bus.tripStartTime ?? null);
+      } else if (bus.tripStartTime && previousTripStart !== bus.tripStartTime) {
+        addNotification(`Course démarrée • ${bus.number}`, 'start');
+        previousTripStartRef.current.set(bus.id, bus.tripStartTime);
+      }
+    });
+  }, [processedBuses, addNotification]);
+
+  useEffect(() => {
+    processedBuses.forEach((bus) => {
+      const counts = studentsCounts[bus.id];
+      if (!counts) return;
+
+      const previousCount = previousScannedCountRef.current.get(bus.id);
+      if (previousCount === undefined) {
+        previousScannedCountRef.current.set(bus.id, counts.scanned);
+        return;
+      }
+
+      if (counts.scanned > previousCount) {
+        const delta = counts.scanned - previousCount;
+        const label = delta > 1 ? `${delta} élèves scannés` : '1 élève scanné';
+        addNotification(`${label} • ${bus.number}`, 'scan');
+      }
+
+      previousScannedCountRef.current.set(bus.id, counts.scanned);
+    });
+  }, [processedBuses, studentsCounts, addNotification]);
 
   // Nettoyer périodiquement les bus qui ne sont plus dans la liste (prévenir fuites mémoire)
   useEffect(() => {
@@ -1243,7 +1306,7 @@ export const GodViewPage = () => {
         createPopupHTML(bus).then(html => {
           const popup = new mapboxgl.Popup({
             offset: 25,
-            closeButton: true,
+            closeButton: false,
             closeOnClick: false,
           }).setHTML(html);
 
@@ -1258,6 +1321,15 @@ export const GodViewPage = () => {
             });
             if (parkingZonePopup.current?.isOpen()) {
               parkingZonePopup.current.remove();
+            }
+
+            const popupElement = popup.getElement();
+            const closeButton = popupElement.querySelector('.bus-popup-close') as HTMLButtonElement | null;
+            if (closeButton) {
+              closeButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                popup.remove();
+              });
             }
           });
 
@@ -1369,6 +1441,17 @@ export const GodViewPage = () => {
           />
           <span>{isRealtimeConnected ? 'Firebase connecté' : 'Firebase hors ligne'}</span>
           <span style={{ fontWeight: 600, opacity: 0.85 }}>Maj: {realtimeUpdateLabel}</span>
+        </div>
+
+        <div className="godview-notifications">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`godview-notification godview-notification--${notification.type}`}
+            >
+              {notification.message}
+            </div>
+          ))}
         </div>
 
         <button

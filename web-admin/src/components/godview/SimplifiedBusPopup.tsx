@@ -57,9 +57,10 @@ export const generateSimplifiedBusPopupHTML = ({
   return `
     <div class="simplified-bus-popup" style="min-width:240px; font-family: Inter, system-ui, sans-serif;">
       <!-- Header: Numéro du bus + Ratio géant -->
-      <div style="padding: 16px 16px 12px 16px; border-bottom: 1px solid #e5e7eb;">
+      <div style="padding: 16px 16px 12px 16px; border-bottom: 1px solid #e5e7eb; position: relative;">
+        <button class="bus-popup-close" aria-label="Fermer le popup">×</button>
         <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">
-          Bus ${busNumber}
+          ${busNumber}
         </h3>
         <div class="popup-ratio-badge ${ratioBgClass}" style="display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 12px; border: 2px solid ${isComplete ? '#16a34a' : '#dc2626'};">
           <span class="${ratioColorClass}" style="font-size: 2rem; font-weight: 800; line-height: 1;">
