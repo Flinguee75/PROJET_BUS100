@@ -132,3 +132,26 @@ export const deleteBus = async (busId: string): Promise<void> => {
   }
 };
 
+/**
+ * Interface pour les informations du prochain élève à scanner
+ */
+export interface NextStudentInfo {
+  studentId: string;
+  studentName: string;
+  stopOrder: number;
+}
+
+/**
+ * Récupère le prochain élève à scanner pour un bus
+ * Retourne null si tous les élèves ont été scannés
+ */
+export const getNextStudent = async (busId: string): Promise<NextStudentInfo | null> => {
+  try {
+    const response = await api.get(`/api/buses/${busId}/next-student`);
+    return response.data.data;
+  } catch (error: unknown) {
+    console.error('Error fetching next student:', error);
+    return null; // Retourner null en cas d'erreur plutôt que de throw
+  }
+};
+

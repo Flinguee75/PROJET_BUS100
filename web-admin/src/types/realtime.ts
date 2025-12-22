@@ -60,6 +60,22 @@ export interface BusRealtimeData {
   tripType?: string | null;
   tripLabel?: string | null;
   tripStartTime?: number | null;
+  
+  // Phase 4: Tracking du ramassage en temps réel
+  lastScan?: {
+    studentId: string;
+    studentName: string;
+    timestamp: number;
+    type: 'boarding' | 'alighting';
+    location?: { lat: number; lng: number };
+  };
+  currentTrip?: {
+    tripType: string;
+    routeId: string;
+    startTime: number;
+    scannedStudentIds: string[];
+    totalStudentCount: number;
+  };
 }
 
 export interface BusStatistics {

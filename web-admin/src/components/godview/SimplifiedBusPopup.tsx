@@ -2,6 +2,7 @@
 /**
  * SimplifiedBusPopup - Helper pour générer le HTML des popups simplifiés
  * Layout épuré avec ratio géant en couleur et infos essentielles
+ * Phase 4: Ajout du tracking de ramassage (dernier scan, prochain élève)
  */
 
 interface SimplifiedBusPopupOptions {
@@ -10,7 +11,18 @@ interface SimplifiedBusPopupOptions {
   driverPhone?: string;
   scannedCount: number;
   totalCount: number;
-  onCenterClick?: string; // ID pour callback JavaScript
+  onCenterClick?: string;
+
+  // NOUVEAUX champs pour Phase 4
+  lastScan?: {
+    studentName: string;
+    minutesAgo: number;
+  };
+  nextStudent?: {
+    studentName: string;
+  };
+  speed?: number;
+  tripDuration?: string;
 }
 
 /**
@@ -25,6 +37,10 @@ export const generateSimplifiedBusPopupHTML = ({
   scannedCount,
   totalCount,
   onCenterClick = '',
+  lastScan,
+  nextStudent,
+  speed,
+  tripDuration,
 }: SimplifiedBusPopupOptions): string => {
   // Déterminer la couleur du ratio (vert si complet, rouge sinon)
   const isComplete = scannedCount === totalCount && totalCount > 0;
@@ -52,8 +68,58 @@ export const generateSimplifiedBusPopupHTML = ({
         </div>
       </div>
 
+      <!-- NOUVEAU: Section Ramassage en cours -->
+      ${scannedCount > 0 || (totalCount - scannedCount) > 0 ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0;">
+            📊 RAMASSAGE EN COURS
+          </h4>
+          <div style="font-size: 13px; color: #0f172a;">
+            <span style="font-weight: 600; color: #16a34a;">${scannedCount}</span> élève${scannedCount > 1 ? 's' : ''} à bord •
+            <span style="font-weight: 600; color: #dc2626;">${totalCount - scannedCount}</span> restant${totalCount - scannedCount > 1 ? 's' : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- NOUVEAU: Dernier scan -->
+      ${lastScan ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0;">
+            🕐 DERNIER SCAN
+          </h4>
+          <div style="font-size: 13px; color: #0f172a;">
+            <div style="font-weight: 600;">${lastScan.studentName}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+              il y a ${lastScan.minutesAgo} min
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- NOUVEAU: Prochain élève -->
+      ${nextStudent ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 6px 0;">
+            ➡️ PROCHAIN ÉLÈVE
+          </h4>
+          <div style="font-size: 13px; color: #0f172a;">
+            <div style="font-weight: 600;">${nextStudent.studentName}</div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Statut actuel (vitesse, durée) -->
+      ${speed !== undefined || tripDuration ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <div style="font-size: 13px; color: #475569;">
+            ${speed !== undefined ? `<span style="font-weight: 600;">${Math.round(speed)} km/h</span>` : ''}
+            ${tripDuration ? `<span style="margin-left: 8px;">• ${tripDuration}</span>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Body: Infos conducteur inline -->
-      <div style="padding: 12px 16px;">
+      <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
         <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #475569;">
           <span style="font-weight: 500;">👤</span>
           <span>${driverName}</span>
