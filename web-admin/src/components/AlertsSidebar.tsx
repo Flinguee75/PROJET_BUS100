@@ -629,6 +629,22 @@ const getBusUpdateTimestamp = (bus: BusRealtimeData): number | null => {
 
 // Fonction inutilisée - supprimée pour simplification
 
+const calculateMinutesSince = (timestamp: number | null | undefined): number => {
+  if (!timestamp) return 0;
+
+  let timestampMs: number;
+  if (typeof timestamp === 'number') {
+    timestampMs = timestamp;
+  } else if (typeof timestamp === 'string') {
+    timestampMs = new Date(timestamp).getTime();
+  } else {
+    return 0;
+  }
+
+  const elapsed = Date.now() - timestampMs;
+  return Math.floor(elapsed / 60000);
+};
+
 const formatDurationFromMs = (durationMs: number | null | undefined): string => {
   if (durationMs == null || durationMs < 0) return '—';
   if (durationMs < 60000) return '< 1 min';
@@ -741,6 +757,23 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 Tout ({totalFleet})
               </button>
 
+              {/* Arrivé Récemment - Affiché uniquement s'il y a des bus ARRIVED */}
+              {arrivedCount > 0 && (
+                <button
+                  onClick={() => setSelectedFleetFilter('arrived')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 ${
+                    selectedFleetFilter === 'arrived'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white border-2 border-green-500 text-green-700 hover:bg-green-50'
+                  }`}
+                  aria-pressed={selectedFleetFilter === 'arrived'}
+                  aria-label="Afficher les bus arrivés récemment"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  Arrivé Récemment ({arrivedCount})
+                </button>
+              )}
+
               {/* En course */}
               <button
                 onClick={() => setSelectedFleetFilter('en_course')}
@@ -770,23 +803,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 <School className="w-3.5 h-3.5" strokeWidth={2.5} />
                 À l'école{atSchoolCount > 0 ? ` (${atSchoolCount})` : ''}
               </button>
-
-              {/* Arrivé Récemment - Affiché uniquement s'il y a des bus ARRIVED */}
-              {arrivedCount > 0 && (
-                <button
-                  onClick={() => setSelectedFleetFilter('arrived')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 ${
-                    selectedFleetFilter === 'arrived'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white border-2 border-green-500 text-green-700 hover:bg-green-50'
-                  }`}
-                  aria-pressed={selectedFleetFilter === 'arrived'}
-                  aria-label="Afficher les bus arrivés récemment"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  Arrivé Récemment ({arrivedCount})
-                </button>
-              )}
             </div>
           </div>
         </>
@@ -940,6 +956,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                           scanned={counts.scanned}
                           total={counts.total}
                           size="md"
+                          variant={isArrived ? 'success' : undefined}
                         />
                       )}
                     </div>
@@ -957,24 +974,22 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                     {isArrived && (
                       <div className="flex items-center gap-1.5 text-slate-700 mt-2">
                         <MapPin className="w-3.5 h-3.5 text-green-500 flex-shrink-0" strokeWidth={2.5} />
-                        <span className="text-sm font-medium">Arrivé à l'école</span>
+                        <span className="text-sm font-medium">
+                          Arrivé il y a {calculateMinutesSince(bus.stoppedAt)} min
+                        </span>
                       </div>
                     )}
 
                     {/* Ligne 3: Infos spécifiques selon l'état */}
 
-                    {/* BUS ARRIVÉ: Élèves scannés + Temps de course */}
+                    {/* BUS ARRIVÉ: Temps depuis l'arrêt */}
                     {isArrived && (
-                      <div className="mt-2 space-y-1">
-                        <div className="text-xs text-slate-600">
-                          <span className="font-semibold text-green-700">{counts.scanned}</span> scannés /
-                          <span className="font-semibold text-slate-700"> {counts.total}</span> élèves
+                      <div className="mt-2">
+                        <div className="text-xs text-slate-500">
+                          <span>Arrêté depuis: {formatDurationFromMs(
+                            bus.stoppedAt ? Date.now() - (typeof bus.stoppedAt === 'number' ? bus.stoppedAt : new Date(bus.stoppedAt as string).getTime()) : 0
+                          )}</span>
                         </div>
-                        {tripDuration && (
-                          <div className="text-xs text-slate-500">
-                            <span>Trajet: {tripDuration}</span>
-                          </div>
-                        )}
                       </div>
                     )}
 

@@ -7,6 +7,7 @@
 
 interface SimplifiedBusPopupOptions {
   busNumber: string;
+  busStatus?: string;
   driverName?: string;
   driverPhone?: string;
   scannedCount: number;
@@ -32,6 +33,7 @@ interface SimplifiedBusPopupOptions {
  */
 export const generateSimplifiedBusPopupHTML = ({
   busNumber,
+  busStatus,
   driverName = 'Non assigné',
   driverPhone,
   scannedCount,
@@ -42,8 +44,9 @@ export const generateSimplifiedBusPopupHTML = ({
   speed,
   tripDuration,
 }: SimplifiedBusPopupOptions): string => {
-  // Déterminer la couleur du ratio (vert si complet, rouge sinon)
-  const isComplete = scannedCount === totalCount && totalCount > 0;
+  // Déterminer la couleur du ratio (vert si complet ou si bus ARRIVED, rouge sinon)
+  const isArrived = busStatus === 'arrived';
+  const isComplete = (scannedCount === totalCount && totalCount > 0) || isArrived;
   const ratioColorClass = isComplete ? 'text-green-600' : 'text-red-600';
   const ratioBgClass = isComplete ? 'bg-green-50' : 'bg-red-50';
 

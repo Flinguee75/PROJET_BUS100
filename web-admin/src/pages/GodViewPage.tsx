@@ -1137,12 +1137,13 @@ export const GodViewPage = () => {
       // Utiliser le helper pour générer le popup simplifié
       return generateSimplifiedBusPopupHTML({
         busNumber: bus.number,
+        busStatus: bus.liveStatus,
         driverName: bus.driver?.name,
         driverPhone: bus.driver?.phone,
         scannedCount: counts.scanned,
         totalCount: counts.total,
         onCenterClick: `window.${centerCallbackId} && window.${centerCallbackId}()`,
-        
+
         // NOUVEAUX champs Phase 4
         lastScan: lastScanInfo,
         nextStudent: nextStudentInfo,
