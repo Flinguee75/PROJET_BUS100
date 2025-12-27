@@ -144,11 +144,6 @@ export const Sidebar = () => {
                   )}
                 </>
               )}
-
-              {/* Indicateur actif pour mode collapsed */}
-              {!showText && active && (
-                <div className="absolute right-2 w-1.5 h-1.5 bg-white rounded-full"></div>
-              )}
             </Link>
           );
         })}

@@ -394,7 +394,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       await _updateLiveStatus('en_route', extraData: {
         'tripType': tripValue,
         'tripLabel': _selectedTripType!.label,
-        'tripStartTime': FieldValue.serverTimestamp(),
+        'tripStartTime': tripStartTimestamp,
       });
       final busInfo = await _ensureBusMetadata();
       final historyId = await CourseHistoryService.startCourse(
@@ -412,6 +412,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         },
         schoolId: _driver!.schoolId,
       );
+      if (historyId == null) {
+        _showError('Impossible de démarrer l’historique de course');
+        setState(() {
+          _isTripActive = false;
+        });
+        return;
+      }
       _currentCourseHistoryId = historyId;
 
       // Charger la liste des élèves filtrés
@@ -436,16 +443,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         debugPrint('✅ Service GPS background démarré');
 
         // Sauvegarder l'état du trajet pour récupération après crash
-        await TripStateService.saveTripState(
-          busId: _driver!.busId!,
-          driverId: _driver!.id,
-          tripType: _selectedTripType!,
-          courseHistoryId: _currentCourseHistoryId!,
-          scannedStudents: _scannedStudents,
-          tripStartTimestamp: tripStartTimestamp,
-          currentPosition: _currentPosition,
-          busMetadata: _busMetadata,
-        );
+        if (_currentCourseHistoryId != null) {
+          await TripStateService.saveTripState(
+            busId: _driver!.busId!,
+            driverId: _driver!.id,
+            tripType: _selectedTripType!,
+            courseHistoryId: _currentCourseHistoryId!,
+            scannedStudents: _scannedStudents,
+            tripStartTimestamp: tripStartTimestamp,
+            currentPosition: _currentPosition,
+            busMetadata: _busMetadata,
+          );
+        }
       }
     } finally {
       _setTripActionLoading(false);
@@ -496,12 +505,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             .doc(_driver!.busId!)
             .update({
           'status': 'stopped',
+          'stoppedAt': FieldValue.serverTimestamp(),
           'tripType': null,
           'tripLabel': null,
           'tripStartTime': null,
           'lastUpdate': FieldValue.serverTimestamp(),
         });
-        debugPrint('✅ Bus mis en statut STOPPED');
+        debugPrint('✅ Bus mis en statut STOPPED avec stoppedAt');
       }
 
       // 5. Finaliser l'historique de course
@@ -856,6 +866,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_driver != null) _buildDriverInfoCard(),
+          if (_driver != null) const SizedBox(height: 20),
           const Text(
             'Choisissez le type de course',
             style: TextStyle(
@@ -901,6 +913,112 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDriverInfoCard() {
+    final driver = _driver;
+    if (driver == null) {
+      return const SizedBox.shrink();
+    }
+
+    final displayName = driver.displayName.trim();
+    final nameParts =
+        displayName.isEmpty ? <String>[] : displayName.split(RegExp(r'\s+'));
+    final firstName = nameParts.isNotEmpty ? nameParts.first : '—';
+    final lastName =
+        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '—';
+    final busNumber = _busMetadata?['busNumber']?.toString() ?? '—';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 34,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                    backgroundImage: driver.photoUrl != null
+                        ? NetworkImage(driver.photoUrl!)
+                        : null,
+                    child: driver.photoUrl == null
+                        ? const Icon(
+                            Icons.person,
+                            color: AppColors.primary,
+                            size: 28,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: _handleDriverPhotoTap,
+                    icon: const Icon(Icons.photo_camera, size: 18),
+                    label: Text(
+                      driver.photoUrl == null
+                          ? 'Ajouter une photo'
+                          : 'Modifier la photo',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDriverInfoRow('Prénom', firstName),
+                const SizedBox(height: 6),
+                _buildDriverInfoRow('Nom', lastName),
+                const SizedBox(height: 6),
+                _buildDriverInfoRow('Numéro de bus', busNumber),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDriverInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _handleDriverPhotoTap() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ajout de photo du chauffeur à implémenter'),
       ),
     );
   }
@@ -1121,6 +1239,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               itemCount: _students.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
+                final cardWidth = MediaQuery.sizeOf(context).width - 48;
                 final student = _students[index];
                 final hasStatus = _handledStudents.contains(student.id);
                 final isPresent = _scannedStudents[student.id] ?? false;
@@ -1128,77 +1247,99 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 final statusColor = hasStatus
                     ? (isPresent ? Colors.green : Colors.orange)
                     : Colors.grey;
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: statusColor.withValues(alpha: 0.15),
-                          backgroundImage: student.photoUrl != null
-                              ? NetworkImage(student.photoUrl!)
-                              : null,
-                          child: student.photoUrl == null
-                              ? Text(
-                                  student.firstName.isNotEmpty
-                                      ? student.firstName[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: statusColor,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                student.fullName,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              Text(
-                                student.grade,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
+                return SizedBox(
+                  width: cardWidth > 0 ? cardWidth : MediaQuery.sizeOf(context).width,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: statusColor.withValues(alpha: 0.15),
+                            backgroundImage: student.photoUrl != null
+                                ? NetworkImage(student.photoUrl!)
+                                : null,
+                            child: student.photoUrl == null
+                                ? Text(
+                                    student.firstName.isNotEmpty
+                                        ? student.firstName[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: statusColor,
+                                    ),
+                                  )
+                                : null,
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              statusLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      _setStudentAttendance(student, true, shouldAdvance: false),
-                                  child: const Text('Présent'),
+                                Text(
+                                  student.fullName,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
-                                TextButton(
-                                  onPressed: () =>
-                                      _setStudentAttendance(student, false, shouldAdvance: false),
-                                  child: const Text('Absent'),
+                                Text(
+                                  student.grade,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        _setStudentAttendance(student, true, shouldAdvance: false),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: AppColors.success,
+                                      padding:
+                                          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text('Présent'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: () =>
+                                        _setStudentAttendance(student, false, shouldAdvance: false),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: AppColors.danger,
+                                      padding:
+                                          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text('Absent'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );

@@ -56,10 +56,18 @@ interface StudentWithLocation {
 // Timeout pour considérer un bus comme "en route" même sans GPS récent (2 minutes)
 const GPS_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
+const formatLocalDate = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 const isBusEnCourse = (bus: BusRealtimeData): boolean => {
   // Si le statut est explicitement EN_ROUTE ou DELAYED, le bus est en course
   if (bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED) {
     return true;
+  }
+
+  // Un bus marqué STOPPED/ARRIVED est considéré hors course, même si le GPS est récent.
+  if (bus.liveStatus === BusLiveStatus.STOPPED || bus.liveStatus === BusLiveStatus.ARRIVED) {
+    return false;
   }
   
   // Si le bus n'a pas de position GPS, utiliser lastUpdate comme fallback
@@ -74,7 +82,6 @@ const isBusEnCourse = (bus: BusRealtimeData): boolean => {
         const timeSinceLastUpdate = Date.now() - lastUpdateTime;
         
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:isBusEnCourse',message:'No GPS but checking lastUpdate',data:{busId:bus.id,liveStatus:bus.liveStatus,timeSinceLastUpdate,wasRecentlyUpdated:timeSinceLastUpdate < GPS_TIMEOUT_MS,isArrived:bus.liveStatus === BusLiveStatus.ARRIVED,result:timeSinceLastUpdate < GPS_TIMEOUT_MS && bus.liveStatus !== BusLiveStatus.ARRIVED},timestamp:Date.now(),sessionId:'debug-session',runId:'run-gps-timeout-fix-v2',hypothesisId:'GPS_TIMEOUT_FIX_V2'})}).catch(()=>{});
         // #endregion
         
         // Si la dernière mise à jour est récente ET que le statut n'est pas ARRIVED,
@@ -97,7 +104,6 @@ const isBusEnCourse = (bus: BusRealtimeData): boolean => {
   const wasRecentlyEnRoute = timeSinceLastGPS < GPS_TIMEOUT_MS;
   
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:isBusEnCourse',message:'Checking if bus is en course with GPS',data:{busId:bus.id,liveStatus:bus.liveStatus,hasGPS:!!bus.currentPosition,timeSinceLastGPS,wasRecentlyEnRoute,isArrived:bus.liveStatus === BusLiveStatus.ARRIVED,result:wasRecentlyEnRoute && bus.liveStatus !== BusLiveStatus.ARRIVED},timestamp:Date.now(),sessionId:'debug-session',runId:'run-gps-timeout-fix-v2',hypothesisId:'GPS_TIMEOUT_FIX_V2'})}).catch(()=>{});
   // #endregion
   
   // Si le bus avait une position GPS récente ET qu'il n'est pas explicitement arrivé,
@@ -111,12 +117,15 @@ const isBusEnCourse = (bus: BusRealtimeData): boolean => {
 };
 
 const isBusAtSchool = (bus: BusRealtimeData): boolean =>
-  bus.liveStatus === BusLiveStatus.ARRIVED || bus.liveStatus === BusLiveStatus.STOPPED;
+  bus.liveStatus === BusLiveStatus.ARRIVED ||
+  bus.liveStatus === BusLiveStatus.STOPPED ||
+  bus.liveStatus === BusLiveStatus.IDLE;
 
 const isBusStationed = (bus: BusRealtimeData): boolean =>
-  bus.liveStatus === BusLiveStatus.STOPPED ||
-  bus.liveStatus === BusLiveStatus.IDLE ||
-  bus.liveStatus === BusLiveStatus.ARRIVED;
+  !isBusEnCourse(bus) &&
+  (bus.liveStatus === BusLiveStatus.STOPPED ||
+    bus.liveStatus === BusLiveStatus.IDLE ||
+    bus.liveStatus === BusLiveStatus.ARRIVED);
 
 // Token Mapbox depuis les variables d'environnement
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -169,7 +178,9 @@ const classifyBus = (
     !bus.isActive;
 
   const classification: 'stationed' | 'deployed' =
-    isNearSchool && stationaryStatus ? 'stationed' : 'deployed';
+    (stationaryStatus && (isNearSchool || bus.liveStatus === BusLiveStatus.STOPPED))
+      ? 'stationed'
+      : 'deployed';
 
   return { classification, distance };
 };
@@ -193,6 +204,9 @@ export const GodViewPage = () => {
   const parkingZonePopup = useRef<mapboxgl.Popup | null>(null);
   const isMapInteracting = useRef(false);
   const markerStateRef = useRef<Map<string, { lat: number; lng: number; heading: number }>>(new Map());
+  const markerMotionRef = useRef<
+    Map<string, { lat: number; lng: number; timestamp: number | null }>
+  >(new Map());
   const initialCenterRef = useRef<[number, number]>(
     school?.location ? [school.location.lng, school.location.lat] : ABIDJAN_CENTER
   );
@@ -221,6 +235,12 @@ export const GodViewPage = () => {
   const previousTripStartRef = useRef<Map<string, number | null>>(new Map());
   const previousScannedCountRef = useRef<Map<string, number>>(new Map());
 
+  // State dummy pour forcer re-render périodique (rafraîchir affichage ARRIVED → STOPPED)
+  const [, setForceUpdate] = useState(0);
+
+  // Constante de durée pour affichage ARRIVED (15 minutes)
+  const ARRIVED_DISPLAY_DURATION_MS = 15 * 60 * 1000;
+
   // ===== États pour les arrêts d'élèves =====
   // Toggle pour afficher/masquer les arrêts d'élèves
   const [showStudentStops, setShowStudentStops] = useState<boolean>(false);
@@ -240,7 +260,7 @@ export const GodViewPage = () => {
   const addNotification = useCallback(
     (message: string, type: 'start' | 'scan' | 'end') => {
       const id = ++notificationIdRef.current;
-      setNotifications((prev) => [...prev, { id, message, type }]);
+      setNotifications((prev) => [...prev, { id, message, type }].slice(-3));
       setTimeout(() => {
         setNotifications((prev) => prev.filter((item) => item.id !== id));
       }, 5000);
@@ -248,14 +268,40 @@ export const GodViewPage = () => {
     []
   );
 
+  // Fonction qui détermine le statut visuel à afficher
+  // Bus STOPPED depuis < 15 min → afficher comme ARRIVED
+  // Bus STOPPED depuis >= 15 min → afficher comme STOPPED
+  const computeDisplayStatus = useCallback((bus: BusRealtimeData): BusLiveStatus => {
+    const currentStatus = bus.liveStatus;
+
+    // Si le statut est null ou n'est pas STOPPED, retourner le statut tel quel
+    if (currentStatus !== BusLiveStatus.STOPPED) {
+      return currentStatus ?? BusLiveStatus.IDLE;
+    }
+
+    // ✅ NOUVEAU : Lire stoppedAt depuis Firestore (source de vérité backend)
+    const stoppedAt = bus.stoppedAt;
+
+    // Si pas de timestamp, le bus était déjà STOPPED avant la transition → afficher STOPPED
+    if (!stoppedAt) {
+      return BusLiveStatus.STOPPED;
+    }
+
+    // Calculer le temps écoulé depuis l'arrêt
+    const elapsed = Date.now() - stoppedAt;
+
+    // Si < 15 min → afficher ARRIVED, sinon STOPPED
+    return elapsed < ARRIVED_DISPLAY_DURATION_MS
+      ? BusLiveStatus.ARRIVED
+      : BusLiveStatus.STOPPED;
+  }, [ARRIVED_DISPLAY_DURATION_MS]);
+
   const processedBuses: ClassifiedBus[] = useMemo(() => {
     return schoolBuses
       .filter((bus) => (isBusEnCourse(bus) || isBusAtSchool(bus)) && bus.isActive)
       .map((bus) => {
-        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:156',message:'Processing bus - entry',data:{busId:bus.id,busLiveStatus:bus.liveStatus,localStatus:localStatusRef.current.get(bus.id),isActive:bus.isActive},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-
         const { classification, distance } = classifyBus(bus, school?.location);
-        const effectiveLiveStatus = localStatusRef.current.get(bus.id) ?? bus.liveStatus;
+        const effectiveLiveStatus = localStatusRef.current.get(bus.id) ?? computeDisplayStatus(bus);
 
         let displayPosition: { lat: number; lng: number } | null = null;
         let hasArrived = false;
@@ -280,7 +326,6 @@ export const GodViewPage = () => {
           displayPosition = { lat: ABIDJAN_CENTER[1], lng: ABIDJAN_CENTER[0] };
         }
 
-        fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:248',message:'Final effectiveLiveStatus for bus',data:{busId:bus.id,effectiveLiveStatus,firestoreStatus:bus.liveStatus,localStatus:localStatusRef.current.get(bus.id),hasArrived},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
 
         return {
           ...bus,
@@ -392,7 +437,7 @@ export const GodViewPage = () => {
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const currentBusIds = new Set(schoolBuses.map((bus) => bus.id));
-      
+
       // Nettoyer localStatusRef
       localStatusRef.current.forEach((_, busId) => {
         if (!currentBusIds.has(busId)) {
@@ -408,6 +453,15 @@ export const GodViewPage = () => {
 
     return () => clearInterval(cleanupInterval);
   }, [schoolBuses]);
+
+  // Force re-render toutes les 30 secondes pour actualiser l'affichage ARRIVED → STOPPED
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setForceUpdate(prev => prev + 1);
+    }, 30000); // 30 secondes
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialiser la carte Mapbox
   useEffect(() => {
@@ -478,6 +532,23 @@ export const GodViewPage = () => {
     };
   }, [initialCenterRef]);
 
+  // Redimensionner la carte quand le conteneur change de taille (ex: redimensionnement des sidebars)
+  useEffect(() => {
+    if (!mapContainer.current || !map.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (map.current) {
+        map.current.resize();
+      }
+    });
+
+    resizeObserver.observe(mapContainer.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [mapLoaded]); // Re-run quand la carte est chargée
+
   useEffect(() => {
     if (!map.current || !mapLoaded || !school?.location) return;
 
@@ -528,6 +599,7 @@ export const GodViewPage = () => {
   const getMarkerColor = useCallback((bus: ClassifiedBus): string => {
     if (!bus.isActive) return '#64748b'; // Gris (inactif)
 
+    if (bus.liveStatus === BusLiveStatus.ARRIVED) return '#22c55e'; // Vert (arrivé < 15 min)
     if (bus.liveStatus === BusLiveStatus.DELAYED) return '#dc2626'; // Rouge (retard)
     if (bus.classification === 'stationed') return '#22c55e'; // Vert (arrivé/à l'école)
     if (bus.liveStatus === BusLiveStatus.EN_ROUTE) return '#3b82f6'; // Bleu électrique (en cours) - meilleur contraste sur fond clair
@@ -602,16 +674,14 @@ export const GodViewPage = () => {
   // Créer le HTML du marqueur de zone de stationnement
   const createParkingZoneMarkerHTML = useCallback((count: number): string => {
     return `
-      <div class="parking-zone-marker">
-        <div class="parking-icon-container">
-          <svg class="parking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M8 8h4a3 3 0 0 1 0 6H8V8z" />
-            <line x1="8" y1="8" x2="8" y2="17" />
-          </svg>
-        </div>
-        <div class="bus-count-badge">${count}</div>
+      <div class="parking-icon-container">
+        <svg class="parking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M8 8h4a3 3 0 0 1 0 6H8V8z" />
+          <line x1="8" y1="8" x2="8" y2="17" />
+        </svg>
       </div>
+      <div class="bus-count-badge">${count}</div>
     `;
   }, []);
 
@@ -1006,6 +1076,17 @@ export const GodViewPage = () => {
     [studentsCounts]
   );
 
+  const attachPopupCloseHandler = useCallback((popup: mapboxgl.Popup) => {
+    const popupElement = popup.getElement();
+    if (!popupElement) return;
+    const closeButton = popupElement.querySelector('.bus-popup-close') as HTMLButtonElement | null;
+    if (!closeButton) return;
+    closeButton.onclick = (event) => {
+      event.stopPropagation();
+      popup.remove();
+    };
+  }, []);
+
   // Ref pour stocker les données temps réel des bus (tripType, tripStartTime)
   const busRealtimeDataRef = useRef<Map<string, { tripType: string | null; tripStartTime: number | null }>>(new Map());
 
@@ -1025,7 +1106,6 @@ export const GodViewPage = () => {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
     const unsubscribes: (() => void)[] = [];
     const busStudentsMap = new Map<string, number>(); // Map pour stocker le total d'élèves par bus
 
@@ -1046,9 +1126,13 @@ export const GodViewPage = () => {
     fetchBusStudentsTotals().then(() => {
       // Pour chaque bus, écouter les changements d'attendance en temps réel
       schoolBuses.forEach((bus) => {
+        const attendanceDate = bus.tripStartTime
+          ? formatLocalDate(new Date(bus.tripStartTime))
+          : formatLocalDate(new Date());
+
         const unsubscribe = watchBusAttendance(
           bus.id,
-          today,
+          attendanceDate,
           (attendance) => {
             // Récupérer les données temps réel actuelles depuis la ref
             const realtimeData = busRealtimeDataRef.current.get(bus.id);
@@ -1056,14 +1140,18 @@ export const GodViewPage = () => {
             const currentTripStartTime = realtimeData?.tripStartTime ?? null;
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:calculateScanned',message:'Calculating scanned students with ref data',data:{busId:bus.id,currentTripType,currentTripStartTime,fromRef:!!realtimeData,attendanceCount:attendance.length,attendanceRecords:attendance.map(a=>({studentId:a.studentId,tripType:a.tripType,timestamp:a.timestamp,morningStatus:a.morningStatus,eveningStatus:a.eveningStatus}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
             const isAttendanceScanned = (a: typeof attendance[number]) => {
+              const isPresent =
+                a.status === 'present' ||
+                a.morningStatus === 'present' ||
+                a.eveningStatus === 'present';
+
               // MODE TOLÉRANT : Si pas de tripType défini, accepter tous les scans valides
               if (!currentTripType) {
                 // Accepter si au moins un statut est 'present'
-                return a.morningStatus === 'present' || a.eveningStatus === 'present';
+                return isPresent;
               }
               
               // Vérifier que le record correspond au tripType actuel (seulement si record a un tripType)
@@ -1075,7 +1163,6 @@ export const GodViewPage = () => {
               if (currentTripStartTime && a.timestamp) {
                 if (a.timestamp < currentTripStartTime) {
                   // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:filterAttendance',message:'Record rejected - before tripStart',data:{busId:bus.id,studentId:a.studentId,recordTimestamp:a.timestamp,currentTripStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                   // #endregion
                   return false;
                 }
@@ -1084,14 +1171,14 @@ export const GodViewPage = () => {
               // Selon le type de trajet, vérifier le bon statut
               if (currentTripType === 'morning_outbound' || currentTripType === 'midday_return') {
                 // Trajets du matin/midi-retour : vérifier morningStatus
-                return a.morningStatus === 'present';
+                return a.morningStatus === 'present' || a.status === 'present';
               } else if (currentTripType === 'midday_outbound' || currentTripType === 'evening_return') {
                 // Trajets du midi/soir : vérifier eveningStatus
-                return a.eveningStatus === 'present';
+                return a.eveningStatus === 'present' || a.status === 'present';
               }
               
               // Fallback : vérifier les deux statuts si tripType non reconnu
-              return a.morningStatus === 'present' || a.eveningStatus === 'present';
+              return isPresent;
             };
 
             const scannedIdsSet = new Set<string>();
@@ -1105,7 +1192,6 @@ export const GodViewPage = () => {
             const scannedIds = Array.from(scannedIdsSet);
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GodViewPage.tsx:finalScanned',message:'Final scanned count',data:{busId:bus.id,scannedCount:scanned},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
             // #endregion
 
             // Le total d'élèves du bus (récupéré précédemment)
@@ -1123,9 +1209,7 @@ export const GodViewPage = () => {
               [bus.id]: scannedIds,
             }));
           },
-          (error) => {
-            console.error(`Erreur lors de l'écoute de l'attendance pour le bus ${bus.id}:`, error);
-          }
+          () => {}
         );
         unsubscribes.push(unsubscribe);
       });
@@ -1170,16 +1254,28 @@ export const GodViewPage = () => {
       const popup = popups.current.get(activePopupBusId);
       if (popup) {
         popup.setHTML(newHTML);
+        attachPopupCloseHandler(popup);
       }
     }, 15000); // 15 secondes
 
     return () => clearInterval(interval);
-  }, [activePopupBusId, processedBuses, createPopupHTML]);
+  }, [activePopupBusId, processedBuses, createPopupHTML, attachPopupCloseHandler]);
 
   const animateMarkerToPosition = useCallback(
-    (busId: string, marker: mapboxgl.Marker, targetLat: number, targetLng: number) => {
+    (
+      busId: string,
+      marker: mapboxgl.Marker,
+      targetLat: number,
+      targetLng: number,
+      targetTimestamp: number | null
+    ) => {
       if (isMapInteracting.current || map.current?.isMoving() || map.current?.isZooming()) {
         marker.setLngLat([targetLng, targetLat]);
+        markerMotionRef.current.set(busId, {
+          lat: targetLat,
+          lng: targetLng,
+          timestamp: targetTimestamp,
+        });
         return;
       }
 
@@ -1192,7 +1288,17 @@ export const GodViewPage = () => {
       const startLngLat = marker.getLngLat();
       const fromLat = startLngLat.lat;
       const fromLng = startLngLat.lng;
-      const durationMs = 1200;
+      const previousMotion = markerMotionRef.current.get(busId);
+      const previousTimestamp = previousMotion?.timestamp ?? null;
+      let durationMs = 1200;
+      if (
+        typeof targetTimestamp === 'number' &&
+        typeof previousTimestamp === 'number' &&
+        targetTimestamp > previousTimestamp
+      ) {
+        const deltaMs = targetTimestamp - previousTimestamp;
+        durationMs = Math.min(Math.max(deltaMs, 600), 10000);
+      }
       const startTime = performance.now();
 
       const step = (currentTime: number) => {
@@ -1212,9 +1318,27 @@ export const GodViewPage = () => {
 
       const rafId = requestAnimationFrame(step);
       markerAnimations.current.set(busId, rafId);
+
+      markerMotionRef.current.set(busId, {
+        lat: targetLat,
+        lng: targetLng,
+        timestamp: targetTimestamp,
+      });
     },
     []
   );
+
+  const getBusPositionTimestamp = useCallback((bus: ClassifiedBus): number | null => {
+    if (typeof bus.currentPosition?.timestamp === 'number') {
+      const rawTimestamp = bus.currentPosition.timestamp;
+      return rawTimestamp < 1e12 ? rawTimestamp * 1000 : rawTimestamp;
+    }
+    if (bus.lastUpdate) {
+      const parsed = Date.parse(bus.lastUpdate);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1236,11 +1360,6 @@ export const GodViewPage = () => {
 
     // 2. CREATE/UPDATE parking zone marker if stationed buses exist
     if (parkingZone && school?.location) {
-      // Remove old parking zone marker
-      if (parkingZoneMarker.current) {
-        parkingZoneMarker.current.remove();
-      }
-
       // Décalage léger du parking à côté de l'école (environ 20 mètres à l'est)
       // 1 degré de longitude ≈ 111km à l'équateur, donc 0.0002° ≈ 22m
       // École reste visible séparément pour permettre interaction distincte
@@ -1248,29 +1367,41 @@ export const GodViewPage = () => {
       const parkingLng = school.location.lng + parkingOffset;
       const parkingLat = school.location.lat;
 
-      // Create parking zone marker element
-      const parkingEl = document.createElement('div');
-      parkingEl.innerHTML = createParkingZoneMarkerHTML(parkingZone.count);
+      if (parkingZoneMarker.current) {
+        const existingEl = parkingZoneMarker.current.getElement();
+        existingEl.className = 'parking-zone-marker';
+        existingEl.innerHTML = createParkingZoneMarkerHTML(parkingZone.count);
+        parkingZoneMarker.current.setLngLat([parkingLng, parkingLat]);
 
-      // Create parking zone popup - CENTRÉ SUR LA PAGE
-      const parkingPopup = new mapboxgl.Popup({
-        offset: 30,
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: '420px',
-        anchor: 'center', // Centre le popup
-        className: 'parking-popup-centered',
-      }).setHTML(createParkingZonePopupHTML(parkingZone));
+        if (parkingZonePopup.current) {
+          parkingZonePopup.current.setHTML(createParkingZonePopupHTML(parkingZone));
+        }
+      } else {
+        // Create parking zone marker element
+        const parkingEl = document.createElement('div');
+        parkingEl.className = 'parking-zone-marker';
+        parkingEl.innerHTML = createParkingZoneMarkerHTML(parkingZone.count);
 
-      parkingZonePopup.current = parkingPopup;
+        // Create parking zone popup - CENTRÉ SUR LA PAGE
+        const parkingPopup = new mapboxgl.Popup({
+          offset: 30,
+          closeButton: true,
+          closeOnClick: false,
+          maxWidth: '420px',
+          anchor: 'center', // Centre le popup
+          className: 'parking-popup-centered',
+        }).setHTML(createParkingZonePopupHTML(parkingZone));
 
-      // Create parking zone marker avec position décalée
-      const marker = new mapboxgl.Marker(parkingEl)
-        .setLngLat([parkingLng, parkingLat])
-        .setPopup(parkingPopup)
-        .addTo(map.current);
+        parkingZonePopup.current = parkingPopup;
 
-      parkingZoneMarker.current = marker;
+        // Create parking zone marker avec position décalée
+        const marker = new mapboxgl.Marker(parkingEl)
+          .setLngLat([parkingLng, parkingLat])
+          .setPopup(parkingPopup)
+          .addTo(map.current);
+
+        parkingZoneMarker.current = marker;
+      }
     }
 
     // 3. UPDATE individual bus markers (EXCLUDE stationed buses)
@@ -1285,7 +1416,8 @@ export const GodViewPage = () => {
       // Si le marqueur existe déjà, le mettre à jour
       if (markers.current.has(busId)) {
         const marker = markers.current.get(busId)!;
-        animateMarkerToPosition(busId, marker, lat, lng);
+        const targetTimestamp = getBusPositionTimestamp(bus);
+        animateMarkerToPosition(busId, marker, lat, lng, targetTimestamp);
 
         // Mettre à jour le HTML du marqueur (pour le changement de couleur)
         const el = marker.getElement();
@@ -1294,7 +1426,10 @@ export const GodViewPage = () => {
         // Mettre à jour le popup (async)
         if (popups.current.has(busId)) {
           const popup = popups.current.get(busId)!;
-          createPopupHTML(bus).then(html => popup.setHTML(html));
+          createPopupHTML(bus).then(html => {
+            popup.setHTML(html);
+            attachPopupCloseHandler(popup);
+          });
         }
       } else {
         // Créer un nouveau marqueur
@@ -1323,14 +1458,7 @@ export const GodViewPage = () => {
               parkingZonePopup.current.remove();
             }
 
-            const popupElement = popup.getElement();
-            const closeButton = popupElement.querySelector('.bus-popup-close') as HTMLButtonElement | null;
-            if (closeButton) {
-              closeButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                popup.remove();
-              });
-            }
+            attachPopupCloseHandler(popup);
           });
 
           // Cleanup quand popup fermé
@@ -1346,6 +1474,11 @@ export const GodViewPage = () => {
             .addTo(map.current!);
 
           markers.current.set(busId, marker);
+          markerMotionRef.current.set(busId, {
+            lat,
+            lng,
+            timestamp: getBusPositionTimestamp(bus),
+          });
         });
       }
     });
@@ -1361,6 +1494,7 @@ export const GodViewPage = () => {
         marker.remove();
         markers.current.delete(busId);
         popups.current.delete(busId);
+        markerMotionRef.current.delete(busId);
         markerStateRef.current.delete(busId);
       }
     });
@@ -1375,6 +1509,7 @@ export const GodViewPage = () => {
     createParkingZoneMarkerHTML,
     createParkingZonePopupHTML,
     animateMarkerToPosition,
+    getBusPositionTimestamp,
   ]);
 
   const realtimeUpdateLabel = lastRealtimeUpdate

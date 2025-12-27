@@ -30,8 +30,14 @@ export class GPSService {
       throw new Error(`Bus ${busId} has no data`);
     }
 
-    // Déterminer le statut du bus basé sur la vitesse
-    const status = await this.determineBusStatus(speed);
+    // Récupérer l'état précédent du bus pour détecter les transitions
+    const previousLiveDoc = await db.collection(collections.gpsLive).doc(busId).get();
+    const previousStatus = previousLiveDoc.exists
+      ? (previousLiveDoc.data() as any)?.liveStatus
+      : null;
+
+    // Déterminer le nouveau statut du bus basé sur la vitesse
+    const newStatus = await this.determineBusStatus(speed);
 
     // Créer l'objet GPS Live
     const gpsLive: GPSLiveData = {
@@ -46,13 +52,39 @@ export class GPSService {
       },
       driverId: busData.driverId || '',
       routeId: busData.routeId || null,
-      status,
+      status: newStatus,
       passengersCount: 0, // TODO: Implémenter comptage passagers
       lastUpdate: new Date(),
     };
 
     // NOUVEAU : Enrichir avec les infos du bus avant de sauvegarder
-    const enrichedData = await this.enrichGPSDataWithBusInfo(gpsLive, busData);
+    let enrichedData = await this.enrichGPSDataWithBusInfo(gpsLive, busData);
+
+    // 🔥 GESTION DU TIMESTAMP stoppedAt
+    // Transition EN_ROUTE → STOPPED : enregistrer le timestamp
+    if (previousStatus === BusLiveStatus.EN_ROUTE && newStatus === BusLiveStatus.STOPPED) {
+      enrichedData = {
+        ...enrichedData,
+        stoppedAt: Date.now(),
+      };
+      console.log(`✅ [BACKEND] Bus ${busId} EN_ROUTE → STOPPED, stoppedAt enregistré`);
+    }
+    // Transition STOPPED → EN_ROUTE : effacer le timestamp
+    else if (previousStatus === BusLiveStatus.STOPPED && newStatus === BusLiveStatus.EN_ROUTE) {
+      enrichedData = {
+        ...enrichedData,
+        stoppedAt: null,
+      };
+      console.log(`🔄 [BACKEND] Bus ${busId} STOPPED → EN_ROUTE, stoppedAt effacé`);
+    }
+    // Si déjà STOPPED, conserver le stoppedAt existant
+    else if (newStatus === BusLiveStatus.STOPPED && previousLiveDoc.exists) {
+      const previousData = previousLiveDoc.data() as any;
+      enrichedData = {
+        ...enrichedData,
+        stoppedAt: previousData.stoppedAt || null,
+      };
+    }
 
     // Sauvegarder les données ENRICHIES dans /gps_live
     await db.collection(collections.gpsLive).doc(busId).set(enrichedData);

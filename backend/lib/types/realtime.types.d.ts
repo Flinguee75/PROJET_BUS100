@@ -32,6 +32,7 @@ export interface BusRealtimeData {
     tripType?: string | null;
     tripLabel?: string | null;
     tripStartTime?: number | null;
+    stoppedAt?: number | null;
 }
 export interface BusStatistics {
     total: number;

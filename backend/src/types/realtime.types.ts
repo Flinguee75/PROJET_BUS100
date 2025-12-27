@@ -69,6 +69,9 @@ export interface BusRealtimeData {
   tripType?: string | null;
   tripLabel?: string | null;
   tripStartTime?: number | null;
+
+  // Timestamp quand le bus est passé en STOPPED (pour affichage ARRIVED pendant 15 min)
+  stoppedAt?: number | null;
 }
 
 /**

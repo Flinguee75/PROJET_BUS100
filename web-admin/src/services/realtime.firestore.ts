@@ -371,7 +371,6 @@ export const updateBusStatus = async (
   status: string
 ): Promise<void> => {
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:367',message:'updateBusStatus called',data:{busId,status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
   // #endregion
   try {
     const db = getFirebaseDb();
@@ -382,12 +381,10 @@ export const updateBusStatus = async (
       lastUpdate: new Date(),
     });
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:375',message:'updateBusStatus completed',data:{busId,status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     console.log(`✅ Statut du bus ${busId} mis à jour: ${status}`);
   } catch (error) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'realtime.firestore.ts:381',message:'updateBusStatus error',data:{busId,status,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     console.error(`❌ Erreur lors de la mise à jour du statut du bus ${busId}:`, error);
     throw error;

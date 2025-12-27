@@ -3,7 +3,7 @@
  * Affiche uniquement les problèmes critiques (Management by Exception)
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   AlertTriangle,
   Clock,
@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ChevronDown,
   Search,
+  GripVertical,
 } from 'lucide-react';
 import { BusLiveStatus, type BusRealtimeData } from '@/types/realtime';
 import type { Alert } from '@/types/alerts';
@@ -34,6 +35,11 @@ interface AlertsSidebarProps {
   onFocusBus?: (busId: string) => void;
 }
 
+// Constantes pour les limites de largeur
+const ALERTS_MIN_WIDTH = 280;
+const ALERTS_MAX_WIDTH = 600;
+const ALERTS_DEFAULT_WIDTH = 384; // w-96 en pixels
+
 export const AlertsSidebar = ({
   alerts,
   buses,
@@ -44,8 +50,50 @@ export const AlertsSidebar = ({
   atSchoolCount: _atSchoolCount, // Préfixé avec _ car non utilisé actuellement
   onFocusBus,
 }: AlertsSidebarProps) => {
+  // Largeur de la sidebar (redimensionnable)
+  const [width, setWidth] = useState(ALERTS_DEFAULT_WIDTH);
+  const isResizingRef = useRef(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
   // Onglet actif : FLOTTE ou ÉLÈVES
   const [activeTab, setActiveTab] = useState<'fleet' | 'students'>('fleet');
+
+  // Gestion du redimensionnement par drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current || !sidebarRef.current) return;
+
+      // Pour une sidebar à droite, on calcule la largeur depuis le bord droit de la fenêtre
+      const newWidth = window.innerWidth - e.clientX;
+
+      // Contraintes de largeur
+      if (newWidth >= ALERTS_MIN_WIDTH && newWidth <= ALERTS_MAX_WIDTH) {
+        setWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleMouseDown = () => {
+    isResizingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   // Filtre flotte sélectionné (single selection)
   const [selectedFleetFilter, setSelectedFleetFilter] = useState<
@@ -242,7 +290,6 @@ export const AlertsSidebar = ({
           today,
           (attendance) => {
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:watchBusAttendance',message:'Attendance received for bus',data:{busId:bus.id,busTripType:bus.tripType,busTripStartTime:bus.tripStartTime,attendanceCount:attendance.length,attendanceRecords:attendance.map(a=>({studentId:a.studentId,tripType:a.tripType,timestamp:a.timestamp,morningStatus:a.morningStatus,eveningStatus:a.eveningStatus}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
             const students = busStudentsMap.get(bus.id) || [];
@@ -254,14 +301,12 @@ export const AlertsSidebar = ({
             // MODE TOLÉRANT : Accepter les scans récents même si tripType pas parfaitement aligné
             attendance.forEach((record) => {
               // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Filtering attendance record',data:{busId:bus.id,recordTripType:record.tripType,currentTripType,recordTimestamp:record.timestamp,currentTripStartTime,matchesTripType:record.tripType===currentTripType,isAfterTripStart:currentTripStartTime?record.timestamp&&record.timestamp>=currentTripStartTime:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
               // #endregion
               
               // RÈGLE 1 : Si pas de tripType dans le record, TOUJOURS garder (compatibilité)
               if (!record.tripType) {
                 attendanceMap.set(record.studentId, record);
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripType in record (always accept)',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
                 // #endregion
                 return;
               }
@@ -270,7 +315,6 @@ export const AlertsSidebar = ({
               if (!currentTripType) {
                 attendanceMap.set(record.studentId, record);
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no currentTripType (tolerant mode)',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
                 // #endregion
                 return;
               }
@@ -278,7 +322,6 @@ export const AlertsSidebar = ({
               // RÈGLE 3 : Vérifier correspondance tripType
               if (record.tripType !== currentTripType) {
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - different tripType',data:{busId:bus.id,studentId:record.studentId,recordTripType:record.tripType,currentTripType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
                 // #endregion
                 return;
               }
@@ -288,18 +331,15 @@ export const AlertsSidebar = ({
                 if (record.timestamp >= currentTripStartTime) {
                   attendanceMap.set(record.studentId, record);
                   // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - matches tripType and after tripStart',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                   // #endregion
                 } else {
                   // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record rejected - before tripStart',data:{busId:bus.id,studentId:record.studentId,recordTimestamp:record.timestamp,currentTripStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                   // #endregion
                 }
               } else {
                 // Pas de tripStartTime, garder le record
                 attendanceMap.set(record.studentId, record);
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:filterAttendance',message:'Record kept - no tripStartTime to filter',data:{busId:bus.id,studentId:record.studentId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
                 // #endregion
               }
             });
@@ -314,9 +354,13 @@ export const AlertsSidebar = ({
               if (!record) return false;
               
               const currentTripType = bus.tripType;
+              const isPresent =
+                record.status === 'present' ||
+                record.morningStatus === 'present' ||
+                record.eveningStatus === 'present';
               
               // Si pas de tripType défini, on considère comme non scanné pour éviter les faux positifs
-              if (!currentTripType) return false;
+              if (!currentTripType) return isPresent;
               
               // Vérifier que le record correspond au tripType actuel
               if (record.tripType && record.tripType !== currentTripType) {
@@ -326,14 +370,14 @@ export const AlertsSidebar = ({
               // Selon le type de trajet, vérifier le bon statut
               if (currentTripType === 'morning_outbound' || currentTripType === 'midday_return') {
                 // Trajets du matin/midi-retour : vérifier morningStatus
-                return record.morningStatus === 'present';
+                return record.morningStatus === 'present' || record.status === 'present';
               } else if (currentTripType === 'midday_outbound' || currentTripType === 'evening_return') {
                 // Trajets du midi/soir : vérifier eveningStatus
-                return record.eveningStatus === 'present';
+                return record.eveningStatus === 'present' || record.status === 'present';
               }
               
               // Fallback : vérifier les deux statuts si tripType non reconnu
-              return record.morningStatus === 'present' || record.eveningStatus === 'present';
+              return isPresent;
             };
 
             students.forEach((student) => {
@@ -341,7 +385,6 @@ export const AlertsSidebar = ({
               const isScanned = isStudentScannedForCurrentTrip(record);
               
               // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:classifyStudent',message:'Classifying student as scanned/unscanned',data:{busId:bus.id,studentId:student.id,hasRecord:!!record,recordTripType:record?.tripType,recordTimestamp:record?.timestamp,isScanned},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
               // #endregion
 
               if (isScanned) {
@@ -352,7 +395,6 @@ export const AlertsSidebar = ({
             });
             
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/96abddaa-2d2c-404e-bd87-d80d66843adb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AlertsSidebar.tsx:finalCounts',message:'Final student counts',data:{busId:bus.id,scannedCount:scanned.length,unscannedCount:unscanned.length,totalStudents:students.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
             // #endregion
 
             setBusStudentsData((prev) => ({
@@ -365,9 +407,7 @@ export const AlertsSidebar = ({
               },
             }));
           },
-          (error) => {
-            console.error(`Erreur lors de l'écoute de l'attendance pour le bus ${bus.id}:`, error);
-          }
+          () => {}
         );
         unsubscribes.push(unsubscribe);
       });
@@ -586,7 +626,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
 };
 
   return (
-    <div className="w-96 bg-[#F9FAFB] border-l border-slate-200 flex flex-col h-full">
+    <div
+      ref={sidebarRef}
+      style={{ width: `${width}px` }}
+      className="bg-[#F9FAFB] border-l border-slate-200 flex flex-col h-full relative flex-shrink-0"
+    >
       {/* Header */}
       <div className="p-6 bg-white border-b border-slate-200">
         <div className="flex items-center justify-between mb-3">
@@ -1303,6 +1347,17 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
         ) : null}
       </div>
 
+      {/* Handle de redimensionnement */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 left-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-primary-500 transition-colors group"
+        aria-label="Redimensionner la sidebar"
+      >
+        {/* Indicateur visuel au centre */}
+        <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-12 bg-slate-700 group-hover:bg-primary-500 transition-colors rounded-r-sm flex items-center justify-center">
+          <GripVertical className="w-3 h-3 text-slate-500 group-hover:text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
     </div>
   );
 };

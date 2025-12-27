@@ -39,6 +39,8 @@ class AttendanceService {
         'tripType': tripType,
         'tripStartTime': tripStartTime,
         'status': 'present',
+        ..._buildTripStatus(tripType, 'present'),
+        'timestamp': now.millisecondsSinceEpoch,
         'scannedAt': FieldValue.serverTimestamp(),
         'driverId': driverId,
         'location': location,
@@ -87,6 +89,8 @@ class AttendanceService {
         // Mettre à jour le statut à 'absent'
         await existingQuery.docs.first.reference.update({
           'status': 'absent',
+          ..._buildTripStatus(tripType, 'absent'),
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
           'scannedAt': null,
           'updatedAt': FieldValue.serverTimestamp(),
         });
@@ -100,6 +104,8 @@ class AttendanceService {
           'tripType': tripType,
           'tripStartTime': tripStartTime,
           'status': 'absent',
+          ..._buildTripStatus(tripType, 'absent'),
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
           'driverId': driverId,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -253,5 +259,18 @@ class AttendanceService {
   /// Formate une date en YYYY-MM-DD
   static String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static Map<String, String> _buildTripStatus(String tripType, String status) {
+    switch (tripType) {
+      case 'morning_outbound':
+      case 'midday_return':
+        return {'morningStatus': status};
+      case 'midday_outbound':
+      case 'evening_return':
+        return {'eveningStatus': status};
+      default:
+        return {};
+    }
   }
 }

@@ -560,58 +560,6 @@ async function seedData() {
     await db.collection('buses').doc(bus.id).update({ routeId });
     bus.routeId = routeId;
 
-    // ========== NOUVEAU: Initialiser currentTrip pour le ramassage en cours ==========
-    const currentTrip = {
-      tripType: TimeOfDay.MORNING_OUTBOUND,
-      routeId,
-      startTime: Date.now() - 15 * 60 * 1000, // Commencé il y a 15 minutes
-      scannedStudentIds: [] as string[],
-      totalStudentCount: studentsOfBus.length,
-    };
-    await db.collection('buses').doc(bus.id).update({ currentTrip });
-
-    // Pour les 3 premiers bus, simuler des scans d'élèves
-    if (busIdx < 3 && studentsOfBus.length > 0) {
-      const studentsToScan = studentsOfBus.slice(0, Math.min(2 + busIdx, studentsOfBus.length));
-      const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-      for (let scanIdx = 0; scanIdx < studentsToScan.length; scanIdx++) {
-        const student = studentsToScan[scanIdx]!;
-        const minutesAgo = 10 - scanIdx * 3; // 10min, 7min, 4min, 1min...
-
-        // Créer un enregistrement d'attendance
-        await db.collection('attendance').add({
-          studentId: student.id,
-          busId: bus.id,
-          date: todayStr,
-          type: 'boarding',
-          timestamp: Date.now() - minutesAgo * 60 * 1000,
-          morningStatus: 'present',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-
-        // Mettre à jour currentTrip.scannedStudentIds
-        currentTrip.scannedStudentIds.push(student.id);
-
-        // Mettre à jour lastScan (seulement pour le dernier scanné)
-        if (scanIdx === studentsToScan.length - 1) {
-          await db.collection('buses').doc(bus.id).update({
-            lastScan: {
-              studentId: student.id,
-              studentName: `${student.firstName} ${student.lastName}`,
-              timestamp: Date.now() - minutesAgo * 60 * 1000,
-              type: 'boarding',
-              location: student.locations?.morningPickup || null,
-            },
-            'currentTrip.scannedStudentIds': currentTrip.scannedStudentIds,
-          });
-        }
-      }
-
-      console.log(`    → ${studentsToScan.length} élèves scannés (simulation)`);
-    }
-
     // Mettre à jour les élèves avec l'ID de la route
     for (const élève of studentsOfBus) {
       await db.collection('students').doc(élève.id).update({ routeId });
@@ -628,18 +576,9 @@ async function seedData() {
   // ==================================================
   console.log('📍 Création des positions GPS avec statuts variés...');
 
-  // Configurations de statuts variés pour tester les panels colorés
+  // Aucun trajet en cours: tous les bus sont inactifs à l'école
   const busStatusConfigs = [
-    // Bus arrivés à l'école (ARRIVED - fond vert)
-    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 5, minutesAgo: 2, atSchool: true },
-    { status: BusLiveStatus.ARRIVED, speed: 0, passengersCount: 6, minutesAgo: 1, atSchool: true },
-
-    // Bus en route (EN_ROUTE - fond bleu)
-    { status: BusLiveStatus.EN_ROUTE, speed: 42, passengersCount: 4, minutesAgo: 0, atSchool: false },
-    { status: BusLiveStatus.EN_ROUTE, speed: 35, passengersCount: 5, minutesAgo: 1, atSchool: false },
-
-    // Bus en retard (DELAYED - fond rouge)
-    { status: BusLiveStatus.DELAYED, speed: 12, passengersCount: 3, minutesAgo: 28, atSchool: false },
+    { status: BusLiveStatus.IDLE, speed: 0, passengersCount: 0, minutesAgo: 2, atSchool: true },
   ];
 
   for (let i = 0; i < buses.length; i++) {
@@ -718,7 +657,7 @@ async function seedData() {
       updatedAt: gpsTimestamp,
       lastUpdate: Timestamp.fromMillis(gpsTimestamp),
       timestamp: gpsTimestamp,
-      tripStartTime: statusConfig.atSchool ? null : now - 25 * 60 * 1000, // Départ il y a 25 min
+      tripStartTime: null,
     });
 
     const statusLabel = statusLabels[statusConfig.status] || statusConfig.status;
