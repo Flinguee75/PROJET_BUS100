@@ -97,7 +97,7 @@ export const AlertsSidebar = ({
 
   // Filtre flotte sélectionné (single selection)
   const [selectedFleetFilter, setSelectedFleetFilter] = useState<
-    'all' | 'en_course' | 'at_school'
+    'all' | 'en_course' | 'at_school' | 'arrived'
   >('all');
 
   // État pour les filtres de type d'alerte élèves
@@ -199,6 +199,19 @@ export const AlertsSidebar = ({
     ).length;
   }, [enCourseCount, allBuses]);
 
+  // Compteur pour les bus arrivés récemment (ARRIVED)
+  const arrivedCount = useMemo(() => {
+    return allBuses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED).length;
+  }, [allBuses]);
+  const atSchoolCount = useMemo(() => {
+    return allBuses.filter(
+      (b) =>
+        b.liveStatus === BusLiveStatus.STOPPED ||
+        b.liveStatus === BusLiveStatus.ARRIVED ||
+        stationedBuses.some((sb) => sb.id === b.id)
+    ).length;
+  }, [allBuses, stationedBuses]);
+
   // Séparation des alertes par contexte
   const fleetAlerts = alerts.filter((a) => a.type === 'DELAY');
   const studentAlerts = alerts.filter((a) => a.type === 'UNSCANNED_CHILD');
@@ -220,6 +233,9 @@ export const AlertsSidebar = ({
             b.liveStatus === BusLiveStatus.ARRIVED ||
             stationedBuses.some((sb) => sb.id === b.id)
         );
+      case 'arrived':
+        // Afficher uniquement les bus arrivés récemment (ARRIVED)
+        return allBuses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED);
       case 'all':
       default:
         // Afficher tous les bus
@@ -737,7 +753,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 aria-label="Afficher les bus en course"
               >
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
-                En course
+                En course{effectiveEnCourse > 0 ? ` (${effectiveEnCourse})` : ''}
               </button>
 
               {/* À l'école */}
@@ -752,8 +768,25 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 aria-label="Afficher les bus à l'école"
               >
                 <School className="w-3.5 h-3.5" strokeWidth={2.5} />
-                À l'école
+                À l'école{atSchoolCount > 0 ? ` (${atSchoolCount})` : ''}
               </button>
+
+              {/* Arrivé Récemment - Affiché uniquement s'il y a des bus ARRIVED */}
+              {arrivedCount > 0 && (
+                <button
+                  onClick={() => setSelectedFleetFilter('arrived')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 ${
+                    selectedFleetFilter === 'arrived'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white border-2 border-green-500 text-green-700 hover:bg-green-50'
+                  }`}
+                  aria-pressed={selectedFleetFilter === 'arrived'}
+                  aria-label="Afficher les bus arrivés récemment"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  Arrivé Récemment ({arrivedCount})
+                </button>
+              )}
             </div>
           </div>
         </>

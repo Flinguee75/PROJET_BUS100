@@ -180,6 +180,16 @@ function mapFirestoreToLiveStatus(status: string | undefined): BusLiveStatus | n
 export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRealtimeData => {
   const rawPosition = data.position || data.currentPosition || null;
 
+  // 🔍 LOG: Afficher le stoppedAt brut pour debugging
+  if (data.stoppedAt) {
+    console.log(`📡 [FIRESTORE] Bus ${data.number || id} stoppedAt reçu:`, {
+      raw: data.stoppedAt,
+      type: typeof data.stoppedAt,
+      hasToMillis: data.stoppedAt && typeof data.stoppedAt === 'object' && 'toMillis' in data.stoppedAt,
+      hasSeconds: data.stoppedAt && typeof data.stoppedAt === 'object' && 'seconds' in data.stoppedAt,
+    });
+  }
+
   return {
     id,
     number: data.number || data.busNumber || `BUS-${id.slice(0, 2).toUpperCase()}`,
@@ -225,6 +235,8 @@ export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRea
     tripType: data.tripType || null,
     tripLabel: data.tripLabel || null,
     tripStartTime: normalizeTimestampToMillis(data.tripStartTime),
+    // ✅ NOUVEAU: Mapper stoppedAt depuis Firestore (peut être Timestamp, number, ou null)
+    stoppedAt: normalizeTimestampToMillis(data.stoppedAt),
   };
 };
 

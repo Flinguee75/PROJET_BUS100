@@ -65,8 +65,48 @@ const isBusEnCourse = (bus: BusRealtimeData): boolean => {
     return true;
   }
 
-  // Un bus marqué STOPPED/ARRIVED est considéré hors course, même si le GPS est récent.
-  if (bus.liveStatus === BusLiveStatus.STOPPED || bus.liveStatus === BusLiveStatus.ARRIVED) {
+  // NOUVEAU : Si le bus est STOPPED avec stoppedAt récent (< 15 min), le considérer comme en cours
+  // pour qu'il soit affiché avec le statut ARRIVED (calculé dans computeDisplayStatus)
+  if (bus.liveStatus === BusLiveStatus.STOPPED && bus.stoppedAt) {
+    // Convertir stoppedAt en timestamp (peut être string ou number ou Firestore Timestamp)
+    let stoppedAtTimestamp: number;
+
+    if (typeof bus.stoppedAt === 'string') {
+      stoppedAtTimestamp = new Date(bus.stoppedAt).getTime();
+    } else if (typeof bus.stoppedAt === 'object' && bus.stoppedAt !== null && 'seconds' in bus.stoppedAt) {
+      stoppedAtTimestamp = (bus.stoppedAt as any).seconds * 1000;
+    } else if (typeof bus.stoppedAt === 'number') {
+      stoppedAtTimestamp = bus.stoppedAt;
+    } else {
+      console.error(`⚠️ [isBusEnCourse] Bus ${bus.number}: Format stoppedAt inconnu`, bus.stoppedAt);
+      return false;
+    }
+
+    const elapsed = Date.now() - stoppedAtTimestamp;
+    const ARRIVED_DISPLAY_DURATION_MS = 15 * 60 * 1000;
+    const elapsedMinutes = Math.floor(elapsed / 60000);
+
+    console.log(`🚦 [isBusEnCourse] Bus ${bus.number} STOPPED avec stoppedAt:`, {
+      stoppedAt: bus.stoppedAt,
+      stoppedAtTimestamp,
+      elapsed: `${elapsedMinutes} min`,
+      threshold: '15 min',
+      passFiltre: elapsed < ARRIVED_DISPLAY_DURATION_MS,
+    });
+
+    if (elapsed < ARRIVED_DISPLAY_DURATION_MS) {
+      return true; // Bus arrêté récemment → afficher comme ARRIVED
+    }
+    return false; // Bus arrêté depuis > 15 min → vraiment arrêté
+  }
+
+  // Un bus marqué ARRIVED est considéré en cours pour l'afficher
+  if (bus.liveStatus === BusLiveStatus.ARRIVED) {
+    return true;
+  }
+
+  // Un bus marqué STOPPED sans stoppedAt est considéré hors course
+  if (bus.liveStatus === BusLiveStatus.STOPPED) {
     return false;
   }
   
@@ -282,18 +322,55 @@ export const GodViewPage = () => {
     // ✅ NOUVEAU : Lire stoppedAt depuis Firestore (source de vérité backend)
     const stoppedAt = bus.stoppedAt;
 
+    console.log(`🔍 [DISPLAY STATUS] Bus ${bus.number}:`, {
+      stoppedAt,
+      type: typeof stoppedAt,
+      raw: bus.stoppedAt,
+      currentStatus,
+    });
+
     // Si pas de timestamp, le bus était déjà STOPPED avant la transition → afficher STOPPED
     if (!stoppedAt) {
+      console.log(`❌ [DISPLAY STATUS] Bus ${bus.number}: Pas de stoppedAt → STOPPED`);
+      return BusLiveStatus.STOPPED;
+    }
+
+    // Convertir stoppedAt en timestamp si c'est une string ou un objet Firestore Timestamp
+    let stoppedAtTimestamp: number;
+
+    if (typeof stoppedAt === 'string') {
+      stoppedAtTimestamp = new Date(stoppedAt).getTime();
+      console.log(`🔄 [DISPLAY STATUS] Bus ${bus.number}: Conversion string → timestamp`, stoppedAtTimestamp);
+    } else if (typeof stoppedAt === 'object' && stoppedAt !== null && 'seconds' in stoppedAt) {
+      // Firestore Timestamp format
+      stoppedAtTimestamp = (stoppedAt as any).seconds * 1000;
+      console.log(`🔄 [DISPLAY STATUS] Bus ${bus.number}: Conversion Firestore Timestamp → timestamp`, stoppedAtTimestamp);
+    } else if (typeof stoppedAt === 'number') {
+      stoppedAtTimestamp = stoppedAt;
+      console.log(`✅ [DISPLAY STATUS] Bus ${bus.number}: stoppedAt déjà en timestamp`, stoppedAtTimestamp);
+    } else {
+      console.error(`⚠️ [DISPLAY STATUS] Bus ${bus.number}: Format stoppedAt inconnu`, stoppedAt);
       return BusLiveStatus.STOPPED;
     }
 
     // Calculer le temps écoulé depuis l'arrêt
-    const elapsed = Date.now() - stoppedAt;
+    const elapsed = Date.now() - stoppedAtTimestamp;
+    const elapsedMinutes = Math.floor(elapsed / 60000);
+    const thresholdMinutes = ARRIVED_DISPLAY_DURATION_MS / 60000;
 
-    // Si < 15 min → afficher ARRIVED, sinon STOPPED
-    return elapsed < ARRIVED_DISPLAY_DURATION_MS
+    const result = elapsed < ARRIVED_DISPLAY_DURATION_MS
       ? BusLiveStatus.ARRIVED
       : BusLiveStatus.STOPPED;
+
+    console.log(`🎯 [DISPLAY STATUS] Bus ${bus.number}:`, {
+      now: Date.now(),
+      stoppedAtTimestamp,
+      elapsed: `${elapsedMinutes} min`,
+      threshold: `${thresholdMinutes} min`,
+      result,
+    });
+
+    return result;
   }, [ARRIVED_DISPLAY_DURATION_MS]);
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
