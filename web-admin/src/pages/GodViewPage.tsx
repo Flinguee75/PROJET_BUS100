@@ -20,6 +20,7 @@ import { generateBusMarkerHTML, calculateHeadingToSchool } from '@/components/go
 import { generateSimplifiedBusPopupHTML, generateParkingPopupHTML } from '@/components/godview/SimplifiedBusPopup';
 import { generateStudentStopMarkerHTML, generateStudentStopPopupHTML } from '@/components/godview/StudentStopMarker';
 import { getNextStudent } from '@/services/bus.api';
+import { getLatestGpsHistoryTimestamp } from '@/services/gps_history.firestore';
 import { MapPin } from 'lucide-react';
 
 type ClassifiedBus = BusRealtimeData & {
@@ -192,6 +193,42 @@ const calculateDistanceMeters = (
   return R * c;
 };
 
+const getBusUpdateTimestamp = (bus: BusRealtimeData): number => {
+  const positionTs = bus.currentPosition?.timestamp;
+  if (typeof positionTs === 'number') {
+    return positionTs < 1e12 ? positionTs * 1000 : positionTs;
+  }
+  const lastUpdate = bus.lastUpdate;
+  if (typeof lastUpdate === 'number') {
+    return lastUpdate;
+  }
+  if (typeof lastUpdate === 'string') {
+    const parsed = Date.parse(lastUpdate);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+};
+
+const dedupeBuses = (buses: BusRealtimeData[]): BusRealtimeData[] => {
+  const byKey = new Map<string, BusRealtimeData>();
+  buses.forEach((bus) => {
+    const key = bus.number || bus.plateNumber || bus.id;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, bus);
+      return;
+    }
+    const existingTs = getBusUpdateTimestamp(existing);
+    const candidateTs = getBusUpdateTimestamp(bus);
+    if (candidateTs >= existingTs) {
+      byKey.set(key, bus);
+    }
+  });
+  return Array.from(byKey.values());
+};
+
 const classifyBus = (
   bus: BusRealtimeData,
   schoolLocation?: { lat: number; lng: number }
@@ -270,6 +307,8 @@ export const GodViewPage = () => {
   // State pour tracker le popup actuellement ouvert (pour auto-refresh)
   const [activePopupBusId, setActivePopupBusId] = useState<string | null>(null);
 
+  const dedupedSchoolBuses = useMemo(() => dedupeBuses(schoolBuses), [schoolBuses]);
+
   // Suivre l'état local du statut pour éviter le flickering
   const localStatusRef = useRef<Map<string, BusLiveStatus>>(new Map());
   const previousBusStatusRef = useRef<Map<string, BusLiveStatus | null>>(new Map());
@@ -295,9 +334,14 @@ export const GodViewPage = () => {
   // Chargement des données d'élèves
   const [studentsLoading, setStudentsLoading] = useState<boolean>(false);
   const [stopsSnapshot, setStopsSnapshot] = useState<{ busId: string; tripType: string | null } | null>(null);
+  const [gpsHistoryByBus, setGpsHistoryByBus] = useState<Record<string, number>>({});
+  const gpsHistoryFetchRef = useRef<Set<string>>(new Set());
+  const pendingStudentFocusRef = useRef<{ busId: string; studentId: string } | null>(null);
+  const singleStudentOnlyRef = useRef(false);
 
   // Ref pour les marqueurs d'arrêts d'élèves (séparés des marqueurs de bus)
   const studentMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const studentPopups = useRef<Map<string, mapboxgl.Popup>>(new Map());
   const processedBusesRef = useRef<ClassifiedBus[]>([]);
 
   const addNotification = useCallback(
@@ -377,7 +421,7 @@ export const GodViewPage = () => {
   }, [ARRIVED_DISPLAY_DURATION_MS]);
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
-    return schoolBuses
+    return dedupedSchoolBuses
       .filter((bus) => (isBusEnCourse(bus) || isBusAtSchool(bus)) && bus.isActive)
       .map((bus) => {
         const { classification, distance } = classifyBus(bus, school?.location);
@@ -416,11 +460,11 @@ export const GodViewPage = () => {
           hasArrived,
         };
       });
-  }, [schoolBuses, school]);
+  }, [dedupedSchoolBuses, school]);
 
   const stationedBuses = useMemo(() => {
-    return schoolBuses.filter((bus) => bus.isActive && isBusStationed(bus));
-  }, [schoolBuses]);
+    return dedupedSchoolBuses.filter((bus) => bus.isActive && isBusStationed(bus));
+  }, [dedupedSchoolBuses]);
 
   // Compute parking zone for stationed buses
   const parkingZone = useMemo<ParkingZone | null>(() => {
@@ -454,7 +498,12 @@ export const GodViewPage = () => {
 
   const isLoading = schoolLoading || schoolBusesLoading;
   const errorMessage = schoolError || schoolBusesError || null;
-  const isRealtimeConnected = !schoolError && !schoolBusesError && !alertsError;
+  const REALTIME_STALE_MS = 20000;
+  const hasRealtimeError = Boolean(schoolError || schoolBusesError || alertsError);
+  const isRealtimeFresh = lastRealtimeUpdate != null
+    ? Date.now() - lastRealtimeUpdate <= REALTIME_STALE_MS
+    : false;
+  const isRealtimeConnected = !hasRealtimeError && isRealtimeFresh;
 
   useEffect(() => {
     if (alertsError) {
@@ -463,10 +512,10 @@ export const GodViewPage = () => {
   }, [alertsError]);
 
   useEffect(() => {
-    if (schoolBuses.length || realtimeAlerts.length) {
+    if (dedupedSchoolBuses.length || realtimeAlerts.length) {
       setLastRealtimeUpdate(Date.now());
     }
-  }, [schoolBuses, realtimeAlerts]);
+  }, [dedupedSchoolBuses, realtimeAlerts]);
 
   useEffect(() => {
     processedBusesRef.current = processedBuses;
@@ -524,7 +573,7 @@ export const GodViewPage = () => {
   // Nettoyer périodiquement les bus qui ne sont plus dans la liste (prévenir fuites mémoire)
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
-      const currentBusIds = new Set(schoolBuses.map((bus) => bus.id));
+      const currentBusIds = new Set(dedupedSchoolBuses.map((bus) => bus.id));
 
       // Nettoyer localStatusRef
       localStatusRef.current.forEach((_, busId) => {
@@ -540,7 +589,7 @@ export const GodViewPage = () => {
     }, 60000); // Nettoyage toutes les 60 secondes
 
     return () => clearInterval(cleanupInterval);
-  }, [schoolBuses]);
+  }, [dedupedSchoolBuses]);
 
   // Force re-render toutes les 30 secondes pour actualiser l'affichage ARRIVED → STOPPED
   useEffect(() => {
@@ -796,12 +845,12 @@ export const GodViewPage = () => {
   // Compteurs de flotte (pour la sidebar)
   // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
   const fleetEnCourseCount = useMemo(
-    () => schoolBuses.filter((bus) => bus.liveStatus === BusLiveStatus.EN_ROUTE).length,
-    [schoolBuses]
+    () => dedupedSchoolBuses.filter((bus) => bus.liveStatus === BusLiveStatus.EN_ROUTE).length,
+    [dedupedSchoolBuses]
   );
   const fleetAtSchoolCount = useMemo(
-    () => schoolBuses.filter((bus) => isBusStationed(bus)).length,
-    [schoolBuses]
+    () => dedupedSchoolBuses.filter((bus) => isBusStationed(bus)).length,
+    [dedupedSchoolBuses]
   );
 
   // ===== Fonctions pour les arrêts d'élèves =====
@@ -851,6 +900,15 @@ export const GodViewPage = () => {
   const clearStudentMarkers = useCallback(() => {
     studentMarkers.current.forEach(marker => marker.remove());
     studentMarkers.current.clear();
+    studentPopups.current.clear();
+  }, []);
+
+  const closeStudentPopups = useCallback((exceptKey?: string) => {
+    studentPopups.current.forEach((popup, key) => {
+      if (key !== exceptKey && popup.isOpen()) {
+        popup.remove();
+      }
+    });
   }, []);
 
   /**
@@ -881,17 +939,81 @@ export const GodViewPage = () => {
         status
       }));
 
+      const key = `student_${student.id}_${busId}`;
+
       // Créer le marqueur
       const marker = new mapboxgl.Marker({ element: el.firstElementChild as HTMLElement })
         .setLngLat([location.lng, location.lat])
         .setPopup(popup)
         .addTo(map.current);
 
+      // Fermer les autres popups d'élèves quand on ouvre celui-ci
+      const markerEl = marker.getElement();
+      markerEl.addEventListener('click', () => closeStudentPopups(key));
+      popup.on('open', () => closeStudentPopups(key));
+
       // Stocker la référence
-      const key = `student_${student.id}_${busId}`;
       studentMarkers.current.set(key, marker);
+      studentPopups.current.set(key, popup);
+
+      if (
+        pendingStudentFocusRef.current &&
+        pendingStudentFocusRef.current.busId === busId &&
+        pendingStudentFocusRef.current.studentId === student.id
+      ) {
+        closeStudentPopups(key);
+        popup.addTo(map.current);
+        map.current.flyTo({
+          center: [location.lng, location.lat],
+          zoom: Math.max(map.current.getZoom(), 16),
+          speed: 0.9,
+          curve: 1,
+          easing: (t) => t,
+          essential: true,
+        });
+        pendingStudentFocusRef.current = null;
+      }
     });
-  }, [mapLoaded]);
+  }, [mapLoaded, closeStudentPopups]);
+
+  const resolveStudentLocation = useCallback((
+    student: { locations?: Record<string, any> },
+    tripType: string | null
+  ) => {
+    const locationSource = student.locations;
+    const locationField = tripType ? getTripLocationField(tripType) : null;
+    const resolvedField =
+      locationField ??
+      studentLocationFields.find((field) => locationSource?.[field]);
+    return resolvedField ? locationSource?.[resolvedField] : null;
+  }, [studentLocationFields]);
+
+  const fetchSingleStudentStop = useCallback(async (busId: string, studentId: string, tripType: string | null) => {
+    setStudentsLoading(true);
+    try {
+      const students = await getBusStudents(busId, tripType ?? null);
+      const student = students.find((entry) => entry.id === studentId);
+      if (!student) {
+        return;
+      }
+      const location = resolveStudentLocation(student as any, tripType);
+      if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+        return;
+      }
+
+      const mappedStudent: StudentWithLocation = {
+        ...student,
+        location,
+        order: 1,
+        isScanned: (scannedStudentIdsRef.current[busId] ?? []).includes(student.id),
+      };
+
+      setBusStudents([mappedStudent]);
+      createStudentMarkers([mappedStudent], busId);
+    } finally {
+      setStudentsLoading(false);
+    }
+  }, [createStudentMarkers, resolveStudentLocation]);
 
   /**
    * Met à jour les statuts des marqueurs d'élèves en temps réel
@@ -982,11 +1104,12 @@ export const GodViewPage = () => {
       clearStudentMarkers();
       setBusStudents([]);
       setStopsSnapshot(null);
+      singleStudentOnlyRef.current = false;
     }
   }, [showStudentStops, clearStudentMarkers]);
 
   useEffect(() => {
-    if (!showStudentStops || stopsSnapshot || !selectedBusId) {
+    if (!showStudentStops || stopsSnapshot || !selectedBusId || singleStudentOnlyRef.current) {
       return;
     }
     const bus = processedBusesRef.current.find((candidate) => candidate.id === selectedBusId);
@@ -995,6 +1118,18 @@ export const GodViewPage = () => {
     clearStudentMarkers();
     fetchStudentStops(selectedBusId, tripType);
   }, [showStudentStops, stopsSnapshot, selectedBusId, clearStudentMarkers, fetchStudentStops]);
+
+  const focusStudentStop = useCallback((busId: string, studentId: string) => {
+    const bus = processedBusesRef.current.find((candidate) => candidate.id === busId);
+    const tripType = bus ? getActiveTripType(bus) : null;
+    pendingStudentFocusRef.current = { busId, studentId };
+    singleStudentOnlyRef.current = true;
+    setStopsSnapshot(null);
+    setSelectedBusId(busId);
+    setShowStudentStops(true);
+    clearStudentMarkers();
+    fetchSingleStudentStop(busId, studentId, tripType);
+  }, [clearStudentMarkers, fetchSingleStudentStop]);
 
   useEffect(() => {
     if (!selectedBusId || !showStudentStops) return;
@@ -1144,7 +1279,8 @@ export const GodViewPage = () => {
           const nextStudent = await getNextStudent(bus.id);
           if (nextStudent) {
             nextStudentInfo = {
-              studentName: nextStudent.studentName
+              studentName: nextStudent.studentName,
+              stopOrder: nextStudent.stopOrder
             };
           }
         } catch (error) {
@@ -1165,7 +1301,6 @@ export const GodViewPage = () => {
         busNumber: bus.number,
         busStatus: bus.liveStatus,
         driverName: bus.driver?.name,
-        driverPhone: bus.driver?.phone,
         scannedCount: counts.scanned,
         totalCount: counts.total,
         onCenterClick: `window.${centerCallbackId} && window.${centerCallbackId}()`,
@@ -1173,7 +1308,6 @@ export const GodViewPage = () => {
         // NOUVEAUX champs Phase 4
         lastScan: lastScanInfo,
         nextStudent: nextStudentInfo,
-        speed: bus.currentPosition?.speed,
         tripDuration,
       });
     },
@@ -1196,17 +1330,17 @@ export const GodViewPage = () => {
 
   // Mettre à jour la ref quand schoolBuses change
   useEffect(() => {
-    schoolBuses.forEach((bus) => {
+    dedupedSchoolBuses.forEach((bus) => {
       busRealtimeDataRef.current.set(bus.id, {
         tripType: bus.tripType ?? null,
         tripStartTime: bus.tripStartTime ?? null,
       });
     });
-  }, [schoolBuses]);
+  }, [dedupedSchoolBuses]);
 
   // Écouter les changements d'attendance en temps réel pour chaque bus
   useEffect(() => {
-    if (schoolBuses.length === 0) {
+    if (dedupedSchoolBuses.length === 0) {
       return;
     }
 
@@ -1215,7 +1349,7 @@ export const GodViewPage = () => {
 
     // Récupérer d'abord le total d'élèves pour chaque bus (one-shot)
     const fetchBusStudentsTotals = async () => {
-      const promises = schoolBuses.map(async (bus) => {
+      const promises = dedupedSchoolBuses.map(async (bus) => {
         try {
           const students = await getBusStudents(bus.id, bus.tripType);
           busStudentsMap.set(bus.id, students.length);
@@ -1229,7 +1363,7 @@ export const GodViewPage = () => {
 
     fetchBusStudentsTotals().then(() => {
       // Pour chaque bus, écouter les changements d'attendance en temps réel
-      schoolBuses.forEach((bus) => {
+      dedupedSchoolBuses.forEach((bus) => {
         const attendanceDate = bus.tripStartTime
           ? formatLocalDate(new Date(bus.tripStartTime))
           : formatLocalDate(new Date());
@@ -1242,6 +1376,12 @@ export const GodViewPage = () => {
             const realtimeData = busRealtimeDataRef.current.get(bus.id);
             const currentTripType = realtimeData?.tripType ?? null;
             const currentTripStartTime = realtimeData?.tripStartTime ?? null;
+            const stoppedAtMs = typeof bus.stoppedAt === 'number'
+              ? bus.stoppedAt
+              : (typeof bus.stoppedAt === 'string' ? Date.parse(bus.stoppedAt) : null);
+            const shouldIgnoreTripFilter =
+              bus.liveStatus === BusLiveStatus.ARRIVED ||
+              (stoppedAtMs != null && Date.now() - stoppedAtMs < ARRIVED_DISPLAY_DURATION_MS);
             
             // #region agent log
             // #endregion
@@ -1251,6 +1391,11 @@ export const GodViewPage = () => {
                 a.status === 'present' ||
                 a.morningStatus === 'present' ||
                 a.eveningStatus === 'present';
+
+              // BUS ARRIVÉ RÉCEMMENT : ne pas filtrer par tripType
+              if (shouldIgnoreTripFilter) {
+                return isPresent;
+              }
 
               // MODE TOLÉRANT : Si pas de tripType défini, accepter tous les scans valides
               if (!currentTripType) {
@@ -1323,7 +1468,41 @@ export const GodViewPage = () => {
     return () => {
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [schoolBuses]);
+  }, [dedupedSchoolBuses]);
+
+  useEffect(() => {
+    const arrivedBuses = processedBuses.filter((bus) => bus.liveStatus === BusLiveStatus.ARRIVED);
+    if (arrivedBuses.length === 0) {
+      return;
+    }
+
+    const fetchLatestHistory = async () => {
+      const updates: Record<string, number> = {};
+      for (const bus of arrivedBuses) {
+        if (gpsHistoryFetchRef.current.has(bus.id)) {
+          continue;
+        }
+        gpsHistoryFetchRef.current.add(bus.id);
+        const referenceTime =
+          typeof bus.stoppedAt === 'number'
+            ? bus.stoppedAt
+            : (typeof bus.tripStartTime === 'number' ? bus.tripStartTime : Date.now());
+        const date = formatLocalDate(new Date(referenceTime));
+        const latestTimestamp = await getLatestGpsHistoryTimestamp(bus.id, date);
+        if (latestTimestamp) {
+          updates[bus.id] = latestTimestamp;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setGpsHistoryByBus((prev) => ({
+          ...prev,
+          ...updates,
+        }));
+      }
+    };
+
+    void fetchLatestHistory();
+  }, [processedBuses]);
 
   // Make focusBusOnMap globally accessible for popup buttons
   useEffect(() => {
@@ -1678,7 +1857,13 @@ export const GodViewPage = () => {
               boxShadow: '0 0 0 2px rgba(255,255,255,0.35)',
             }}
           />
-          <span>{isRealtimeConnected ? 'Firebase connecté' : 'Firebase hors ligne'}</span>
+          <span>
+            {isRealtimeConnected
+              ? 'Firebase connecté'
+              : hasRealtimeError
+                ? 'Firebase déconnecté'
+                : 'Firebase hors ligne'}
+          </span>
           <span style={{ fontWeight: 600, opacity: 0.85 }}>Maj: {realtimeUpdateLabel}</span>
         </div>
 
@@ -1703,8 +1888,10 @@ export const GodViewPage = () => {
               setStopsSnapshot(null);
               clearStudentMarkers();
               setBusStudents([]);
+              singleStudentOnlyRef.current = false;
               return;
             }
+            singleStudentOnlyRef.current = false;
             if (selectedBusId) {
               const bus = processedBusesRef.current.find((candidate) => candidate.id === selectedBusId);
               const tripType = bus ? getActiveTripType(bus) : null;
@@ -1757,10 +1944,12 @@ export const GodViewPage = () => {
         buses={processedBuses}
         stationedBuses={stationedBuses}
         studentsCounts={studentsCounts}
-        totalBusCount={schoolBuses.length}
+        gpsHistoryByBus={gpsHistoryByBus}
+        totalBusCount={dedupedSchoolBuses.length}
         enCourseCount={fleetEnCourseCount}
         atSchoolCount={fleetAtSchoolCount}
         onFocusBus={focusBusOnMap}
+        onFocusStudentStop={focusStudentStop}
       />
     </div>
   );

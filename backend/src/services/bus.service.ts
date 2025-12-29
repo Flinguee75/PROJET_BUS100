@@ -29,7 +29,7 @@ export class BusService {
    * @returns Bus enrichi avec driverName et escortName
    */
   private async enrichWithDriverName(bus: Bus): Promise<Bus> {
-    let enrichedBus = { ...bus, driverName: null, escortName: null };
+    const enrichedBus = { ...bus, driverName: null, escortName: null };
 
     // Enrichir avec le nom du chauffeur
     if (bus.driverId) {
@@ -71,11 +71,15 @@ export class BusService {
    */
   private async enrichBusesWithDriverNames(buses: Bus[]): Promise<Bus[]> {
     // Récupérer tous les IDs de chauffeurs et convoyeurs uniques
-    const driverIds = [...new Set(buses.map(b => b.driverId).filter(id => id !== null))] as string[];
-    const escortIds = [...new Set(buses.map(b => b.escortId).filter(id => id !== null))] as string[];
+    const driverIds = [
+      ...new Set(buses.map((b) => b.driverId).filter((id) => id !== null)),
+    ] as string[];
+    const escortIds = [
+      ...new Set(buses.map((b) => b.escortId).filter((id) => id !== null)),
+    ] as string[];
 
     if (driverIds.length === 0 && escortIds.length === 0) {
-      return buses.map(bus => ({ ...bus, driverName: null, escortName: null }));
+      return buses.map((bus) => ({ ...bus, driverName: null, escortName: null }));
     }
 
     // Récupérer tous les chauffeurs en une seule requête
@@ -90,7 +94,7 @@ export class BusService {
 
     // Créer des maps ID -> nom
     const driverNamesMap = new Map<string, string>();
-    driversSnapshot.docs.forEach(doc => {
+    driversSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data.displayName) {
         driverNamesMap.set(doc.id, data.displayName);
@@ -98,7 +102,7 @@ export class BusService {
     });
 
     const escortNamesMap = new Map<string, string>();
-    escortsSnapshot.docs.forEach(doc => {
+    escortsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data.displayName) {
         escortNamesMap.set(doc.id, data.displayName);
@@ -106,10 +110,10 @@ export class BusService {
     });
 
     // Enrichir les bus
-    return buses.map(bus => ({
+    return buses.map((bus) => ({
       ...bus,
-      driverName: bus.driverId ? (driverNamesMap.get(bus.driverId) || null) : null,
-      escortName: bus.escortId ? (escortNamesMap.get(bus.escortId) || null) : null,
+      driverName: bus.driverId ? driverNamesMap.get(bus.driverId) || null : null,
+      escortName: bus.escortId ? escortNamesMap.get(bus.escortId) || null : null,
     }));
   }
 

@@ -80,7 +80,7 @@ export class RouteController {
 
       const dateParam = req.query.date;
       const defaultDate = new Date().toISOString().split('T')[0];
-      const date = (typeof dateParam === 'string' && dateParam) ? dateParam : defaultDate;
+      const date = typeof dateParam === 'string' && dateParam ? dateParam : defaultDate;
 
       // Validation du format de date
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -126,4 +126,3 @@ export class RouteController {
 }
 
 export default new RouteController();
-

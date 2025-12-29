@@ -208,7 +208,7 @@ service cloud.firestore {
         request.resource.data.driverId == request.auth.uid &&
         request.resource.data.busId == getUserData().busId;
       allow update: if isAdmin() ||
-        (isDriver() && resource.data.driverId == request.auth.uid);
+        (isDriver() && resource.data != null && resource.data.driverId == request.auth.uid);
       allow delete: if isAdmin();
     }
 

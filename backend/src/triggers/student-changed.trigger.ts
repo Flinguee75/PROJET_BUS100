@@ -35,11 +35,7 @@ export const onStudentChanged = functions
         console.log(
           `🗑️ Student ${studentId} supprimé - Retrait du bus ${oldData.busId} des parents`
         );
-        await removeParentBusAssignments(
-          db,
-          oldData.parentIds || [],
-          oldData.busId
-        );
+        await removeParentBusAssignments(db, oldData.parentIds || [], oldData.busId);
         return;
       }
 
@@ -51,32 +47,22 @@ export const onStudentChanged = functions
         const oldParentIds: string[] = oldData?.parentIds || [];
 
         // Déterminer les parents ajoutés et retirés
-        const addedParents = newParentIds.filter(
-          (id) => !oldParentIds.includes(id)
-        );
-        const removedParents = oldParentIds.filter(
-          (id) => !newParentIds.includes(id)
-        );
+        const addedParents = newParentIds.filter((id) => !oldParentIds.includes(id));
+        const removedParents = oldParentIds.filter((id) => !newParentIds.includes(id));
 
-        console.log(
-          `📝 Student ${studentId} modifié - Bus: ${oldBusId} → ${newBusId}`
-        );
+        console.log(`📝 Student ${studentId} modifié - Bus: ${oldBusId} → ${newBusId}`);
 
         // Cas 2a: Le bus a changé
         if (oldBusId !== newBusId) {
           // Retirer l'ancien bus de tous les parents existants
           if (oldBusId && oldParentIds.length > 0) {
-            console.log(
-              `  ↪ Retrait bus ${oldBusId} de ${oldParentIds.length} parents`
-            );
+            console.log(`  ↪ Retrait bus ${oldBusId} de ${oldParentIds.length} parents`);
             await removeParentBusAssignments(db, oldParentIds, oldBusId);
           }
 
           // Ajouter le nouveau bus à tous les parents actuels
           if (newBusId && newParentIds.length > 0) {
-            console.log(
-              `  ↪ Ajout bus ${newBusId} à ${newParentIds.length} parents`
-            );
+            console.log(`  ↪ Ajout bus ${newBusId} à ${newParentIds.length} parents`);
             await addParentBusAssignments(db, newParentIds, newBusId);
           }
         }
@@ -130,9 +116,7 @@ async function addParentBusAssignments(
   }
 
   await batch.commit();
-  console.log(
-    `   ✅ Bus ${busId} ajouté à ${parentIds.length} parent(s)`
-  );
+  console.log(`   ✅ Bus ${busId} ajouté à ${parentIds.length} parent(s)`);
 }
 
 /**
@@ -154,7 +138,5 @@ async function removeParentBusAssignments(
   }
 
   await batch.commit();
-  console.log(
-    `   ✅ Bus ${busId} retiré de ${parentIds.length} parent(s)`
-  );
+  console.log(`   ✅ Bus ${busId} retiré de ${parentIds.length} parent(s)`);
 }

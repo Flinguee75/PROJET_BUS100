@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/bus.dart';
 import '../models/enfant.dart';
 import '../providers/auth_provider.dart';
 import '../providers/bus_provider.dart';
 import '../services/eta_service.dart';
+import '../services/notification_service.dart';
 import '../utils/app_colors.dart';
+import '../utils/trip_status_helper.dart';
+import '../widgets/child_selector_dropdown.dart';
+import '../widgets/trip_status_card.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 
-/// Écran principal - Carte avec menu Drawer (style Uber)
+/// Écran principal - Carte avec suivi bus en temps réel
+/// Interface simplifiée focalisée sur l'essentiel :
+/// - Sélection d'enfant (si plusieurs)
+/// - Carte centrée sur stop de l'enfant
+/// - Bus visible uniquement si en course
+/// - Card avec ETA/statut en bas
 class MainMapScreen extends StatefulWidget {
   const MainMapScreen({super.key});
 
@@ -21,14 +31,40 @@ class MainMapScreen extends StatefulWidget {
 class _MainMapScreenState extends State<MainMapScreen> {
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
-  Enfant? _currentEnfant;
-  Bus? _currentBus;
   bool _isLoading = true;
+  bool _hasPositionedCamera = false;
+
+  // Notification de proximité
+  bool _hasNotifiedProximity = false;
+  TripStatus? _previousTripStatus;
+  int _proximityThresholdMinutes = 10; // Par défaut 10 min
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadProximityThreshold();
+  }
+
+  /// Charge le seuil de proximité depuis les préférences
+  Future<void> _loadProximityThreshold() async {
+    final prefs = await SharedPreferences.getInstance();
+    final busProvider = context.read<BusProvider>();
+
+    // Attendre que les enfants soient chargés
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (busProvider.selectedEnfant != null) {
+      final savedThreshold = prefs.getInt(
+        '${busProvider.selectedEnfant!.id}_proximity_minutes',
+      );
+
+      if (savedThreshold != null) {
+        setState(() {
+          _proximityThresholdMinutes = savedThreshold;
+        });
+      }
+    }
   }
 
   @override
@@ -45,13 +81,6 @@ class _MainMapScreenState extends State<MainMapScreen> {
 
     if (authProvider.user != null) {
       await busProvider.loadEnfants(authProvider.user!.uid);
-
-      if (busProvider.enfants.isNotEmpty) {
-        setState(() {
-          _currentEnfant = busProvider.enfants.first;
-          _currentBus = busProvider.getBusForEnfant(_currentEnfant!);
-        });
-      }
     }
 
     setState(() => _isLoading = false);
@@ -61,45 +90,91 @@ class _MainMapScreenState extends State<MainMapScreen> {
     _mapController = controller;
   }
 
+  /// Vérifie si l'enfant est inscrit au trip actuel du bus
+  bool _isEnfantActiveForCurrentTrip(Bus? bus, Enfant? enfant) {
+    if (bus == null || enfant == null || bus.currentTrip == null) {
+      return false;
+    }
+
+    // Vérifier si l'enfant est inscrit au trip actuel
+    return enfant.isActiveForTrip(bus.currentTrip!.tripType);
+  }
+
+  /// Retourne la location appropriée pour l'enfant selon le trip actuel
+  GPSPosition? _getEnfantLocationForCurrentTrip(Bus? bus, Enfant? enfant) {
+    if (bus == null || enfant == null) {
+      // Fallback sur l'ancienne propriété arret si pas de trip
+      return enfant?.arret;
+    }
+
+    if (bus.currentTrip != null) {
+      final location = enfant.getLocationForTrip(bus.currentTrip!.tripType);
+      if (location != null) {
+        return GPSPosition(
+          lat: location.lat,
+          lng: location.lng,
+          speed: 0,
+          timestamp: 0,
+        );
+      }
+    }
+
+    // Fallback sur l'ancienne propriété arret
+    return enfant.arret;
+  }
+
+  /// Met à jour les marqueurs de la carte
+  /// - Marqueur stop enfant : affiché si inscrit au trip actuel
+  /// - Marqueur bus : affiché uniquement si en_route ET enfant inscrit au trip
   void _updateMarkers(Bus? bus, Enfant? enfant) {
     setState(() {
       _markers.clear();
 
-      // Marqueur pour l'arrêt de l'enfant
-      if (enfant?.arret != null) {
-        _markers.add(
-          Marker(
-            markerId: const MarkerId('arret'),
-            position: LatLng(
-              enfant!.arret!.lat,
-              enfant.arret!.lng,
+      // Vérifier si l'enfant est inscrit au trip actuel
+      final isActiveForTrip = _isEnfantActiveForCurrentTrip(bus, enfant);
+      final enfantLocation = _getEnfantLocationForCurrentTrip(bus, enfant);
+
+      // 1. Marqueur pour l'arrêt de l'enfant
+      if (enfantLocation != null) {
+        // Si pas de trip actif OU enfant inscrit au trip
+        if (bus?.currentTrip == null || isActiveForTrip) {
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('stop'),
+              position: LatLng(
+                enfantLocation.lat,
+                enfantLocation.lng,
+              ),
+              infoWindow: InfoWindow(
+                title: 'Arrêt de ${enfant!.prenom}',
+                snippet: enfant.ecole,
+              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueOrange, // Orange pour meilleure visibilité
+              ),
             ),
-            infoWindow: InfoWindow(
-              title: 'Arrêt de ${enfant.prenom}',
-              snippet: enfant.ecole,
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
-          ),
-        );
+          );
+        }
       }
 
-      // Marqueur pour le bus (si position disponible)
-      if (bus?.currentPosition != null) {
+      // 2. Marqueur pour le bus (seulement si en course ET enfant inscrit)
+      final tripStatus = TripStatusHelper.determineTripStatus(bus);
+      if (tripStatus == TripStatus.active &&
+          bus!.currentPosition != null &&
+          isActiveForTrip) {
         _markers.add(
           Marker(
-            markerId: MarkerId(bus!.id),
+            markerId: MarkerId(bus.id),
             position: LatLng(
               bus.currentPosition!.lat,
               bus.currentPosition!.lng,
             ),
             infoWindow: InfoWindow(
               title: 'Bus ${bus.immatriculation}',
-              snippet: bus.statusLabel,
+              snippet: '${bus.currentPosition!.speed.toStringAsFixed(0)} km/h',
             ),
             icon: BitmapDescriptor.defaultMarkerWithHue(
-              _getMarkerColor(bus.status),
+              BitmapDescriptor.hueAzure, // Bleu pour bon contraste avec orange
             ),
           ),
         );
@@ -107,29 +182,148 @@ class _MainMapScreenState extends State<MainMapScreen> {
     });
   }
 
-  double _getMarkerColor(BusStatus status) {
-    switch (status) {
-      case BusStatus.enRoute:
-        return BitmapDescriptor.hueGreen;
-      case BusStatus.enRetard:
-        return BitmapDescriptor.hueOrange;
-      case BusStatus.aLArret:
-        return BitmapDescriptor.hueBlue;
-      case BusStatus.horsService:
-        return BitmapDescriptor.hueViolet;
+  /// Centre la caméra sur la position appropriée
+  void _centerCamera(Bus? bus, Enfant? enfant) {
+    final enfantLocation = _getEnfantLocationForCurrentTrip(bus, enfant);
+    if (_mapController == null || enfantLocation == null) return;
+
+    // Ne centrer qu'une seule fois au démarrage
+    if (_hasPositionedCamera) return;
+
+    final tripStatus = TripStatusHelper.determineTripStatus(bus);
+    final isActiveForTrip = _isEnfantActiveForCurrentTrip(bus, enfant);
+
+    if (tripStatus == TripStatus.active &&
+        bus!.currentPosition != null &&
+        isActiveForTrip) {
+      // Si bus actif ET enfant inscrit au trip, utiliser des bounds
+      final busPos = LatLng(
+        bus.currentPosition!.lat,
+        bus.currentPosition!.lng,
+      );
+      final stopPos = LatLng(enfantLocation.lat, enfantLocation.lng);
+
+      // Créer les bounds incluant les deux positions
+      final bounds = LatLngBounds(
+        southwest: LatLng(
+          busPos.latitude < stopPos.latitude
+              ? busPos.latitude
+              : stopPos.latitude,
+          busPos.longitude < stopPos.longitude
+              ? busPos.longitude
+              : stopPos.longitude,
+        ),
+        northeast: LatLng(
+          busPos.latitude > stopPos.latitude
+              ? busPos.latitude
+              : stopPos.latitude,
+          busPos.longitude > stopPos.longitude
+              ? busPos.longitude
+              : stopPos.longitude,
+        ),
+      );
+
+      // Animer avec padding pour marges confortables
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 80),
+      );
+    } else {
+      // Sinon, centrer sur le stop de l'enfant
+      final target = LatLng(enfantLocation.lat, enfantLocation.lng);
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 14),
+        ),
+      );
     }
+
+    _hasPositionedCamera = true;
   }
 
-  Color _getStatusColor(BusStatus status) {
-    switch (status) {
-      case BusStatus.enRoute:
-        return AppColors.busEnRoute;
-      case BusStatus.enRetard:
-        return AppColors.busEnRetard;
-      case BusStatus.aLArret:
-        return AppColors.busALArret;
-      case BusStatus.horsService:
-        return AppColors.busHorsService;
+  /// Vérifie la proximité du bus et envoie une notification si nécessaire
+  Future<void> _checkProximityAndNotify(Bus? bus, Enfant enfant) async {
+    // Vérifier si l'enfant est inscrit au trip actuel
+    if (!_isEnfantActiveForCurrentTrip(bus, enfant)) {
+      return; // Ne pas notifier si l'enfant n'est pas inscrit à ce trip
+    }
+
+    final enfantLocation = _getEnfantLocationForCurrentTrip(bus, enfant);
+    if (bus == null || bus.currentPosition == null || enfantLocation == null) {
+      return;
+    }
+
+    // Déterminer le statut actuel du trajet
+    final currentStatus = TripStatusHelper.determineTripStatus(bus);
+
+    // Réinitialiser le flag si le trajet vient de démarrer (transition inactive → active)
+    if (_previousTripStatus == TripStatus.inactive &&
+        currentStatus == TripStatus.active) {
+      _hasNotifiedProximity = false;
+      print('Nouveau trajet détecté, flag proximité réinitialisé');
+    }
+
+    _previousTripStatus = currentStatus;
+
+    // Ne vérifier que si le bus est actif
+    if (currentStatus != TripStatus.active) {
+      return;
+    }
+
+    // Ne pas notifier si déjà fait pour ce trajet
+    if (_hasNotifiedProximity) {
+      return;
+    }
+
+    // Calculer la distance et l'ETA vers la bonne location
+    final distance = ETAService.calculateDistance(
+      bus.currentPosition!.lat,
+      bus.currentPosition!.lng,
+      enfantLocation.lat,
+      enfantLocation.lng,
+    );
+
+    final eta = ETAService.calculateETA(distance, bus.currentPosition!.speed);
+
+    // Si ETA <= seuil, envoyer notification avec message spécifique au trip
+    if (eta != null && eta <= _proximityThresholdMinutes) {
+      // Déterminer le message selon le type de trajet actuel
+      String title = 'Bus à proximité';
+      String body = 'Le bus arrive dans ${eta.toInt()} min';
+
+      if (bus.currentTrip != null) {
+        switch (bus.currentTrip!.tripType) {
+          case TripTimeOfDay.morningOutbound:
+            title = 'Bus à proximité (matin)';
+            body = 'Le bus arrive dans ${eta.toInt()} min pour récupérer ${enfant.prenom} (trajet du matin)';
+            break;
+          case TripTimeOfDay.middayOutbound:
+            title = 'Bus à proximité (pause midi)';
+            body = 'Le bus arrive dans ${eta.toInt()} min pour ramener ${enfant.prenom} à la maison (pause midi)';
+            break;
+          case TripTimeOfDay.middayReturn:
+            title = 'Bus à proximité (retour midi)';
+            body = 'Le bus arrive dans ${eta.toInt()} min pour récupérer ${enfant.prenom} (retour de la pause)';
+            break;
+          case TripTimeOfDay.eveningReturn:
+            title = 'Bus à proximité (fin de journée)';
+            body = 'Le bus arrive dans ${eta.toInt()} min pour ramener ${enfant.prenom} à la maison (fin de journée)';
+            break;
+          default:
+            body = 'Le bus arrive dans ${eta.toInt()} min pour ${enfant.prenom}';
+        }
+      }
+
+      await NotificationService().showLocalNotification(
+        title: title,
+        body: body,
+        payload: 'proximity_alert',
+      );
+
+      setState(() {
+        _hasNotifiedProximity = true;
+      });
+
+      print('Notification de proximité envoyée (ETA: ${eta.toInt()} min, Trip: ${bus.currentTrip?.tripType})');
     }
   }
 
@@ -144,8 +338,9 @@ class _MainMapScreenState extends State<MainMapScreen> {
     );
   }
 
-  Widget _buildDrawer() {
+  Widget _buildDrawer(BusProvider busProvider) {
     final authProvider = context.watch<AuthProvider>();
+    final selectedEnfant = busProvider.selectedEnfant;
 
     return Drawer(
       child: ListView(
@@ -177,10 +372,10 @@ class _MainMapScreenState extends State<MainMapScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (_currentEnfant != null) ...[
+                if (selectedEnfant != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Enfant: ${_currentEnfant!.nomComplet}',
+                    'Enfant: ${selectedEnfant.nomComplet}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -234,12 +429,16 @@ class _MainMapScreenState extends State<MainMapScreen> {
       );
     }
 
-    if (_currentEnfant == null) {
+    final busProvider = context.watch<BusProvider>();
+    final selectedEnfant = busProvider.selectedEnfant;
+
+    // Écran si aucun enfant
+    if (selectedEnfant == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Transport Scolaire'),
         ),
-        drawer: _buildDrawer(),
+        drawer: _buildDrawer(busProvider),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -272,44 +471,35 @@ class _MainMapScreenState extends State<MainMapScreen> {
       );
     }
 
-    final busProvider = context.watch<BusProvider>();
+    // Position initiale de la carte (stop de l'enfant par défaut)
+    final initialPosition = selectedEnfant.arret != null
+        ? LatLng(selectedEnfant.arret!.lat, selectedEnfant.arret!.lng)
+        : const LatLng(5.3600, -4.0083); // Abidjan par défaut
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bus de ${_currentEnfant!.prenom}'),
+        title: Text('Bus de ${selectedEnfant.prenom}'),
         backgroundColor: AppColors.primary,
       ),
-      drawer: _buildDrawer(),
+      drawer: _buildDrawer(busProvider),
       body: Stack(
         children: [
-          // Carte Google Maps
+          // Carte Google Maps avec StreamBuilder
           StreamBuilder<Bus?>(
-            stream: busProvider.watchBusPosition(_currentEnfant!.busId),
-            initialData: _currentBus,
+            stream: busProvider.watchSelectedBus(),
             builder: (context, snapshot) {
               final bus = snapshot.data;
 
-              // Mettre à jour les marqueurs
-              _updateMarkers(bus, _currentEnfant);
+              // Mettre à jour les marqueurs à chaque update GPS
+              _updateMarkers(bus, selectedEnfant);
 
-              // Déterminer la position initiale de la carte
-              LatLng initialPosition;
-              if (_currentEnfant!.arret != null) {
-                // Centrer sur l'arrêt de l'enfant
-                initialPosition = LatLng(
-                  _currentEnfant!.arret!.lat,
-                  _currentEnfant!.arret!.lng,
-                );
-              } else if (bus?.currentPosition != null) {
-                // Si pas d'arrêt, centrer sur le bus
-                initialPosition = LatLng(
-                  bus!.currentPosition!.lat,
-                  bus.currentPosition!.lng,
-                );
-              } else {
-                // Par défaut, centrer sur Abidjan (coordonnées à affiner)
-                initialPosition = const LatLng(5.3600, -4.0083);
-              }
+              // Centrer la caméra au premier chargement
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _centerCamera(bus, selectedEnfant);
+
+                // Vérifier la proximité et notifier si nécessaire
+                _checkProximityAndNotify(bus, selectedEnfant);
+              });
 
               return GoogleMap(
                 onMapCreated: _onMapCreated,
@@ -325,307 +515,32 @@ class _MainMapScreenState extends State<MainMapScreen> {
             },
           ),
 
+          // Sélecteur d'enfant en haut (si plusieurs enfants)
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: ChildSelectorDropdown(),
+          ),
+
           // Card d'information en bas
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: StreamBuilder<Bus?>(
-                stream: busProvider.watchBusPosition(_currentEnfant!.busId),
-                initialData: _currentBus,
-                builder: (context, snapshot) {
-                  final bus = snapshot.data;
-
-                  if (bus == null) {
-                    return const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Aucune information disponible',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Vérifier si le bus est en course
-                  final isInService = bus.status != BusStatus.horsService &&
-                      bus.currentPosition != null;
-
-                  if (!isInService) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.busHorsService,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Pas de course en cours',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _buildInfoRow(
-                          Icons.directions_bus,
-                          'Bus',
-                          bus.immatriculation,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(
-                          Icons.person,
-                          'Chauffeur',
-                          bus.chauffeur,
-                        ),
-                      ],
-                    );
-                  }
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Statut
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(bus.status),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              bus.statusLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          if (bus.lastGPSUpdate != null)
-                            Text(
-                              'Mis à jour: ${bus.lastGPSUpdate}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ETA et Distance (si arrêt disponible)
-                      if (bus.currentPosition != null &&
-                          _currentEnfant!.arret != null) ...[
-                        _buildETASection(bus, _currentEnfant!),
-                        const Divider(height: 24),
-                      ],
-
-                      // Informations du bus
-                      _buildInfoRow(
-                        Icons.directions_bus,
-                        'Bus',
-                        bus.immatriculation,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildInfoRow(
-                        Icons.person,
-                        'Chauffeur',
-                        bus.chauffeur,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildInfoRow(
-                        Icons.route,
-                        'Itinéraire',
-                        bus.itineraire,
-                      ),
-                      if (bus.currentPosition != null) ...[
-                        const SizedBox(height: 8),
-                        _buildInfoRow(
-                          Icons.speed,
-                          'Vitesse',
-                          '${bus.currentPosition!.speed.toStringAsFixed(1)} km/h',
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
+            child: StreamBuilder<Bus?>(
+              stream: busProvider.watchSelectedBus(),
+              builder: (context, snapshot) {
+                final bus = snapshot.data;
+                return TripStatusCard(
+                  bus: bus,
+                  enfant: selectedEnfant,
+                );
+              },
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildETASection(Bus bus, Enfant enfant) {
-    if (bus.currentPosition == null || enfant.arret == null) {
-      return const SizedBox.shrink();
-    }
-
-    // Calculer la distance vers l'arrêt de l'enfant
-    final distance = ETAService.calculateDistance(
-      bus.currentPosition!.lat,
-      bus.currentPosition!.lng,
-      enfant.arret!.lat,
-      enfant.arret!.lng,
-    );
-
-    // Calculer l'ETA
-    final eta = ETAService.calculateETA(distance, bus.currentPosition!.speed);
-    final formattedETA = ETAService.formatETA(eta);
-
-    // Vérifier si proche
-    final isNear = ETAService.isNearDestination(
-      busPosition: bus.currentPosition!,
-      destinationLat: enfant.arret!.lat,
-      destinationLng: enfant.arret!.lng,
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isNear
-            ? AppColors.success.withOpacity(0.1)
-            : AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          // ETA
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.schedule,
-                      size: 16,
-                      color: isNear ? AppColors.success : AppColors.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'ETA',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            isNear ? AppColors.success : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formattedETA,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isNear ? AppColors.success : AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Distance
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.straighten,
-                      size: 16,
-                      color: isNear ? AppColors.success : AppColors.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Distance',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            isNear ? AppColors.success : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  distance < 1
-                      ? '${(distance * 1000).toStringAsFixed(0)} m'
-                      : '${distance.toStringAsFixed(1)} km',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isNear ? AppColors.success : AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: AppColors.primary),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

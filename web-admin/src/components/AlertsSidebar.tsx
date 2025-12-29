@@ -29,10 +29,12 @@ interface AlertsSidebarProps {
   buses: BusRealtimeData[];
   stationedBuses?: BusRealtimeData[];
   studentsCounts?: Record<string, { scanned: number; unscanned: number; total: number }>;
+  gpsHistoryByBus?: Record<string, number>;
   totalBusCount?: number;
   enCourseCount?: number;
   atSchoolCount?: number; // Non utilisé actuellement mais gardé pour compatibilité
   onFocusBus?: (busId: string) => void;
+  onFocusStudentStop?: (busId: string, studentId: string) => void;
 }
 
 // Constantes pour les limites de largeur
@@ -45,10 +47,12 @@ export const AlertsSidebar = ({
   buses,
   stationedBuses = [],
   studentsCounts = {},
+  gpsHistoryByBus = {},
   totalBusCount,
   enCourseCount,
   atSchoolCount: _atSchoolCount, // Préfixé avec _ car non utilisé actuellement
   onFocusBus,
+  onFocusStudentStop,
 }: AlertsSidebarProps) => {
   // Largeur de la sidebar (redimensionnable)
   const [width, setWidth] = useState(ALERTS_DEFAULT_WIDTH);
@@ -627,6 +631,26 @@ const getBusUpdateTimestamp = (bus: BusRealtimeData): number | null => {
   return null;
 };
 
+const resolveArrivedTimestamp = (
+  bus: BusRealtimeData,
+  historyMap: Record<string, number>
+): number | null => {
+  const historyTimestamp = historyMap[bus.id];
+  if (typeof historyTimestamp === 'number' && !Number.isNaN(historyTimestamp)) {
+    return historyTimestamp;
+  }
+  if (typeof bus.stoppedAt === 'number') {
+    return bus.stoppedAt;
+  }
+  if (typeof bus.stoppedAt === 'string') {
+    const parsed = Date.parse(bus.stoppedAt);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return getBusUpdateTimestamp(bus);
+};
+
 // Fonction inutilisée - supprimée pour simplification
 
 const calculateMinutesSince = (timestamp: number | null | undefined): number => {
@@ -923,6 +947,9 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               if (isNormalBus) {
                 // Carte pour bus normaux avec statut et comptages
                 const isArrived = bus.liveStatus === BusLiveStatus.ARRIVED;
+                const arrivedTimestamp = isArrived
+                  ? resolveArrivedTimestamp(bus, gpsHistoryByBus)
+                  : null;
                 const isEnRoute =
                   bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
 
@@ -931,7 +958,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   ? formatDurationFromMs(Date.now() - bus.tripStartTime)
                   : null;
                 const speed = bus.currentPosition?.speed ?? 0;
-                const busUpdatedAt = getBusUpdateTimestamp(bus);
+                const busUpdatedAt = isArrived ? arrivedTimestamp : getBusUpdateTimestamp(bus);
 
                 return (
                   <div
@@ -975,7 +1002,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       <div className="flex items-center gap-1.5 text-slate-700 mt-2">
                         <MapPin className="w-3.5 h-3.5 text-green-500 flex-shrink-0" strokeWidth={2.5} />
                         <span className="text-sm font-medium">
-                          Arrivé il y a {calculateMinutesSince(bus.stoppedAt)} min
+                          Arrivé il y a {calculateMinutesSince(arrivedTimestamp)} min
                         </span>
                       </div>
                     )}
@@ -987,7 +1014,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       <div className="mt-2">
                         <div className="text-xs text-slate-500">
                           <span>Arrêté depuis: {formatDurationFromMs(
-                            bus.stoppedAt ? Date.now() - (typeof bus.stoppedAt === 'number' ? bus.stoppedAt : new Date(bus.stoppedAt as string).getTime()) : 0
+                            arrivedTimestamp ? Date.now() - arrivedTimestamp : 0
                           )}</span>
                         </div>
                       </div>
@@ -1050,7 +1077,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               // Carte complète pour bus avec alerte
               const borderColor =
                 busAlert.severity === 'HIGH' ? 'border-l-danger-600' : 'border-l-warning-600';
-              const busUpdatedAt = getBusUpdateTimestamp(bus);
+              const isArrivedAlert = bus.liveStatus === BusLiveStatus.ARRIVED;
+              const arrivedTimestampAlert = isArrivedAlert
+                ? resolveArrivedTimestamp(bus, gpsHistoryByBus)
+                : null;
+              const busUpdatedAt = isArrivedAlert ? arrivedTimestampAlert : getBusUpdateTimestamp(bus);
 
               return (
                 <div
@@ -1275,7 +1306,17 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                               return (
                                 <div
                                   key={student.id}
-                                  className="flex items-center justify-between gap-3 py-2 px-3 bg-white rounded-lg border border-amber-200 hover:bg-amber-50 transition-colors"
+                                  className="flex items-center justify-between gap-3 py-2 px-3 bg-white rounded-lg border border-amber-200 hover:bg-amber-50 transition-colors cursor-pointer"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => onFocusStudentStop?.(bus.id, student.id)}
+                                  onKeyPress={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      onFocusStudentStop?.(bus.id, student.id);
+                                    }
+                                  }}
+                                  aria-label={`Afficher l'arrêt de ${student.firstName} ${student.lastName} sur la carte`}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-600 flex-shrink-0"></div>

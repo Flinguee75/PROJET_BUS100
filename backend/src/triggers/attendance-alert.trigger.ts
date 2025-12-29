@@ -22,8 +22,7 @@ export const checkUnscannedStudents = onSchedule(
       console.log('🔍 Vérification des étudiants non scannés...');
 
       const db = getDb();
-      const today =
-        new Date().toISOString().split('T')[0] || new Date().toISOString().slice(0, 10); // Format YYYY-MM-DD
+      const today = new Date().toISOString().split('T')[0] || new Date().toISOString().slice(0, 10); // Format YYYY-MM-DD
 
       // 1. Récupérer tous les bus actifs (qui ont une position GPS récente)
       const gpsLiveSnapshot = await db.collection(collections.gpsLive).get();
@@ -86,10 +85,7 @@ async function checkBusUnscannedStudents(
     attendanceSnapshot.forEach((doc) => {
       const data = doc.data();
       // Un étudiant est scanné s'il a un statut "present" pour le matin ou le soir
-      if (
-        data.morningStatus === 'present' ||
-        data.eveningStatus === 'present'
-      ) {
+      if (data.morningStatus === 'present' || data.eveningStatus === 'present') {
         scannedStudentIds.add(data.studentId);
       }
     });
@@ -105,7 +101,8 @@ async function checkBusUnscannedStudents(
     // 4. Récupérer les informations du bus pour le message d'alerte
     const busDoc = await db.collection(collections.buses).doc(busId).get();
     const busData = busDoc.data();
-    const busNumber = busData?.number || busData?.busNumber || `BUS-${busId.slice(0, 2).toUpperCase()}`;
+    const busNumber =
+      busData?.number || busData?.busNumber || `BUS-${busId.slice(0, 2).toUpperCase()}`;
 
     // 5. Supprimer les anciennes alertes pour ce bus et ce type
     const existingAlertsSnapshot = await db

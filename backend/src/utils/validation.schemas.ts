@@ -127,12 +127,14 @@ export const studentUpdateSchema = z.object({
   quartier: z.string().min(1).optional(),
   busId: z.string().nullable().optional(),
   routeId: z.string().nullable().optional(),
-  locations: z.object({
-    morningPickup: locationSchema.optional(),
-    middayDropoff: locationSchema.optional(),
-    middayPickup: locationSchema.optional(),
-    eveningDropoff: locationSchema.optional(),
-  }).optional(),
+  locations: z
+    .object({
+      morningPickup: locationSchema.optional(),
+      middayDropoff: locationSchema.optional(),
+      middayPickup: locationSchema.optional(),
+      eveningDropoff: locationSchema.optional(),
+    })
+    .optional(),
   activeTrips: z.array(timeOfDaySchema).optional(),
   specialNeeds: z.string().optional(),
   isActive: z.boolean().optional(),
@@ -155,7 +157,10 @@ export const driverCreateSchema = z.object({
  */
 export const driverUpdateSchema = z.object({
   displayName: z.string().min(2, 'Nom trop court').optional(),
-  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide').optional(),
+  phoneNumber: z
+    .string()
+    .regex(/^\+?[1-9]\d{1,14}$/, 'Numéro de téléphone invalide')
+    .optional(),
   licenseNumber: z.string().min(5, 'Numéro de permis invalide').optional(),
   licenseExpiry: z.string().datetime().or(z.date()).optional(),
   busId: z.string().nullable().optional(),
@@ -368,7 +373,7 @@ export const schoolLocationSchema = z.object({
  * Validation pour création d'une école
  */
 export const schoolCreateSchema = z.object({
-  name: z.string().min(2, 'Le nom de l\'école doit contenir au moins 2 caractères').max(100),
+  name: z.string().min(2, "Le nom de l'école doit contenir au moins 2 caractères").max(100),
   location: schoolLocationSchema,
   fleetSize: z.number().int().min(0).optional(),
   address: z.string().max(200).optional(),

@@ -43,4 +43,3 @@ export interface SchoolUpdateInput {
   contactPhone?: string;
   isActive?: boolean;
 }
-

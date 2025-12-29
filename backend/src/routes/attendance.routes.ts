@@ -22,5 +22,3 @@ router.post('/scan', (req, res) => attendanceController.scanStudent(req, res));
 router.post('/unscan', (req, res) => attendanceController.unscanStudent(req, res));
 
 export default router;
-
-

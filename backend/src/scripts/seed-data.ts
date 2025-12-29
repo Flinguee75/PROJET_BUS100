@@ -45,14 +45,13 @@ const db = admin.firestore();
 // ==============================================
 
 const defaultSchool = {
-  
   id: 'school-grain-de-soleil',
   name: 'Ecole Grain de Soleil',
   location: {
     lat: 5.351824,
     lng: -3.953979,
   },
-  address: '922W+PCC, Abidjan, Côte d\'Ivoire (Cocody / Riviera)',
+  address: "922W+PCC, Abidjan, Côte d'Ivoire (Cocody / Riviera)",
   contactEmail: 'contact@grain-de-soleil.ci',
   contactPhone: '+225 07 12 34 56 78',
   fleetSize: 5,
@@ -62,8 +61,30 @@ const defaultSchool = {
 };
 const defaultSchoolId = defaultSchool.id;
 
-const prénoms = ['Kouassi', 'Aya', 'Koné', 'Fatou', 'Mamadou', 'Aïcha', 'Ibrahim', 'Aminata', 'Sébastien', 'Mariam'];
-const noms = ['Traoré', 'Ouattara', 'Coulibaly', 'Sanogo', 'Diallo', 'Bamba', 'Konaté', 'Touré', 'Yao', 'Kouamé'];
+const prénoms = [
+  'Kouassi',
+  'Aya',
+  'Koné',
+  'Fatou',
+  'Mamadou',
+  'Aïcha',
+  'Ibrahim',
+  'Aminata',
+  'Sébastien',
+  'Mariam',
+];
+const noms = [
+  'Traoré',
+  'Ouattara',
+  'Coulibaly',
+  'Sanogo',
+  'Diallo',
+  'Bamba',
+  'Konaté',
+  'Touré',
+  'Yao',
+  'Kouamé',
+];
 
 // Note: quartiersByCommune disponible pour extensions futures
 
@@ -72,7 +93,7 @@ const coordonnées = {
   'Cocody-RivieraBonoumin': { lat: 5.362691, lng: -3.973329 },
   'Cocody-RivieraPalmeraie': { lat: 5.368859, lng: -3.956818 },
   'Cocody-AkouédoVillage': { lat: 5.351122, lng: -3.942706 },
-  'Cocody-M\'Pouto': { lat: 5.326388, lng: -3.955677 },
+  "Cocody-M'Pouto": { lat: 5.326388, lng: -3.955677 },
   'Cocody-Riviera2': { lat: 5.344162, lng: -3.978827 },
   // Coordonnées de l'école
   'École-Cocody': { lat: 5.351824, lng: -3.953979 },
@@ -82,42 +103,42 @@ const realStopsMapping: Record<string, { lat: number; lng: number; address: stri
   // BUS 1: Riviera Bonoumin (Trajet Ouest -> Est)
   'student-1': { lat: 5.368214, lng: -3.977451, address: 'Pharmacie Loumousse, Bonoumin' },
   'student-2': { lat: 5.363615, lng: -3.973345, address: 'Abidjan Mall, Entrée Principale' },
-  'student-3': { lat: 5.361022, lng: -3.971210, address: 'Cité SIR, Poste de garde' },
-  'student-4': { lat: 5.365430, lng: -3.975100, address: 'Espace Ficgayo, Bonoumin' },
-  'student-5': { lat: 5.369800, lng: -3.980500, address: 'Carrefour CIE, Bonoumin' },
-  'student-6': { lat: 5.362500, lng: -3.978000, address: 'Commissariat du 34ème Arrondissement' },
+  'student-3': { lat: 5.361022, lng: -3.97121, address: 'Cité SIR, Poste de garde' },
+  'student-4': { lat: 5.36543, lng: -3.9751, address: 'Espace Ficgayo, Bonoumin' },
+  'student-5': { lat: 5.3698, lng: -3.9805, address: 'Carrefour CIE, Bonoumin' },
+  'student-6': { lat: 5.3625, lng: -3.978, address: 'Commissariat du 34ème Arrondissement' },
 
   // BUS 2: Riviera Palmeraie (Trajet Nord -> Sud)
   'student-7': { lat: 5.373418, lng: -3.958521, address: 'Rond-point de la Palmeraie' },
-  'student-8': { lat: 5.370125, lng: -3.955410, address: 'Pharmacie de la Renaissance' },
-  'student-9': { lat: 5.376800, lng: -3.952300, address: 'Cité SIPIM 4, Entrée' },
+  'student-8': { lat: 5.370125, lng: -3.95541, address: 'Pharmacie de la Renaissance' },
+  'student-9': { lat: 5.3768, lng: -3.9523, address: 'Cité SIPIM 4, Entrée' },
   'student-10': { lat: 5.362145, lng: -3.953874, address: 'Carrefour M’Badon' },
   'student-11': { lat: 5.368859, lng: -3.956818, address: 'Super U, Palmeraie' },
-  'student-12': { lat: 5.365000, lng: -3.960000, address: 'Cité Les Lauriers 1' },
+  'student-12': { lat: 5.365, lng: -3.96, address: 'Cité Les Lauriers 1' },
 
   // BUS 3: Akouédo & Nouveau Camp (Trajet Est -> Ouest)
-  'student-13': { lat: 5.352100, lng: -3.940500, address: 'Station Shell, Akouédo' },
-  'student-14': { lat: 5.355800, lng: -3.935200, address: 'Nouveau Camp Militaire, Entrée' },
-  'student-15': { lat: 5.350122, lng: -3.942706, address: 'Pharmacie d\'Akouédo' },
-  'student-16': { lat: 5.358500, lng: -3.928000, address: 'Cité ADO, Portail Nord' },
-  'student-17': { lat: 5.362000, lng: -3.921000, address: 'Carrefour Feh Kessé' },
-  'student-18': { lat: 5.348000, lng: -3.945000, address: 'Cité Génie 2000' },
+  'student-13': { lat: 5.3521, lng: -3.9405, address: 'Station Shell, Akouédo' },
+  'student-14': { lat: 5.3558, lng: -3.9352, address: 'Nouveau Camp Militaire, Entrée' },
+  'student-15': { lat: 5.350122, lng: -3.942706, address: "Pharmacie d'Akouédo" },
+  'student-16': { lat: 5.3585, lng: -3.928, address: 'Cité ADO, Portail Nord' },
+  'student-17': { lat: 5.362, lng: -3.921, address: 'Carrefour Feh Kessé' },
+  'student-18': { lat: 5.348, lng: -3.945, address: 'Cité Génie 2000' },
 
   // BUS 4: M'Pouto (Trajet Sud -> Nord)
-  'student-19': { lat: 5.328500, lng: -3.958200, address: 'Carrefour Sol Béni' },
-  'student-20': { lat: 5.326388, lng: -3.955677, address: 'Place Publique, Village M\'Pouto' },
-  'student-21': { lat: 5.335400, lng: -3.954100, address: 'Cité Synacass-Ci' },
-  'student-22': { lat: 5.341800, lng: -3.970200, address: 'Église Sainte Famille, Riviera 2' },
-  'student-23': { lat: 5.340200, lng: -3.961500, address: 'Lycée Blaise Pascal, Arrêt Bus' },
-  'student-24': { lat: 5.332000, lng: -3.959000, address: 'Cité CIAD M\'Pouto' },
+  'student-19': { lat: 5.3285, lng: -3.9582, address: 'Carrefour Sol Béni' },
+  'student-20': { lat: 5.326388, lng: -3.955677, address: "Place Publique, Village M'Pouto" },
+  'student-21': { lat: 5.3354, lng: -3.9541, address: 'Cité Synacass-Ci' },
+  'student-22': { lat: 5.3418, lng: -3.9702, address: 'Église Sainte Famille, Riviera 2' },
+  'student-23': { lat: 5.3402, lng: -3.9615, address: 'Lycée Blaise Pascal, Arrêt Bus' },
+  'student-24': { lat: 5.332, lng: -3.959, address: "Cité CIAD M'Pouto" },
 
   // BUS 5: Riviera 2 & 3 (Trajet Proximité)
-  'student-25': { lat: 5.346500, lng: -3.982000, address: 'Clinique Ste Anne-Marie (PISAM)' },
-  'student-26': { lat: 5.349000, lng: -3.975000, address: 'Jardin Public Riviera 3' },
-  'student-27': { lat: 5.355000, lng: -3.965000, address: 'Commissariat du 18ème Arrondissement' },
+  'student-25': { lat: 5.3465, lng: -3.982, address: 'Clinique Ste Anne-Marie (PISAM)' },
+  'student-26': { lat: 5.349, lng: -3.975, address: 'Jardin Public Riviera 3' },
+  'student-27': { lat: 5.355, lng: -3.965, address: 'Commissariat du 18ème Arrondissement' },
   'student-28': { lat: 5.344162, lng: -3.978827, address: 'Rond-point de la Riviera 2' },
-  'student-29': { lat: 5.353000, lng: -3.968000, address: 'Lycée Français, Entrée Primaire' },
-  'student-30': { lat: 5.358000, lng: -3.962000, address: 'Cité EECI' },
+  'student-29': { lat: 5.353, lng: -3.968, address: 'Lycée Français, Entrée Primaire' },
+  'student-30': { lat: 5.358, lng: -3.962, address: 'Cité EECI' },
 };
 
 // ==============================================
@@ -136,7 +157,9 @@ async function checkEmulators(maxAttempts = 10) {
       return true;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.warn(`⚠️  Tentative ${attempt}/${maxAttempts} – émulateurs indisponibles (${reason}).`);
+      console.warn(
+        `⚠️  Tentative ${attempt}/${maxAttempts} – émulateurs indisponibles (${reason}).`
+      );
       if (attempt === maxAttempts) {
         console.error('❌ Erreur : Les émulateurs Firebase ne sont pas démarrés !\n');
         console.log('📌 Pour démarrer les émulateurs :');
@@ -164,8 +187,7 @@ function getStationedPosition(index: number, total: number) {
   const radiusMeters = 35 + (index % 3) * 12; // 35 à 59 mètres autour de l'école
   const radiusDegreesLat = radiusMeters / 111000;
   const radiusDegreesLng =
-    radiusMeters /
-    (111000 * Math.cos((defaultSchool.location.lat * Math.PI) / 180));
+    radiusMeters / (111000 * Math.cos((defaultSchool.location.lat * Math.PI) / 180));
 
   return {
     lat: defaultSchool.location.lat + radiusDegreesLat * Math.cos(angle),
@@ -188,7 +210,7 @@ async function seedData() {
   // ==================================================
   // 0. CRÉER L'ÉCOLE PAR DÉFAUT
   // ==================================================
-  console.log('🏫 Création de l\'école principale...');
+  console.log("🏫 Création de l'école principale...");
   await db.collection('schools').doc(defaultSchoolId).set(defaultSchool);
   console.log(`✅ École enregistrée: ${defaultSchool.name} (${defaultSchool.address})\n`);
 
@@ -303,7 +325,7 @@ async function seedData() {
       phoneNumber: randomPhone(),
       schoolId: defaultSchoolId,
       role: 'parent',
-      address: `${Math.floor(100 + Math.random() * 900)} Rue ${randomChoice(['de la Paix', 'du Commerce', 'Principale', 'de l\'École'])}`,
+      address: `${Math.floor(100 + Math.random() * 900)} Rue ${randomChoice(['de la Paix', 'du Commerce', 'Principale', "de l'École"])}`,
       studentIds: [], // Sera rempli plus tard
       isActive: true,
       createdAt: Timestamp.now(),
@@ -323,7 +345,7 @@ async function seedData() {
     { commune: 'Cocody', quartiers: ['Riviera Bonoumin'] },
     { commune: 'Cocody', quartiers: ['Riviera Palmeraie'] },
     { commune: 'Cocody', quartiers: ['Akouédo Village'] },
-    { commune: 'Cocody', quartiers: ['M\'Pouto'] },
+    { commune: 'Cocody', quartiers: ["M'Pouto"] },
     { commune: 'Cocody', quartiers: ['Riviera 2'] },
   ];
 
@@ -370,13 +392,10 @@ async function seedData() {
   }
   console.log(`✅ ${buses.length} bus créés\n`);
 
-  await db
-    .collection('schools')
-    .doc(defaultSchoolId)
-    .update({
-      fleetSize: buses.length,
-      updatedAt: Timestamp.now(),
-    });
+  await db.collection('schools').doc(defaultSchoolId).update({
+    fleetSize: buses.length,
+    updatedAt: Timestamp.now(),
+  });
 
   // ==================================================
   // 5. CRÉER LES ÉLÈVES AVEC DIFFÉRENTS PROFILS
@@ -384,10 +403,31 @@ async function seedData() {
   console.log('👶 Création des élèves...');
 
   const profils = [
-    { name: 'Matin + Soir uniquement', activeTrips: [TimeOfDay.MORNING_OUTBOUND, TimeOfDay.EVENING_RETURN], pct: 50 },
-    { name: 'Full day (4 trajets)', activeTrips: [TimeOfDay.MORNING_OUTBOUND, TimeOfDay.MIDDAY_OUTBOUND, TimeOfDay.MIDDAY_RETURN, TimeOfDay.EVENING_RETURN], pct: 30 },
-    { name: 'Matin + Midi sortie', activeTrips: [TimeOfDay.MORNING_OUTBOUND, TimeOfDay.MIDDAY_OUTBOUND], pct: 15 },
-    { name: 'Midi retour + Soir', activeTrips: [TimeOfDay.MIDDAY_RETURN, TimeOfDay.EVENING_RETURN], pct: 5 },
+    {
+      name: 'Matin + Soir uniquement',
+      activeTrips: [TimeOfDay.MORNING_OUTBOUND, TimeOfDay.EVENING_RETURN],
+      pct: 50,
+    },
+    {
+      name: 'Full day (4 trajets)',
+      activeTrips: [
+        TimeOfDay.MORNING_OUTBOUND,
+        TimeOfDay.MIDDAY_OUTBOUND,
+        TimeOfDay.MIDDAY_RETURN,
+        TimeOfDay.EVENING_RETURN,
+      ],
+      pct: 30,
+    },
+    {
+      name: 'Matin + Midi sortie',
+      activeTrips: [TimeOfDay.MORNING_OUTBOUND, TimeOfDay.MIDDAY_OUTBOUND],
+      pct: 15,
+    },
+    {
+      name: 'Midi retour + Soir',
+      activeTrips: [TimeOfDay.MIDDAY_RETURN, TimeOfDay.EVENING_RETURN],
+      pct: 5,
+    },
   ];
 
   const élèves = [];
@@ -420,13 +460,15 @@ async function seedData() {
       // Créer des locations selon le profil
       const baseKey = `${config.commune}-${quartier.replace(/\s+/g, '')}`;
       const baseLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.35;
-      const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.00;
+      const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.0;
       const stopData = realStopsMapping[studentId];
 
       const locations: any = {};
-      const lat = stopData ? stopData.lat : (baseLat + (Math.random() - 0.5) * 0.01);
-      const lng = stopData ? stopData.lng : (baseLng + (Math.random() - 0.5) * 0.01);
-      const address = stopData ? stopData.address : `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`;
+      const lat = stopData ? stopData.lat : baseLat + (Math.random() - 0.5) * 0.01;
+      const lng = stopData ? stopData.lng : baseLng + (Math.random() - 0.5) * 0.01;
+      const address = stopData
+        ? stopData.address
+        : `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`;
 
       if (profil.activeTrips.includes(TimeOfDay.MORNING_OUTBOUND)) {
         locations.morningPickup = {
@@ -474,7 +516,13 @@ async function seedData() {
         classe,
         ecole,
         schoolId: defaultSchoolId,
-        dateOfBirth: Timestamp.fromDate(new Date(2010 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 12), Math.floor(1 + Math.random() * 28))),
+        dateOfBirth: Timestamp.fromDate(
+          new Date(
+            2010 + Math.floor(Math.random() * 8),
+            Math.floor(Math.random() * 12),
+            Math.floor(1 + Math.random() * 28)
+          )
+        ),
         grade: classe,
         parentIds: [parentId],
         parentId,
@@ -495,9 +543,12 @@ async function seedData() {
       (bus.studentIds as string[]).push(studentId);
 
       // Ajouter l'élève au parent
-      await db.collection('users').doc(parentId).update({
-        studentIds: admin.firestore.FieldValue.arrayUnion(studentId),
-      });
+      await db
+        .collection('users')
+        .doc(parentId)
+        .update({
+          studentIds: admin.firestore.FieldValue.arrayUnion(studentId),
+        });
 
       élèves.push(élève);
       console.log(`    ✓ ${élève.firstName} ${élève.lastName} (${élève.grade}) - ${profil.name}`);
@@ -516,7 +567,13 @@ async function seedData() {
   // 6. CRÉER LES ROUTES
   // ==================================================
   console.log('🛣️  Création des routes...');
-  const routes: Array<{ id: string; name: string; commune: string; quartiers: string[]; stops: any[] }> = [];
+  const routes: Array<{
+    id: string;
+    name: string;
+    commune: string;
+    quartiers: string[];
+    stops: any[];
+  }> = [];
 
   for (let busIdx = 0; busIdx < buses.length; busIdx++) {
     const bus = buses[busIdx]!;
@@ -524,7 +581,7 @@ async function seedData() {
     const routeId = `route-${busIdx + 1}`;
 
     // Récupérer les élèves de ce bus
-    const studentsOfBus = élèves.filter(e => e.busId === bus.id);
+    const studentsOfBus = élèves.filter((e) => e.busId === bus.id);
 
     // Créer les arrêts à partir des élèves
     const stops = studentsOfBus.map((élève, idx) => ({
@@ -532,7 +589,7 @@ async function seedData() {
       address: élève.locations.morningPickup?.address || `${élève.quartier}, ${élève.commune}`,
       location: {
         lat: élève.locations.morningPickup?.lat || 5.35,
-        lng: élève.locations.morningPickup?.lng || -4.00,
+        lng: élève.locations.morningPickup?.lng || -4.0,
       },
       order: idx + 1,
       estimatedTimeMinutes: 5 + idx * 3,
@@ -663,51 +720,56 @@ async function seedData() {
     }
 
     const statusLabels: Record<BusLiveStatus, string> = {
-      [BusLiveStatus.ARRIVED]: '✅ Arrivé à l\'école',
+      [BusLiveStatus.ARRIVED]: "✅ Arrivé à l'école",
       [BusLiveStatus.EN_ROUTE]: '🚌 En route',
       [BusLiveStatus.DELAYED]: '⚠️  En retard',
       [BusLiveStatus.STOPPED]: '🛑 Arrêté',
       [BusLiveStatus.IDLE]: '💤 Inactif',
     };
 
-    await db.collection('gps_live').doc(bus.id).set({
-      busId: bus.id,
-      number: `BUS-${String(bus.busNumber).padStart(2, '0')}`,
-      busNumber: bus.busNumber,
-      plateNumber: bus.plateNumber,
-      model: bus.model,
-      year: bus.year,
-      capacity: bus.capacity,
-      status: statusConfig.status,
-      liveStatus: statusConfig.status,
-      passengersCount: statusConfig.passengersCount,
-      passengersPresent: statusConfig.passengersCount,
-      isActive: true,
-      driverId: bus.driverId,
-      driverName: bus.driverName,
-      driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
-      routeId: bus.routeId || null,
-      routeName: routeMeta?.name || null,
-      fromZone: statusConfig.atSchool ? null : currentZone,
-      toZone: statusConfig.atSchool ? null : 'École',
-      currentZone,
-      schoolId: defaultSchoolId,
-      position: {
-        lat: position.lat,
-        lng: position.lng,
-        speed: statusConfig.speed,
-        heading: Math.floor(Math.random() * 360),
-        accuracy: 10 + Math.random() * 5,
+    await db
+      .collection('gps_live')
+      .doc(bus.id)
+      .set({
+        busId: bus.id,
+        number: `BUS-${String(bus.busNumber).padStart(2, '0')}`,
+        busNumber: bus.busNumber,
+        plateNumber: bus.plateNumber,
+        model: bus.model,
+        year: bus.year,
+        capacity: bus.capacity,
+        status: statusConfig.status,
+        liveStatus: statusConfig.status,
+        passengersCount: statusConfig.passengersCount,
+        passengersPresent: statusConfig.passengersCount,
+        isActive: true,
+        driverId: bus.driverId,
+        driverName: bus.driverName,
+        driverPhone: chauffeur?.phoneNumber || bus.driverPhone || '',
+        routeId: bus.routeId || null,
+        routeName: routeMeta?.name || null,
+        fromZone: statusConfig.atSchool ? null : currentZone,
+        toZone: statusConfig.atSchool ? null : 'École',
+        currentZone,
+        schoolId: defaultSchoolId,
+        position: {
+          lat: position.lat,
+          lng: position.lng,
+          speed: statusConfig.speed,
+          heading: Math.floor(Math.random() * 360),
+          accuracy: 10 + Math.random() * 5,
+          timestamp: gpsTimestamp,
+        },
+        updatedAt: gpsTimestamp,
+        lastUpdate: Timestamp.fromMillis(gpsTimestamp),
         timestamp: gpsTimestamp,
-      },
-      updatedAt: gpsTimestamp,
-      lastUpdate: Timestamp.fromMillis(gpsTimestamp),
-      timestamp: gpsTimestamp,
-      tripStartTime: null,
-    });
+        tripStartTime: null,
+      });
 
     const statusLabel = statusLabels[statusConfig.status] || statusConfig.status;
-    console.log(`  ✓ Bus ${bus.busNumber} - ${statusLabel} - ${statusConfig.passengersCount} élèves`);
+    console.log(
+      `  ✓ Bus ${bus.busNumber} - ${statusLabel} - ${statusConfig.passengersCount} élèves`
+    );
   }
 
   console.log(`\n✅ ${buses.length} positions GPS créées avec statuts variés\n`);
@@ -726,15 +788,25 @@ async function seedData() {
   console.log(`  ✓ ${buses.length} bus avec positions GPS en temps réel\n`);
 
   console.log('🚌 Statuts des bus (pour tester les panels colorés) :');
-  console.log(`  - ✅ ${busStatusConfigs.filter(c => c.status === BusLiveStatus.ARRIVED).length} bus arrivés (fond vert)`);
-  console.log(`  - 🚌 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.EN_ROUTE).length} bus en route (fond bleu)`);
-  console.log(`  - ⚠️  ${busStatusConfigs.filter(c => c.status === BusLiveStatus.DELAYED).length} bus en retard (fond rouge)`);
-  console.log(`  - 🛑 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.STOPPED).length} bus arrêtés (fond gris)`);
-  console.log(`  - 💤 ${busStatusConfigs.filter(c => c.status === BusLiveStatus.IDLE).length} bus inactifs (fond gris)\n`);
+  console.log(
+    `  - ✅ ${busStatusConfigs.filter((c) => c.status === BusLiveStatus.ARRIVED).length} bus arrivés (fond vert)`
+  );
+  console.log(
+    `  - 🚌 ${busStatusConfigs.filter((c) => c.status === BusLiveStatus.EN_ROUTE).length} bus en route (fond bleu)`
+  );
+  console.log(
+    `  - ⚠️  ${busStatusConfigs.filter((c) => c.status === BusLiveStatus.DELAYED).length} bus en retard (fond rouge)`
+  );
+  console.log(
+    `  - 🛑 ${busStatusConfigs.filter((c) => c.status === BusLiveStatus.STOPPED).length} bus arrêtés (fond gris)`
+  );
+  console.log(
+    `  - 💤 ${busStatusConfigs.filter((c) => c.status === BusLiveStatus.IDLE).length} bus inactifs (fond gris)\n`
+  );
 
   console.log('📈 Profils des élèves :');
   for (const profil of profils) {
-    const count = élèves.filter(e => e.activeTrips.length === profil.activeTrips.length).length;
+    const count = élèves.filter((e) => e.activeTrips.length === profil.activeTrips.length).length;
     console.log(`  • ${profil.name}: ${count} élèves (${profil.pct}%)`);
   }
 

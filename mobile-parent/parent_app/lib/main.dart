@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/splash_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/background_gps_service.dart';
+import 'services/notification_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/bus_provider.dart';
 import 'utils/app_colors.dart';
@@ -16,11 +18,24 @@ import 'utils/app_colors.dart';
 // Pour Cloud Functions (si tu l'utilises)
 // adb reverse tcp:5001 tcp:5001
 
+// Handler pour les messages FCM en background (doit être top-level)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await FirebaseService.initialize();
+  print('📨 Message FCM en background: ${message.notification?.title}');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialiser Firebase
   await FirebaseService.initialize();
+
+  // Configurer le handler FCM background
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialiser le service de notifications
+  await NotificationService().initialize();
 
   // Initialiser le service GPS en arrière-plan
   await BackgroundGpsService.instance.initialize();

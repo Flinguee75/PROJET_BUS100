@@ -25,33 +25,24 @@ router.get('/', (req, res) => schoolController.getAllSchools(req, res));
  * Récupère la flotte (nombre de bus) d'une école
  * IMPORTANT: Doit venir AVANT la route /:schoolId générique
  */
-router.get('/:schoolId/fleet', (req, res) =>
-  schoolController.getSchoolFleet(req, res)
-);
+router.get('/:schoolId/fleet', (req, res) => schoolController.getSchoolFleet(req, res));
 
 /**
  * GET /api/schools/:schoolId
  * Récupère une école spécifique
  */
-router.get('/:schoolId', (req, res) =>
-  schoolController.getSchoolById(req, res)
-);
+router.get('/:schoolId', (req, res) => schoolController.getSchoolById(req, res));
 
 /**
  * PUT /api/schools/:schoolId
  * Met à jour une école existante
  */
-router.put('/:schoolId', (req, res) =>
-  schoolController.updateSchool(req, res)
-);
+router.put('/:schoolId', (req, res) => schoolController.updateSchool(req, res));
 
 /**
  * DELETE /api/schools/:schoolId
  * Supprime une école (soft delete)
  */
-router.delete('/:schoolId', (req, res) =>
-  schoolController.deleteSchool(req, res)
-);
+router.delete('/:schoolId', (req, res) => schoolController.deleteSchool(req, res));
 
 export default router;
-

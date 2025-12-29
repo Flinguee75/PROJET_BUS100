@@ -304,6 +304,7 @@ export class NotificationService {
       throw new Error(`Bus ${busId} not found`);
     }
     const bus = busDoc.data();
+    const currentTripType = bus?.currentTrip?.tripType;
 
     // Récupérer le chauffeur
     const driverDoc = await db.collection(collections.users).doc(driverId).get();
@@ -322,10 +323,17 @@ export class NotificationService {
       return;
     }
 
-    // Collecter tous les IDs de parents (sans doublons)
+    // Collecter les IDs de parents (seulement pour les élèves inscrits au trip actuel)
     const parentIdsSet = new Set<string>();
     studentsSnapshot.docs.forEach((doc) => {
       const student = doc.data();
+
+      // Vérifier si l'élève est inscrit au trip actuel
+      const activeTrips = student.activeTrips || [];
+      if (currentTripType && !activeTrips.includes(currentTripType)) {
+        return; // Skip cet élève s'il n'est pas inscrit
+      }
+
       if (student.parentIds && Array.isArray(student.parentIds)) {
         student.parentIds.forEach((parentId: string) => parentIdsSet.add(parentId));
       }
@@ -334,28 +342,151 @@ export class NotificationService {
     const parentIds = Array.from(parentIdsSet);
 
     if (parentIds.length === 0) {
-      console.log(`⚠️ Aucun parent trouvé pour les élèves du bus ${busId}`);
+      console.log(`⚠️ Aucun parent concerné pour le trip ${currentTripType} du bus ${busId}`);
       return;
     }
 
-    // Envoyer la notification à tous les parents
+    // Personnaliser le message selon le type de trajet
+    let title = 'Trajet démarré';
+    let message = `Le bus a démarré son trajet avec ${driverName}.`;
+
+    switch (currentTripType) {
+      case 'morning_outbound':
+        title = 'Ramassage du matin démarré';
+        message = `Le bus vient de démarrer le ramassage du matin avec ${driverName}. Vous pouvez suivre sa position en temps réel.`;
+        break;
+      case 'midday_outbound':
+        title = 'Retour à la maison (midi)';
+        message = `Le bus vient de démarrer le trajet retour du midi avec ${driverName}. Votre enfant sera bientôt à la maison.`;
+        break;
+      case 'midday_return':
+        title = 'Ramassage de midi démarré';
+        message = `Le bus vient de démarrer le ramassage de midi avec ${driverName}. Votre enfant sera bientôt récupéré.`;
+        break;
+      case 'evening_return':
+        title = 'Retour du soir démarré';
+        message = `Le bus vient de démarrer le trajet retour du soir avec ${driverName}. Votre enfant sera bientôt à la maison.`;
+        break;
+      default:
+        message = `Le bus ${bus?.plateNumber || busId} a démarré son trajet avec ${driverName}. Vous pouvez suivre sa position en temps réel.`;
+    }
+
+    // Envoyer la notification aux parents concernés
     await this.createAndSend({
       type: NotificationType.BUS_ARRIVING,
-      title: '🚌 Trajet démarré',
-      message: `Le bus ${bus?.plate || busId} a démarré son trajet avec ${driverName}. Vous pouvez suivre sa position en temps réel.`,
+      title,
+      message,
       recipientIds: parentIds,
       priority: NotificationPriority.HIGH,
       data: {
         busId,
         driverId,
+        tripType: currentTripType,
         eventType: 'route_started',
         timestamp: new Date().toISOString(),
       },
     });
 
     console.log(
-      `📲 Notification de démarrage envoyée à ${parentIds.length} parent(s) pour le bus ${busId}`
+      `📲 Notification de démarrage envoyée à ${parentIds.length} parent(s) pour ${currentTripType}`
     );
+  }
+
+  /**
+   * Notifie tous les parents des élèves d'un bus que celui-ci est arrivé à l'école
+   */
+  async notifyParentsArrival(busId: string, schoolId?: string): Promise<void> {
+    const db = getDb();
+
+    // Récupérer le bus avec son currentTrip
+    const busDoc = await db.collection(collections.buses).doc(busId).get();
+    if (!busDoc.exists) {
+      throw new Error(`Bus ${busId} not found`);
+    }
+    const bus = busDoc.data();
+    const currentTripType = bus?.currentTrip?.tripType;
+
+    // Récupérer tous les élèves du bus
+    const studentsSnapshot = await db
+      .collection(collections.students)
+      .where('busId', '==', busId)
+      .get();
+
+    if (studentsSnapshot.empty) {
+      console.log(`⚠️ Aucun élève trouvé pour le bus ${busId}`);
+      return;
+    }
+
+    // Filtrer les élèves inscrits au trip actuel et collecter les parents
+    const parentIdsSet = new Set<string>();
+    const studentNames: string[] = [];
+
+    studentsSnapshot.docs.forEach((doc) => {
+      const student = doc.data();
+
+      // Vérifier si l'élève est inscrit au trip actuel
+      const activeTrips = student.activeTrips || [];
+      if (currentTripType && !activeTrips.includes(currentTripType)) {
+        return; // Skip cet élève s'il n'est pas inscrit
+      }
+
+      studentNames.push(student.firstName);
+
+      if (student.parentIds && Array.isArray(student.parentIds)) {
+        student.parentIds.forEach((parentId: string) => parentIdsSet.add(parentId));
+      }
+    });
+
+    const parentIds = Array.from(parentIdsSet);
+
+    if (parentIds.length === 0) {
+      console.log(`⚠️ Aucun parent concerné pour le trip ${currentTripType} du bus ${busId}`);
+      return;
+    }
+
+    // Personnaliser le message selon le type de trajet
+    let title = "Arrivée à l'école";
+    let message = `Le bus est arrivé à l'école.`;
+
+    switch (currentTripType) {
+      case 'morning_outbound':
+        title = "Arrivée à l'école";
+        message = "Votre enfant a été déposé à l'école (matin).";
+        break;
+      case 'midday_return':
+        title = "Arrivée à l'école";
+        message = "Votre enfant a été déposé à l'école (retour midi).";
+        break;
+      case 'midday_outbound':
+        title = "Départ de l'école";
+        message = "Votre enfant est en route vers la maison (pause midi).";
+        break;
+      case 'evening_return':
+        title = "Départ de l'école";
+        message = "Votre enfant est en route vers la maison (fin de journée).";
+        break;
+      default:
+        message = `Le bus ${bus?.plateNumber || busId} est arrivé à l'école.`;
+    }
+
+    // Envoyer la notification aux parents concernés
+    await this.createAndSend({
+      type: NotificationType.BUS_ARRIVING,
+      title,
+      message,
+      recipientIds: parentIds,
+      priority: NotificationPriority.MEDIUM,
+      data: {
+        busId,
+        schoolId: schoolId || null,
+        tripType: currentTripType,
+        eventType: 'school_arrival',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    const count = parentIds.length;
+    console.log(`📲 Notification envoyée à ${count} parent(s) pour ${currentTripType}`);
   }
 
   /**

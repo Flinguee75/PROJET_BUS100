@@ -7,6 +7,8 @@ import { getDb, collections } from '../config/firebase.config';
 import { GPSUpdateInput, GPSLiveData, GPSHistoryEntry, BusLiveStatus } from '../types';
 import { BusStatus } from '../types/bus.types';
 import type { BusRealtimeData, DriverInfo, RouteInfo } from '../types/realtime.types';
+import notificationService from './notification.service';
+import schoolService from './school.service';
 
 export class GPSService {
   /**
@@ -84,6 +86,12 @@ export class GPSService {
         ...enrichedData,
         stoppedAt: previousData.stoppedAt || null,
       };
+    }
+
+    // 🏫 DÉTECTION ARRIVÉE ÉCOLE
+    // Si le bus passe à STOPPED et qu'il est près d'une école, notifier les parents
+    if (newStatus === BusLiveStatus.STOPPED && previousStatus !== BusLiveStatus.STOPPED) {
+      await this.checkSchoolArrivalAndNotify(busId, busData, lat, lng);
     }
 
     // Sauvegarder les données ENRICHIES dans /gps_live
@@ -270,6 +278,63 @@ export class GPSService {
       .get();
 
     return snapshot.docs.map((doc) => doc.data() as GPSHistoryEntry);
+  }
+
+  /**
+   * Vérifie si le bus est arrivé à l'école et envoie une notification si c'est le cas
+   * @param busId - ID du bus
+   * @param busData - Données du bus
+   * @param lat - Latitude actuelle du bus
+   * @param lng - Longitude actuelle du bus
+   */
+  private async checkSchoolArrivalAndNotify(
+    busId: string,
+    busData: any,
+    lat: number,
+    lng: number
+  ): Promise<void> {
+    try {
+      // Vérifier si le bus a une école assignée
+      if (!busData.schoolId) {
+        console.log(`⚠️ Bus ${busId} n'a pas d'école assignée, skip notification`);
+        return;
+      }
+
+      // Récupérer les coordonnées de l'école
+      const school = await schoolService.getSchoolById(busData.schoolId);
+      if (!school || !school.location) {
+        console.log(`⚠️ École ${busData.schoolId} non trouvée ou sans localisation`);
+        return;
+      }
+
+      // Calculer la distance entre le bus et l'école
+      const distanceToSchool = this.calculateDistance(
+        lat,
+        lng,
+        school.location.lat,
+        school.location.lng
+      );
+
+      // Seuil de proximité : 200 mètres (0.2 km)
+      const SCHOOL_PROXIMITY_THRESHOLD_KM = 0.2;
+
+      if (distanceToSchool <= SCHOOL_PROXIMITY_THRESHOLD_KM) {
+        const distance = Math.round(distanceToSchool * 1000);
+        console.log(`🏫 Bus ${busId} est arrivé à l'école ${school.name} (${distance}m)`);
+
+        // Envoyer notification aux parents
+        await notificationService.notifyParentsArrival(busId, busData.schoolId);
+      } else {
+        const distance = Math.round(distanceToSchool * 1000);
+        console.log(`📍 Bus ${busId} s'est arrêté à ${distance}m de l'école (seuil: 200m)`);
+      }
+    } catch (error) {
+      console.error(
+        `❌ Erreur lors de la vérification d'arrivée à l'école pour le bus ${busId}:`,
+        error
+      );
+      // Ne pas faire échouer l'update GPS si la notification échoue
+    }
   }
 
   /**

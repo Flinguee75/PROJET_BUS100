@@ -528,7 +528,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       }
 
       // 6. Réinitialiser l'attendance
-      if (tripStartTimestamp != null && _driver?.busId != null && _selectedTripType != null) {
+      if (!completed &&
+          tripStartTimestamp != null &&
+          _driver?.busId != null &&
+          _selectedTripType != null) {
         await AttendanceService.resetAttendanceForTrip(
           busId: _driver!.busId!,
           tripType: _selectedTripType!.firestoreValue,

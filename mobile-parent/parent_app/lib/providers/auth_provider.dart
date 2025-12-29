@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import '../services/driver_service.dart';
+import '../services/notification_service.dart';
 
 /// Provider pour gérer l'authentification
 class AuthProvider with ChangeNotifier {
@@ -78,6 +79,9 @@ class AuthProvider with ChangeNotifier {
       // Charger le profil utilisateur depuis Firestore
       if (_user != null) {
         await _loadUserProfile(_user!.uid);
+
+        // Enregistrer le token FCM pour les notifications push
+        await NotificationService().registerFCMToken(_user!.uid);
       }
 
       _isLoading = false;
@@ -94,6 +98,9 @@ class AuthProvider with ChangeNotifier {
 
   /// Déconnexion
   Future<void> signOut() async {
+    // Supprimer le token FCM avant de se déconnecter
+    await NotificationService().unregisterFCMToken();
+
     await FirebaseService.signOut();
     _user = null;
     _userProfile = null;

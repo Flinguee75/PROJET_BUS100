@@ -21,6 +21,7 @@ class _EnfantSettingsScreenState extends State<EnfantSettingsScreen> {
   bool _notificationsEnabled = true;
   bool _busEnRouteNotif = true;
   bool _busProximiteNotif = true;
+  int _proximityMinutes = 10; // Délai de notification de proximité (en minutes)
   bool _retardNotif = true;
   bool _absenceNotif = true;
   bool _trackBusEnabled = true;
@@ -51,6 +52,7 @@ class _EnfantSettingsScreenState extends State<EnfantSettingsScreen> {
       _notificationsEnabled = prefs.getBool('${enfantId}_notifications') ?? true;
       _busEnRouteNotif = prefs.getBool('${enfantId}_bus_en_route') ?? true;
       _busProximiteNotif = prefs.getBool('${enfantId}_bus_proximite') ?? true;
+      _proximityMinutes = prefs.getInt('${enfantId}_proximity_minutes') ?? 10;
       _retardNotif = prefs.getBool('${enfantId}_retard') ?? true;
       _absenceNotif = prefs.getBool('${enfantId}_absence') ?? true;
       _trackBusEnabled = prefs.getBool('${enfantId}_track_bus') ?? true;
@@ -72,6 +74,7 @@ class _EnfantSettingsScreenState extends State<EnfantSettingsScreen> {
     await prefs.setBool('${enfantId}_notifications', _notificationsEnabled);
     await prefs.setBool('${enfantId}_bus_en_route', _busEnRouteNotif);
     await prefs.setBool('${enfantId}_bus_proximite', _busProximiteNotif);
+    await prefs.setInt('${enfantId}_proximity_minutes', _proximityMinutes);
     await prefs.setBool('${enfantId}_retard', _retardNotif);
     await prefs.setBool('${enfantId}_absence', _absenceNotif);
     await prefs.setBool('${enfantId}_track_bus', _trackBusEnabled);
@@ -180,6 +183,34 @@ class _EnfantSettingsScreenState extends State<EnfantSettingsScreen> {
                       setState(() => _busProximiteNotif = value);
                     },
                   ),
+                  if (_busProximiteNotif)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16),
+                      child: ListTile(
+                        title: const Text(
+                          'Délai de notification',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: const Text(
+                          'Temps avant l\'arrivée du bus',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        trailing: DropdownButton<int>(
+                          value: _proximityMinutes,
+                          items: [5, 10, 15, 20].map((int minutes) {
+                            return DropdownMenuItem<int>(
+                              value: minutes,
+                              child: Text('$minutes min'),
+                            );
+                          }).toList(),
+                          onChanged: (int? newValue) {
+                            if (newValue != null) {
+                              setState(() => _proximityMinutes = newValue);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
                   SwitchListTile(
                     title: const Text('Retard'),
                     subtitle: const Text('Notification en cas de retard'),

@@ -26,6 +26,15 @@ app.use(cors({ origin: true })); // CORS pour tous les origins en dev
 app.use(express.json()); // Parse JSON body
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded
 
+// Logs globaux pour détecter les crashes non capturés
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('💥 Unhandled promise rejection:', reason);
+});
+
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({

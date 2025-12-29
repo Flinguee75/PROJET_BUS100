@@ -7,10 +7,10 @@
  * Moments de la journée pour les trajets scolaires
  */
 export enum TimeOfDay {
-  MORNING_OUTBOUND = 'morning_outbound',      // Matin : maison → école
-  MIDDAY_OUTBOUND = 'midday_outbound',        // Midi : école → maison (demi-pensionnaires)
-  MIDDAY_RETURN = 'midday_return',            // Midi : maison → école (retour demi-pensionnaires)
-  EVENING_RETURN = 'evening_return'           // Soir : école → maison
+  MORNING_OUTBOUND = 'morning_outbound', // Matin : maison → école
+  MIDDAY_OUTBOUND = 'midday_outbound', // Midi : école → maison (demi-pensionnaires)
+  MIDDAY_RETURN = 'midday_return', // Midi : maison → école (retour demi-pensionnaires)
+  EVENING_RETURN = 'evening_return', // Soir : école → maison
 }
 
 /**
@@ -76,19 +76,19 @@ export interface Route {
   schedule: {
     morningOutbound?: {
       departure: string; // HH:mm (ex: "07:00")
-      arrival: string;   // HH:mm (ex: "08:00")
+      arrival: string; // HH:mm (ex: "08:00")
     };
     middayOutbound?: {
       departure: string; // HH:mm (ex: "11:45")
-      arrival: string;   // HH:mm (ex: "12:45")
+      arrival: string; // HH:mm (ex: "12:45")
     };
     middayReturn?: {
       departure: string; // HH:mm (ex: "13:00")
-      arrival: string;   // HH:mm (ex: "14:00")
+      arrival: string; // HH:mm (ex: "14:00")
     };
     eveningReturn?: {
       departure: string; // HH:mm (ex: "15:30")
-      arrival: string;   // HH:mm (ex: "16:30")
+      arrival: string; // HH:mm (ex: "16:30")
     };
   };
 
@@ -240,54 +240,14 @@ export const QUARTIERS_BY_COMMUNE: Record<CommuneAbidjan, string[]> = {
     'Avocatier',
     'Agnissankoi',
   ],
-  [CommuneAbidjan.ADJAME]: [
-    'Adjamé Liberté',
-    'Adjamé Bracodi',
-    'Williamsville',
-    'Aghien',
-  ],
-  [CommuneAbidjan.PLATEAU]: [
-    'Plateau Centre',
-    'Plateau Dokui',
-    'Plateau Vallons',
-  ],
-  [CommuneAbidjan.MARCORY]: [
-    'Marcory Zone 4',
-    'Marcory Résidentiel',
-    'Anoumambo',
-    'Biétry',
-  ],
-  [CommuneAbidjan.KOUMASSI]: [
-    'Koumassi Centre',
-    'Remblais',
-    'Grand Campement',
-  ],
-  [CommuneAbidjan.PORT_BOUET]: [
-    'Zone 4',
-    'Vridi',
-    'Gonzague',
-    'Aéroport',
-  ],
-  [CommuneAbidjan.TREICHVILLE]: [
-    'Treichville Centre',
-    'Zone 3',
-    'Belleville',
-  ],
-  [CommuneAbidjan.ATTÉCOUBÉ]: [
-    'Attécoubé Santé',
-    'Attécoubé Locodjoro',
-  ],
-  [CommuneAbidjan.BINGERVILLE]: [
-    'Bingerville Centre',
-    'Akouédo',
-  ],
-  [CommuneAbidjan.SONGON]: [
-    'Songon Village',
-    'Songon-Agban',
-  ],
-  [CommuneAbidjan.ANYAMA]: [
-    'Anyama Centre',
-    'Anyama Village',
-  ],
+  [CommuneAbidjan.ADJAME]: ['Adjamé Liberté', 'Adjamé Bracodi', 'Williamsville', 'Aghien'],
+  [CommuneAbidjan.PLATEAU]: ['Plateau Centre', 'Plateau Dokui', 'Plateau Vallons'],
+  [CommuneAbidjan.MARCORY]: ['Marcory Zone 4', 'Marcory Résidentiel', 'Anoumambo', 'Biétry'],
+  [CommuneAbidjan.KOUMASSI]: ['Koumassi Centre', 'Remblais', 'Grand Campement'],
+  [CommuneAbidjan.PORT_BOUET]: ['Zone 4', 'Vridi', 'Gonzague', 'Aéroport'],
+  [CommuneAbidjan.TREICHVILLE]: ['Treichville Centre', 'Zone 3', 'Belleville'],
+  [CommuneAbidjan.ATTÉCOUBÉ]: ['Attécoubé Santé', 'Attécoubé Locodjoro'],
+  [CommuneAbidjan.BINGERVILLE]: ['Bingerville Centre', 'Akouédo'],
+  [CommuneAbidjan.SONGON]: ['Songon Village', 'Songon-Agban'],
+  [CommuneAbidjan.ANYAMA]: ['Anyama Centre', 'Anyama Village'],
 };
-

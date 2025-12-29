@@ -92,7 +92,8 @@ export const onAttendanceChange = functions
 
         // Ajouter l'élève seulement s'il n'est pas déjà dans la liste
         if (!scannedIds.includes(studentId)) {
-          updates['currentTrip.scannedStudentIds'] = admin.firestore.FieldValue.arrayUnion(studentId);
+          updates['currentTrip.scannedStudentIds'] =
+            admin.firestore.FieldValue.arrayUnion(studentId);
         }
       }
 

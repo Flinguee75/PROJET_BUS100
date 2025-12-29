@@ -7,6 +7,7 @@ export declare class GPSService {
     getLivePosition(busId: string): Promise<GPSLiveData | null>;
     getAllLivePositions(): Promise<GPSLiveData[]>;
     getHistoryForDay(busId: string, date: Date): Promise<GPSHistoryEntry[]>;
+    private checkSchoolArrivalAndNotify;
     calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number;
     private toRadians;
     calculateETA(currentLat: number, currentLng: number, destLat: number, destLng: number, currentSpeed: number): number;

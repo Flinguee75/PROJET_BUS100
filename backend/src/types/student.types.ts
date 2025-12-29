@@ -20,10 +20,10 @@ export interface Student {
 
   // Locations selon le moment de la journée
   locations: {
-    morningPickup?: Location;      // Ramassage le matin
-    middayDropoff?: Location;      // Dépose à midi
-    middayPickup?: Location;       // Ramassage à midi
-    eveningDropoff?: Location;     // Dépose le soir
+    morningPickup?: Location; // Ramassage le matin
+    middayDropoff?: Location; // Dépose à midi
+    middayPickup?: Location; // Ramassage à midi
+    eveningDropoff?: Location; // Dépose le soir
   };
 
   // Moments où l'élève utilise le bus

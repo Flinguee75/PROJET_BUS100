@@ -4,11 +4,7 @@
  */
 
 import { getDb, collections } from '../config/firebase.config';
-import {
-  School,
-  SchoolCreateInput,
-  SchoolUpdateInput,
-} from '../types/school.types';
+import { School, SchoolCreateInput, SchoolUpdateInput } from '../types/school.types';
 import { Timestamp } from 'firebase-admin/firestore';
 import type admin from 'firebase-admin';
 
@@ -64,7 +60,7 @@ export class SchoolService {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      throw new Error('Erreur lors de la création de l\'école');
+      throw new Error("Erreur lors de la création de l'école");
     }
 
     return this.mapFirestoreToSchool(doc);
@@ -90,9 +86,7 @@ export class SchoolService {
    * @returns Liste des écoles actives
    */
   async getAllSchools(): Promise<School[]> {
-    const snapshot = await this.getCollection()
-      .where('isActive', '==', true)
-      .get();
+    const snapshot = await this.getCollection().where('isActive', '==', true).get();
 
     return snapshot.docs.map((doc) => this.mapFirestoreToSchool(doc));
   }
@@ -103,10 +97,7 @@ export class SchoolService {
    * @param data - Données à mettre à jour
    * @returns École mise à jour
    */
-  async updateSchool(
-    schoolId: string,
-    data: SchoolUpdateInput
-  ): Promise<School> {
+  async updateSchool(schoolId: string, data: SchoolUpdateInput): Promise<School> {
     const docRef = this.getCollection().doc(schoolId);
     const doc = await docRef.get();
 
@@ -187,9 +178,7 @@ export class SchoolService {
    * @returns Nombre de bus de l'école
    */
   async getSchoolFleetCount(schoolId: string): Promise<number> {
-    const snapshot = await this.getBusesCollection()
-      .where('schoolId', '==', schoolId)
-      .get();
+    const snapshot = await this.getBusesCollection().where('schoolId', '==', schoolId).get();
 
     return snapshot.size;
   }

@@ -22,5 +22,3 @@ router.post('/start', (req, res) => routeController.startRoute(req, res));
 router.get('/:busId/students', (req, res) => routeController.getRouteStudents(req, res));
 
 export default router;
-
-

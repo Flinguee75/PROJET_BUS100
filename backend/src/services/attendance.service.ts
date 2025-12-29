@@ -121,22 +121,28 @@ export class AttendanceService {
     const studentName = `${studentData.firstName} ${studentData.lastName}`;
 
     // Mettre à jour Bus.lastScan
-    await db.collection(collections.buses).doc(busId).update({
-      lastScan: {
-        studentId,
-        studentName,
-        timestamp,
-        type,
-        location: location || null,
-      },
-    });
+    await db
+      .collection(collections.buses)
+      .doc(busId)
+      .update({
+        lastScan: {
+          studentId,
+          studentName,
+          timestamp,
+          type,
+          location: location || null,
+        },
+      });
 
     // Mettre à jour Bus.currentTrip.scannedStudentIds (ajouter l'élève s'il n'est pas déjà dans la liste)
     const currentScannedIds = busData.currentTrip?.scannedStudentIds || [];
     if (!currentScannedIds.includes(studentId)) {
-      await db.collection(collections.buses).doc(busId).update({
-        'currentTrip.scannedStudentIds': [...currentScannedIds, studentId],
-      });
+      await db
+        .collection(collections.buses)
+        .doc(busId)
+        .update({
+          'currentTrip.scannedStudentIds': [...currentScannedIds, studentId],
+        });
     }
 
     console.log(`✅ Élève ${studentId} scanné pour le bus ${busId} (${timeOfDay}, ${type})`);
@@ -209,4 +215,3 @@ export class AttendanceService {
 }
 
 export default new AttendanceService();
-

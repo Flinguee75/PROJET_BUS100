@@ -5,10 +5,7 @@
  */
 
 import { Request, Response } from 'express';
-import {
-  schoolCreateSchema,
-  schoolUpdateSchema,
-} from '../utils/validation.schemas';
+import { schoolCreateSchema, schoolUpdateSchema } from '../utils/validation.schemas';
 import schoolService from '../services/school.service';
 import { ZodError } from 'zod';
 

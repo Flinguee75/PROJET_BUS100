@@ -36,7 +36,8 @@
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npm test:*)",
       "Bash(flutter analyze:*)",
       "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/mobile-parent/parent_app && dart analyze:*)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(flutter test:*)"
     ],
     "deny": [],
     "ask": []

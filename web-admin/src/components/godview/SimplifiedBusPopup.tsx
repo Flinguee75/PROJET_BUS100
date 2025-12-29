@@ -9,7 +9,6 @@ interface SimplifiedBusPopupOptions {
   busNumber: string;
   busStatus?: string;
   driverName?: string;
-  driverPhone?: string;
   scannedCount: number;
   totalCount: number;
   onCenterClick?: string;
@@ -21,6 +20,7 @@ interface SimplifiedBusPopupOptions {
   };
   nextStudent?: {
     studentName: string;
+    stopOrder?: number;
   };
   speed?: number;
   tripDuration?: string;
@@ -35,13 +35,11 @@ export const generateSimplifiedBusPopupHTML = ({
   busNumber,
   busStatus,
   driverName = 'Non assigné',
-  driverPhone,
   scannedCount,
   totalCount,
   onCenterClick = '',
   lastScan,
   nextStudent,
-  speed,
   tripDuration,
 }: SimplifiedBusPopupOptions): string => {
   // Déterminer la couleur du ratio (vert si complet ou si bus ARRIVED, rouge sinon)
@@ -50,17 +48,10 @@ export const generateSimplifiedBusPopupHTML = ({
   const ratioColorClass = isComplete ? 'text-green-600' : 'text-red-600';
   const ratioBgClass = isComplete ? 'bg-green-50' : 'bg-red-50';
 
-  // Icône de téléphone SVG
-  const phoneIconSVG = driverPhone
-    ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; margin-right:4px; vertical-align:-2px;">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-      </svg>`
-    : '';
-
   return `
     <div class="simplified-bus-popup" style="min-width:240px; font-family: Inter, system-ui, sans-serif;">
       <!-- Header: Numéro du bus + Ratio géant -->
-      <div style="padding: 16px 16px 12px 16px; border-bottom: 1px solid #e5e7eb; position: relative;">
+      <div style="padding: 16px; border-bottom: 1px solid #e5e7eb; position: relative;">
         <button class="bus-popup-close" aria-label="Fermer le popup">×</button>
         <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">
           ${busNumber}
@@ -117,17 +108,18 @@ export const generateSimplifiedBusPopupHTML = ({
             PROCHAIN ÉLÈVE
           </h4>
           <div style="font-size: 13px; color: #0f172a;">
-            <div style="font-weight: 600;">${nextStudent.studentName}</div>
+            <div style="font-weight: 600;">
+              ${nextStudent.stopOrder ? `#${nextStudent.stopOrder} — ` : ''}${nextStudent.studentName}
+            </div>
           </div>
         </div>
       ` : ''}
 
-      <!-- Statut actuel (vitesse, durée) -->
-      ${speed !== undefined || tripDuration ? `
+      <!-- Statut actuel (durée) -->
+      ${tripDuration ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
           <div style="font-size: 13px; color: #475569;">
-            ${speed !== undefined ? `<span style="font-weight: 600;">${Math.round(speed)} km/h</span>` : ''}
-            ${tripDuration ? `<span style="margin-left: 8px;">• ${tripDuration}</span>` : ''}
+            <span>Trajet: ${tripDuration}</span>
           </div>
         </div>
       ` : ''}
@@ -140,7 +132,6 @@ export const generateSimplifiedBusPopupHTML = ({
             <circle cx="12" cy="7" r="4"/>
           </svg>
           <span>${driverName}</span>
-          ${driverPhone ? `<span style="margin-left: auto; color: #0284c7; cursor: pointer;" onclick="window.location.href='tel:${driverPhone}'">${phoneIconSVG}${driverPhone}</span>` : ''}
         </div>
       </div>
 

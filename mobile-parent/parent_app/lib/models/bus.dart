@@ -1,3 +1,38 @@
+/// Trajet en cours
+class CurrentTrip {
+  final String tripType; // Type de trajet (morning_outbound, etc.)
+  final String? routeId; // Route active pour ce trajet
+  final int startTime; // Timestamp début du trajet (Unix ms)
+  final List<String> scannedStudentIds; // IDs des élèves scannés
+
+  CurrentTrip({
+    required this.tripType,
+    this.routeId,
+    required this.startTime,
+    this.scannedStudentIds = const [],
+  });
+
+  factory CurrentTrip.fromJson(Map<String, dynamic> json) {
+    return CurrentTrip(
+      tripType: json['tripType'] as String,
+      routeId: json['routeId'] as String?,
+      startTime: json['startTime'] as int,
+      scannedStudentIds: json['scannedStudentIds'] != null
+          ? (json['scannedStudentIds'] as List).map((e) => e as String).toList()
+          : [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'tripType': tripType,
+      if (routeId != null) 'routeId': routeId,
+      'startTime': startTime,
+      'scannedStudentIds': scannedStudentIds,
+    };
+  }
+}
+
 /// Modèle de données pour un bus
 class Bus {
   final String id;
@@ -11,6 +46,8 @@ class Bus {
   final GPSPosition? currentPosition;
   final String? lastGPSUpdate;
   final int maintenanceStatus;
+  final String? liveStatus; // Statut en temps réel depuis GPS : 'en_route', 'stopped', 'idle', 'arrived'
+  final CurrentTrip? currentTrip; // Trajet en cours
 
   Bus({
     required this.id,
@@ -24,23 +61,29 @@ class Bus {
     this.currentPosition,
     this.lastGPSUpdate,
     required this.maintenanceStatus,
+    this.liveStatus,
+    this.currentTrip,
   });
 
   factory Bus.fromJson(Map<String, dynamic> json) {
     return Bus(
       id: json['id'] as String,
-      immatriculation: json['immatriculation'] as String,
-      chauffeur: json['chauffeur'] as String,
-      chauffeurId: json['chauffeurId'] as String,
-      capacite: json['capacite'] as int,
-      itineraire: json['itineraire'] as String,
-      status: _parseBusStatus(json['status'] as String),
-      statusLabel: json['statusLabel'] as String,
+      immatriculation: json['immatriculation'] as String? ?? json['plateNumber'] as String? ?? '',
+      chauffeur: json['chauffeur'] as String? ?? json['driverName'] as String? ?? 'N/A',
+      chauffeurId: json['chauffeurId'] as String? ?? json['driverId'] as String? ?? '',
+      capacite: json['capacite'] as int? ?? json['capacity'] as int? ?? 0,
+      itineraire: json['itineraire'] as String? ?? json['route'] as String? ?? '',
+      status: _parseBusStatus(json['status'] as String? ?? 'EN_ROUTE'),
+      statusLabel: json['statusLabel'] as String? ?? 'En route',
       currentPosition: json['currentPosition'] != null
           ? GPSPosition.fromJson(json['currentPosition'])
           : null,
       lastGPSUpdate: json['lastGPSUpdate'] as String?,
-      maintenanceStatus: json['maintenanceStatus'] as int,
+      maintenanceStatus: json['maintenanceStatus'] as int? ?? 0,
+      liveStatus: json['liveStatus'] as String?,
+      currentTrip: json['currentTrip'] != null
+          ? CurrentTrip.fromJson(json['currentTrip'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -57,6 +100,8 @@ class Bus {
       'currentPosition': currentPosition?.toJson(),
       'lastGPSUpdate': lastGPSUpdate,
       'maintenanceStatus': maintenanceStatus,
+      'liveStatus': liveStatus,
+      if (currentTrip != null) 'currentTrip': currentTrip!.toJson(),
     };
   }
 

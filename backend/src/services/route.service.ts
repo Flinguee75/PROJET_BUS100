@@ -43,7 +43,7 @@ export class RouteService {
 
     // Vérifier si le bus a déjà un document dans gps_live
     const gpsLiveDoc = await db.collection(collections.gpsLive).doc(busId).get();
-    
+
     if (gpsLiveDoc.exists) {
       // Mettre à jour le statut existant
       await db.collection(collections.gpsLive).doc(busId).update({
@@ -52,13 +52,16 @@ export class RouteService {
       });
     } else {
       // Créer un nouveau document gps_live
-      await db.collection(collections.gpsLive).doc(busId).set({
-        busId,
-        driverId,
-        liveStatus: BusLiveStatus.EN_ROUTE,
-        schoolId: busData.schoolId || null,
-        updatedAt: Date.now(),
-      });
+      await db
+        .collection(collections.gpsLive)
+        .doc(busId)
+        .set({
+          busId,
+          driverId,
+          liveStatus: BusLiveStatus.EN_ROUTE,
+          schoolId: busData.schoolId || null,
+          updatedAt: Date.now(),
+        });
     }
 
     console.log(`✅ Route démarrée pour le bus ${busId} par le chauffeur ${driverId}`);
@@ -123,7 +126,8 @@ export class RouteService {
     studentsSnapshot.forEach((doc) => {
       const data = doc.data();
       const attendance = attendanceMap.get(doc.id) || {};
-      const scanned = attendance.morningStatus === 'present' || attendance.eveningStatus === 'present';
+      const scanned =
+        attendance.morningStatus === 'present' || attendance.eveningStatus === 'present';
 
       const student: RouteStudent = {
         id: doc.id,
@@ -132,8 +136,18 @@ export class RouteService {
         photoUrl: data.photoUrl,
         grade: data.grade || '',
         scanned,
-        morningStatus: attendance.morningStatus as 'present' | 'absent' | 'late' | 'excused' | undefined,
-        eveningStatus: attendance.eveningStatus as 'present' | 'absent' | 'late' | 'excused' | undefined,
+        morningStatus: attendance.morningStatus as
+          | 'present'
+          | 'absent'
+          | 'late'
+          | 'excused'
+          | undefined,
+        eveningStatus: attendance.eveningStatus as
+          | 'present'
+          | 'absent'
+          | 'late'
+          | 'excused'
+          | undefined,
       };
 
       studentsMap.set(doc.id, student);
@@ -175,4 +189,3 @@ export class RouteService {
 }
 
 export default new RouteService();
-
