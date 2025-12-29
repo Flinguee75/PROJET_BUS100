@@ -865,6 +865,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (_driver != null) _buildDriverInfoCard(),
           if (_driver != null) const SizedBox(height: 20),
@@ -1080,36 +1081,41 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           const SizedBox(height: 16),
           _buildStudentCard(student),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _isTripActionLoading
-                      ? null
-                      : () => _setStudentAttendance(student, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: ElevatedButton(
+                    onPressed: _isTripActionLoading
+                        ? null
+                        : () => _setStudentAttendance(student, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Présent'),
                   ),
-                  child: const Text('Présent'),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isTripActionLoading
-                      ? null
-                      : () => _setStudentAttendance(student, false),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange.shade700,
-                    side: BorderSide(color: Colors.orange.shade700),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 140,
+                  child: OutlinedButton(
+                    onPressed: _isTripActionLoading
+                        ? null
+                        : () => _setStudentAttendance(student, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange.shade700,
+                      side: BorderSide(color: Colors.orange.shade700),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Absent'),
                   ),
-                  child: const Text('Absent'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           TextButton.icon(

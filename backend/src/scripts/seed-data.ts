@@ -78,6 +78,48 @@ const coordonnées = {
   'École-Cocody': { lat: 5.351824, lng: -3.953979 },
 };
 
+const realStopsMapping: Record<string, { lat: number; lng: number; address: string }> = {
+  // BUS 1: Riviera Bonoumin (Trajet Ouest -> Est)
+  'student-1': { lat: 5.368214, lng: -3.977451, address: 'Pharmacie Loumousse, Bonoumin' },
+  'student-2': { lat: 5.363615, lng: -3.973345, address: 'Abidjan Mall, Entrée Principale' },
+  'student-3': { lat: 5.361022, lng: -3.971210, address: 'Cité SIR, Poste de garde' },
+  'student-4': { lat: 5.365430, lng: -3.975100, address: 'Espace Ficgayo, Bonoumin' },
+  'student-5': { lat: 5.369800, lng: -3.980500, address: 'Carrefour CIE, Bonoumin' },
+  'student-6': { lat: 5.362500, lng: -3.978000, address: 'Commissariat du 34ème Arrondissement' },
+
+  // BUS 2: Riviera Palmeraie (Trajet Nord -> Sud)
+  'student-7': { lat: 5.373418, lng: -3.958521, address: 'Rond-point de la Palmeraie' },
+  'student-8': { lat: 5.370125, lng: -3.955410, address: 'Pharmacie de la Renaissance' },
+  'student-9': { lat: 5.376800, lng: -3.952300, address: 'Cité SIPIM 4, Entrée' },
+  'student-10': { lat: 5.362145, lng: -3.953874, address: 'Carrefour M’Badon' },
+  'student-11': { lat: 5.368859, lng: -3.956818, address: 'Super U, Palmeraie' },
+  'student-12': { lat: 5.365000, lng: -3.960000, address: 'Cité Les Lauriers 1' },
+
+  // BUS 3: Akouédo & Nouveau Camp (Trajet Est -> Ouest)
+  'student-13': { lat: 5.352100, lng: -3.940500, address: 'Station Shell, Akouédo' },
+  'student-14': { lat: 5.355800, lng: -3.935200, address: 'Nouveau Camp Militaire, Entrée' },
+  'student-15': { lat: 5.350122, lng: -3.942706, address: 'Pharmacie d\'Akouédo' },
+  'student-16': { lat: 5.358500, lng: -3.928000, address: 'Cité ADO, Portail Nord' },
+  'student-17': { lat: 5.362000, lng: -3.921000, address: 'Carrefour Feh Kessé' },
+  'student-18': { lat: 5.348000, lng: -3.945000, address: 'Cité Génie 2000' },
+
+  // BUS 4: M'Pouto (Trajet Sud -> Nord)
+  'student-19': { lat: 5.328500, lng: -3.958200, address: 'Carrefour Sol Béni' },
+  'student-20': { lat: 5.326388, lng: -3.955677, address: 'Place Publique, Village M\'Pouto' },
+  'student-21': { lat: 5.335400, lng: -3.954100, address: 'Cité Synacass-Ci' },
+  'student-22': { lat: 5.341800, lng: -3.970200, address: 'Église Sainte Famille, Riviera 2' },
+  'student-23': { lat: 5.340200, lng: -3.961500, address: 'Lycée Blaise Pascal, Arrêt Bus' },
+  'student-24': { lat: 5.332000, lng: -3.959000, address: 'Cité CIAD M\'Pouto' },
+
+  // BUS 5: Riviera 2 & 3 (Trajet Proximité)
+  'student-25': { lat: 5.346500, lng: -3.982000, address: 'Clinique Ste Anne-Marie (PISAM)' },
+  'student-26': { lat: 5.349000, lng: -3.975000, address: 'Jardin Public Riviera 3' },
+  'student-27': { lat: 5.355000, lng: -3.965000, address: 'Commissariat du 18ème Arrondissement' },
+  'student-28': { lat: 5.344162, lng: -3.978827, address: 'Rond-point de la Riviera 2' },
+  'student-29': { lat: 5.353000, lng: -3.968000, address: 'Lycée Français, Entrée Primaire' },
+  'student-30': { lat: 5.358000, lng: -3.962000, address: 'Cité EECI' },
+};
+
 // ==============================================
 // FONCTION HELPERS
 // ==============================================
@@ -379,38 +421,42 @@ async function seedData() {
       const baseKey = `${config.commune}-${quartier.replace(/\s+/g, '')}`;
       const baseLat = coordonnées[baseKey as keyof typeof coordonnées]?.lat || 5.35;
       const baseLng = coordonnées[baseKey as keyof typeof coordonnées]?.lng || -4.00;
+      const stopData = realStopsMapping[studentId];
 
       const locations: any = {};
+      const lat = stopData ? stopData.lat : (baseLat + (Math.random() - 0.5) * 0.01);
+      const lng = stopData ? stopData.lng : (baseLng + (Math.random() - 0.5) * 0.01);
+      const address = stopData ? stopData.address : `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`;
 
       if (profil.activeTrips.includes(TimeOfDay.MORNING_OUTBOUND)) {
         locations.morningPickup = {
-          address: `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`,
-          lat: baseLat + (Math.random() - 0.5) * 0.01,
-          lng: baseLng + (Math.random() - 0.5) * 0.01,
+          address,
+          lat,
+          lng,
         };
       }
 
       if (profil.activeTrips.includes(TimeOfDay.MIDDAY_OUTBOUND)) {
         locations.middayDropoff = locations.morningPickup || {
-          address: `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`,
-          lat: baseLat + (Math.random() - 0.5) * 0.01,
-          lng: baseLng + (Math.random() - 0.5) * 0.01,
+          address,
+          lat,
+          lng,
         };
       }
 
       if (profil.activeTrips.includes(TimeOfDay.MIDDAY_RETURN)) {
         locations.middayPickup = locations.morningPickup || {
-          address: `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`,
-          lat: baseLat + (Math.random() - 0.5) * 0.01,
-          lng: baseLng + (Math.random() - 0.5) * 0.01,
+          address,
+          lat,
+          lng,
         };
       }
 
       if (profil.activeTrips.includes(TimeOfDay.EVENING_RETURN)) {
         locations.eveningDropoff = locations.morningPickup || {
-          address: `${Math.floor(100 + Math.random() * 900)} ${quartier}, ${config.commune}`,
-          lat: baseLat + (Math.random() - 0.5) * 0.01,
-          lng: baseLng + (Math.random() - 0.5) * 0.01,
+          address,
+          lat,
+          lng,
         };
       }
 

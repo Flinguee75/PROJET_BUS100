@@ -261,6 +261,7 @@ export const GodViewPage = () => {
   >({});
 
   const [scannedStudentIdsByBus, setScannedStudentIdsByBus] = useState<Record<string, string[]>>({});
+  const scannedStudentIdsRef = useRef<Record<string, string[]>>({});
   const [notifications, setNotifications] = useState<
     Array<{ id: number; message: string; type: 'start' | 'scan' | 'end' }>
   >([]);
@@ -293,9 +294,11 @@ export const GodViewPage = () => {
 
   // Chargement des données d'élèves
   const [studentsLoading, setStudentsLoading] = useState<boolean>(false);
+  const [stopsSnapshot, setStopsSnapshot] = useState<{ busId: string; tripType: string | null } | null>(null);
 
   // Ref pour les marqueurs d'arrêts d'élèves (séparés des marqueurs de bus)
   const studentMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const processedBusesRef = useRef<ClassifiedBus[]>([]);
 
   const addNotification = useCallback(
     (message: string, type: 'start' | 'scan' | 'end') => {
@@ -464,6 +467,14 @@ export const GodViewPage = () => {
       setLastRealtimeUpdate(Date.now());
     }
   }, [schoolBuses, realtimeAlerts]);
+
+  useEffect(() => {
+    processedBusesRef.current = processedBuses;
+  }, [processedBuses]);
+
+  useEffect(() => {
+    scannedStudentIdsRef.current = scannedStudentIdsByBus;
+  }, [scannedStudentIdsByBus]);
 
   useEffect(() => {
     processedBuses.forEach((bus) => {
@@ -822,6 +833,18 @@ export const GodViewPage = () => {
     'eveningDropoff',
   ];
 
+  const getStudentStopColor = (status: 'pending' | 'scanned' | 'inactive'): string => {
+    switch (status) {
+      case 'scanned':
+        return '#16a34a';
+      case 'pending':
+        return '#dc2626';
+      case 'inactive':
+      default:
+        return '#64748b';
+    }
+  };
+
   /**
    * Nettoie tous les marqueurs d'arrêts d'élèves
    */
@@ -882,12 +905,11 @@ export const GodViewPage = () => {
         const isScanned = scannedIds.includes(student.id);
         const status = isScanned ? 'scanned' : 'pending';
 
-        // Mettre à jour le HTML du marqueur
-        const el = marker.getElement();
-        el.innerHTML = generateStudentStopMarkerHTML({
-          order: student.order,
-          status
-        });
+        // Mettre à jour le style sans recréer l'élément (évite l'animation à chaque update GPS)
+        const el = marker.getElement() as HTMLElement;
+        const color = getStudentStopColor(status);
+        el.style.backgroundColor = color;
+        el.textContent = String(student.order);
 
         // Mettre à jour le HTML du popup
         const popup = marker.getPopup();
@@ -907,14 +929,10 @@ export const GodViewPage = () => {
   /**
    * Récupère et affiche les arrêts d'élèves pour un bus donné
    */
-  const fetchStudentStops = useCallback(async (busId: string) => {
+  const fetchStudentStops = useCallback(async (busId: string, tripType: string | null) => {
     setStudentsLoading(true);
 
     try {
-      const bus = processedBuses.find(b => b.id === busId);
-      if (!bus) return;
-
-      const tripType = getActiveTripType(bus);
       const locationField = tripType ? getTripLocationField(tripType) : null;
 
       // Récupérer les élèves du bus
@@ -944,7 +962,7 @@ export const GodViewPage = () => {
           ...student,
           location,
           order: index + 1,
-          isScanned: (scannedStudentIdsByBus[busId] ?? bus.currentTrip?.scannedStudentIds ?? []).includes(student.id),
+          isScanned: (scannedStudentIdsRef.current[busId] ?? []).includes(student.id),
         }));
 
       setBusStudents(studentsWithLocation);
@@ -957,18 +975,26 @@ export const GodViewPage = () => {
     } finally {
       setStudentsLoading(false);
     }
-  }, [processedBuses, createStudentMarkers, scannedStudentIdsByBus]);
+  }, [createStudentMarkers]);
 
   useEffect(() => {
-    if (!selectedBusId || !showStudentStops) {
+    if (!showStudentStops) {
       clearStudentMarkers();
       setBusStudents([]);
+      setStopsSnapshot(null);
+    }
+  }, [showStudentStops, clearStudentMarkers]);
+
+  useEffect(() => {
+    if (!showStudentStops || stopsSnapshot || !selectedBusId) {
       return;
     }
-
+    const bus = processedBusesRef.current.find((candidate) => candidate.id === selectedBusId);
+    const tripType = bus ? getActiveTripType(bus) : null;
+    setStopsSnapshot({ busId: selectedBusId, tripType });
     clearStudentMarkers();
-    fetchStudentStops(selectedBusId);
-  }, [selectedBusId, showStudentStops, fetchStudentStops, clearStudentMarkers]);
+    fetchStudentStops(selectedBusId, tripType);
+  }, [showStudentStops, stopsSnapshot, selectedBusId, clearStudentMarkers, fetchStudentStops]);
 
   useEffect(() => {
     if (!selectedBusId || !showStudentStops) return;
@@ -1671,7 +1697,23 @@ export const GodViewPage = () => {
           type="button"
           className="student-stops-toggle"
           disabled={studentsLoading}
-          onClick={() => setShowStudentStops((prev) => !prev)}
+          onClick={() => {
+            if (showStudentStops) {
+              setShowStudentStops(false);
+              setStopsSnapshot(null);
+              clearStudentMarkers();
+              setBusStudents([]);
+              return;
+            }
+            if (selectedBusId) {
+              const bus = processedBusesRef.current.find((candidate) => candidate.id === selectedBusId);
+              const tripType = bus ? getActiveTripType(bus) : null;
+              setStopsSnapshot({ busId: selectedBusId, tripType });
+              clearStudentMarkers();
+              fetchStudentStops(selectedBusId, tripType);
+            }
+            setShowStudentStops(true);
+          }}
           style={{
             position: 'absolute',
             top: '10px',
@@ -1699,7 +1741,7 @@ export const GodViewPage = () => {
           {studentsLoading && <span className="student-stops-spinner" aria-hidden="true" />}
         </button>
 
-        {showStudentStops && !selectedBusId && (
+        {showStudentStops && !stopsSnapshot?.busId && (
           <div className="student-stops-hint">
             Sélectionnez un bus pour afficher les arrêts.
           </div>
