@@ -12,6 +12,10 @@ interface SimplifiedBusPopupOptions {
   scannedCount: number;
   totalCount: number;
   onCenterClick?: string;
+  tripStartLabel?: string;
+  tripEndLabel?: string;
+  scannedNames?: string[];
+  missedNames?: string[];
 
   // NOUVEAUX champs pour Phase 4
   lastScan?: {
@@ -38,6 +42,10 @@ export const generateSimplifiedBusPopupHTML = ({
   scannedCount,
   totalCount,
   onCenterClick = '',
+  tripStartLabel,
+  tripEndLabel,
+  scannedNames = [],
+  missedNames = [],
   lastScan,
   nextStudent,
   tripDuration,
@@ -64,7 +72,7 @@ export const generateSimplifiedBusPopupHTML = ({
       </div>
 
       <!-- NOUVEAU: Section Ramassage en cours -->
-      ${scannedCount > 0 || (totalCount - scannedCount) > 0 ? `
+      ${!isArrived && (scannedCount > 0 || (totalCount - scannedCount) > 0) ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
           <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -75,6 +83,63 @@ export const generateSimplifiedBusPopupHTML = ({
           <div style="font-size: 13px; color: #0f172a;">
             <span style="font-weight: 600; color: #16a34a;">${scannedCount}</span> élève${scannedCount > 1 ? 's' : ''} à bord •
             <span style="font-weight: 600; color: #dc2626;">${totalCount - scannedCount}</span> restant${totalCount - scannedCount > 1 ? 's' : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${isArrived ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 3h14M5 9h14M5 15h14M5 21h14"/>
+            </svg>
+            COURSE TERMINÉE
+          </h4>
+          <div style="font-size: 13px; color: #0f172a; display: grid; gap: 4px;">
+            ${tripStartLabel ? `<div>Départ: <strong>${tripStartLabel}</strong></div>` : ''}
+            ${tripEndLabel ? `<div>Arrivée: <strong>${tripEndLabel}</strong></div>` : ''}
+            ${tripDuration ? `<div>Durée: <strong>${tripDuration}</strong></div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${isArrived && (scannedNames.length > 0 || missedNames.length > 0) ? `
+        <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+          <h4 style="font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+            </svg>
+            RAMASSAGE
+          </h4>
+          <div style="display: grid; gap: 10px;">
+            ${scannedNames.length > 0 ? `
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: #16a34a; margin-bottom: 6px;">
+                  Ramassés (${scannedNames.length})
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  ${scannedNames.map((name) => `
+                    <span style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 999px;">
+                      ${name}
+                    </span>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+            ${missedNames.length > 0 ? `
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">
+                  Non ramassés (${missedNames.length})
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                  ${missedNames.map((name) => `
+                    <span style="background: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 999px;">
+                      ${name}
+                    </span>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       ` : ''}
@@ -116,7 +181,7 @@ export const generateSimplifiedBusPopupHTML = ({
       ` : ''}
 
       <!-- Statut actuel (durée) -->
-      ${tripDuration ? `
+      ${!isArrived && tripDuration ? `
         <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
           <div style="font-size: 13px; color: #475569;">
             <span>Trajet: ${tripDuration}</span>

@@ -82,7 +82,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
   const mockWatchBusAttendance = vi.mocked(watchBusAttendance);
   const mockGetBusStudents = vi.mocked(getBusStudents);
 
-  let unsubscribeCallbacks: Map<string, (attendance: any[]) => void> = new Map();
+  const unsubscribeCallbacks: Map<string, (attendance: any[]) => void> = new Map();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -408,6 +408,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
     });
   });
 });
+
 
 
 

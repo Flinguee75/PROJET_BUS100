@@ -37,7 +37,9 @@
       "Bash(flutter analyze:*)",
       "Bash(cd /Users/tidianecisse/PROJET INFO/PROJET_BUS100/mobile-parent/parent_app && dart analyze:*)",
       "Bash(dart analyze:*)",
-      "Bash(flutter test:*)"
+      "Bash(flutter test:*)",
+      "Bash(python3:*)",
+      "Bash(timeout 60 npm run build:*)"
     ],
     "deny": [],
     "ask": []

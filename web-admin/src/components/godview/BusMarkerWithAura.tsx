@@ -28,20 +28,23 @@ export const generateBusMarkerHTML = ({
     ? (alertSeverity === 'HIGH' ? 'animate-pulse-aura-red' : 'animate-pulse-aura-orange')
     : '';
 
-  // SVG flèche pointant vers le haut (sera tourné selon rotation)
-  const arrowSVG = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
-      <!-- Flèche directionnelle pointant vers le haut -->
-      <path d="M12 1 L18 9 L15 9 L15 18 C15 19.1 14.1 20 13 20 L11 20 C9.9 20 9 19.1 9 18 L9 9 L6 9 Z" fill="white" stroke="none"/>
-      <!-- Cercle pour la base du bus -->
-      <circle cx="12" cy="20" r="2.5" fill="white"/>
+  // SVG bus (style proche du marqueur école: fond blanc, contour coloré)
+  const busSVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 6v6"/>
+      <path d="M15 6v6"/>
+      <path d="M2 12h19.6"/>
+      <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+      <circle cx="7" cy="18" r="2"/>
+      <path d="M9 18h5"/>
+      <circle cx="16" cy="18" r="2"/>
     </svg>
   `;
 
   return `
     <div class="bus-marker-container ${auraClass}">
-      <div class="bus-marker-arrow" style="transform: rotate(${rotation}deg); background-color: ${color};">
-        ${arrowSVG}
+      <div class="bus-marker-arrow" style="transform: rotate(${rotation}deg); background-color: #ffffff; color: ${color}; border-color: ${color};">
+        ${busSVG}
       </div>
     </div>
   `;

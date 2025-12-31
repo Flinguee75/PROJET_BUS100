@@ -30,10 +30,12 @@ interface AlertsSidebarProps {
   stationedBuses?: BusRealtimeData[];
   studentsCounts?: Record<string, { scanned: number; unscanned: number; total: number }>;
   gpsHistoryByBus?: Record<string, number>;
+  courseStatsByBus?: Record<string, { scanned: number; unscanned: number; total: number }>;
   totalBusCount?: number;
   enCourseCount?: number;
   atSchoolCount?: number; // Non utilisé actuellement mais gardé pour compatibilité
-  onFocusBus?: (busId: string) => void;
+  selectedBusId?: string | null;
+  onFocusBus?: (busId: string, options?: { forceBusPopup?: boolean; showStops?: boolean }) => void;
   onFocusStudentStop?: (busId: string, studentId: string) => void;
 }
 
@@ -48,9 +50,11 @@ export const AlertsSidebar = ({
   stationedBuses = [],
   studentsCounts = {},
   gpsHistoryByBus = {},
+  courseStatsByBus = {},
   totalBusCount,
   enCourseCount,
   atSchoolCount: _atSchoolCount, // Préfixé avec _ car non utilisé actuellement
+  selectedBusId = null,
   onFocusBus,
   onFocusStudentStop,
 }: AlertsSidebarProps) => {
@@ -592,9 +596,9 @@ export const AlertsSidebar = ({
   };
 
 
-  const handleAlertClick = (busId: string) => {
+  const handleAlertClick = (busId: string, options?: { forceBusPopup?: boolean; showStops?: boolean }) => {
     if (onFocusBus) {
-      onFocusBus(busId);
+      onFocusBus(busId, options);
       return;
     }
     // TODO: Naviguer vers /buses/:busId/manifest quand la page sera créée
@@ -943,6 +947,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               const hasAlert = busAlert !== undefined;
               const isNormalBus = !hasAlert; // Bus normal sans problème
               const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
+              const arrivedCourseStats = courseStatsByBus[bus.id];
+              const effectiveCounts = bus.liveStatus === BusLiveStatus.ARRIVED && arrivedCourseStats
+                ? arrivedCourseStats
+                : counts;
 
               if (isNormalBus) {
                 // Carte pour bus normaux avec statut et comptages
@@ -952,6 +960,8 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   : null;
                 const isEnRoute =
                   bus.liveStatus === BusLiveStatus.EN_ROUTE || bus.liveStatus === BusLiveStatus.DELAYED;
+                const shouldShowStops = isEnRoute || isArrived;
+                const isSelected = selectedBusId === bus.id;
 
                 const isDelayed = bus.liveStatus === BusLiveStatus.DELAYED;
                 const tripDuration = typeof bus.tripStartTime === 'number'
@@ -963,14 +973,14 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 return (
                   <div
                     key={bus.id}
-                    onClick={() => handleAlertClick(bus.id)}
-                    className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)}`}
+                    onClick={() => handleAlertClick(bus.id, { forceBusPopup: isArrived, showStops: shouldShowStops })}
+                    className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        handleAlertClick(bus.id);
+                        handleAlertClick(bus.id, { forceBusPopup: isArrived, showStops: shouldShowStops });
                       }
                     }}
                     aria-label={`Bus ${bus.number}, ${counts.scanned} élèves sur ${counts.total} à bord, cliquer pour centrer sur la carte`}
@@ -978,10 +988,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                     {/* Ligne 1: Nom du bus + Badge élèves */}
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
-                      {(isEnRoute || isArrived || isDelayed) && counts.total > 0 && (
+                      {(isEnRoute || isArrived || isDelayed) && effectiveCounts.total > 0 && (
                         <SafetyRatioBadge
-                          scanned={counts.scanned}
-                          total={counts.total}
+                          scanned={effectiveCounts.scanned}
+                          total={effectiveCounts.total}
                           size="md"
                           variant={isArrived ? 'success' : undefined}
                         />
@@ -1078,6 +1088,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               const borderColor =
                 busAlert.severity === 'HIGH' ? 'border-l-danger-600' : 'border-l-warning-600';
               const isArrivedAlert = bus.liveStatus === BusLiveStatus.ARRIVED;
+              const shouldShowStopsAlert =
+                bus.liveStatus === BusLiveStatus.EN_ROUTE ||
+                bus.liveStatus === BusLiveStatus.DELAYED ||
+                isArrivedAlert;
+              const isSelected = selectedBusId === bus.id;
               const arrivedTimestampAlert = isArrivedAlert
                 ? resolveArrivedTimestamp(bus, gpsHistoryByBus)
                 : null;
@@ -1086,14 +1101,22 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
               return (
                 <div
                   key={bus.id}
-                  onClick={() => handleAlertClick(bus.id)}
-                  className={`rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${getStatusBackground(bus.liveStatus)}`}
+                  onClick={() =>
+                    handleAlertClick(bus.id, {
+                      forceBusPopup: isArrivedAlert,
+                      showStops: shouldShowStopsAlert,
+                    })
+                  }
+                  className={`rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                   role="button"
                   tabIndex={0}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleAlertClick(bus.id);
+                      handleAlertClick(bus.id, {
+                        forceBusPopup: isArrivedAlert,
+                        showStops: shouldShowStopsAlert,
+                      });
                     }
                   }}
                   aria-label={`Bus ${bus.number} avec alerte, ${counts.scanned} élèves sur ${counts.total}, cliquer pour centrer sur la carte`}
@@ -1150,7 +1173,10 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAlertClick(bus.id);
+                          handleAlertClick(bus.id, {
+                            forceBusPopup: isArrivedAlert,
+                            showStops: shouldShowStopsAlert,
+                          });
                         }}
                         className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
                         aria-label={`Voir le bus ${bus.number} sur la carte`}
@@ -1213,9 +1239,13 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
             {busesWithStudents.map((bus) => {
               const busData = busStudentsData[bus.id];
               const counts = studentsCounts[bus.id] || { scanned: 0, unscanned: 0, total: 0 };
+              const arrivedCourseStats = courseStatsByBus[bus.id];
+              const effectiveCounts = bus.liveStatus === BusLiveStatus.ARRIVED && arrivedCourseStats
+                ? arrivedCourseStats
+                : counts;
               const busAlerts = alertsByBus[bus.id] || [];
               const isExpanded = expandedBusIds.has(bus.id);
-              const hasUnscanned = counts.unscanned > 0;
+              const hasUnscanned = effectiveCounts.unscanned > 0;
 
               // Filtrer les élèves selon la recherche
               const filteredScanned = busData
@@ -1264,12 +1294,12 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       {hasUnscanned ? (
                         <div className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-700" strokeWidth={2.5} />
-                          {counts.unscanned} Manquant{counts.unscanned > 1 ? 's' : ''}
+                          {effectiveCounts.unscanned} Manquant{effectiveCounts.unscanned > 1 ? 's' : ''}
                         </div>
                       ) : (
                         <div className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-slate-600" strokeWidth={2.5} />
-                          {counts.scanned}/{counts.total} Présents
+                          {effectiveCounts.scanned}/{effectiveCounts.total} Présents
                         </div>
                       )}
                     </div>
