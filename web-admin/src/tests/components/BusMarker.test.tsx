@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { BusMarker } from '@/components/BusMarker';
 import type { Bus } from '@/types/bus';
 import mapboxgl from 'mapbox-gl';

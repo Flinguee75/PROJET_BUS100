@@ -29,7 +29,11 @@ const normalizeTimestamp = (value: unknown): number | null => {
 
 const readLatestTimestamp = async (path: string[]): Promise<number | null> => {
   const db = getFirebaseDb();
-  const ref = collection(db, ...path);
+  const [firstSegment, ...restSegments] = path;
+  if (!firstSegment) {
+    return null;
+  }
+  const ref = collection(db, firstSegment, ...restSegments);
   const q = query(ref, orderBy('position.timestamp', 'desc'), limit(1));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {

@@ -4,13 +4,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { GodViewPage } from '@/pages/GodViewPage';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchoolBuses } from '@/hooks/useSchool';
 import { useRealtimeAlerts } from '@/hooks/useRealtimeAlerts';
-import { BusLiveStatus } from '@/types/realtime';
+import { BusLiveStatus, BusStatus } from '@/types/realtime';
 import { watchBusAttendance, getBusStudents } from '@/services/students.firestore';
 
 // Mock Mapbox GL
@@ -125,6 +125,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
 
     // Mock watchBusAttendance pour simuler les mises à jour temps réel
     mockWatchBusAttendance.mockImplementation((busId, date, onUpdate) => {
+      void date;
       unsubscribeCallbacks.set(busId, onUpdate);
       // Retourner une fonction de désabonnement
       return () => {
@@ -185,7 +186,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
@@ -203,7 +204,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
@@ -252,7 +253,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
@@ -307,7 +308,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
@@ -349,7 +350,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.STOPPED, // Bus arrêté
           driver: null,
@@ -385,7 +386,7 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
           capacity: 50,
           model: 'Iveco',
           year: 2020,
-          status: 'active',
+          status: BusStatus.ACTIVE,
           currentPosition: null,
           liveStatus: BusLiveStatus.EN_ROUTE,
           driver: null,
@@ -408,9 +409,6 @@ describe('GodViewPage - Synchronisation Temps Réel', () => {
     });
   });
 });
-
-
-
 
 
 

@@ -276,6 +276,11 @@ class GpsQueueManager {
     await processQueue();
   }
 
+  /// Vide complètement la queue GPS (utile lors d'un changement de compte)
+  Future<void> clearAll() async {
+    await _db.deleteAll();
+  }
+
   /// Arrête le gestionnaire
   Future<void> dispose() async {
     debugPrint('🛑 Arrêt GpsQueueManager');

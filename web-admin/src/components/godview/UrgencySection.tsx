@@ -5,7 +5,7 @@
  */
 
 import { AlertTriangle, X, Bus } from 'lucide-react';
-import type { CourseHistory } from '@/types/courseHistory';
+import type { CourseHistory } from '@/services/courseHistory.firestore';
 
 interface UrgencySectionProps {
   courses: CourseHistory[];

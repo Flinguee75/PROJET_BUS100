@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io' show Platform;
 
 /// Service de gestion des notifications push (FCM) et locales
@@ -193,8 +194,9 @@ class NotificationService {
 
       print('📲 Token FCM récupéré: ${token.substring(0, 20)}...');
 
-      // Enregistrer dans Firestore /fcm_tokens/{token}
-      await FirebaseFirestore.instance.collection('fcm_tokens').doc(token).set({
+      // Enregistrer dans Firestore /fcm_tokens/{userId}_{token}
+      final tokenDocId = '${userId}_$token';
+      await FirebaseFirestore.instance.collection('fcm_tokens').doc(tokenDocId).set({
         'userId': userId,
         'token': token,
         'platform': Platform.isIOS ? 'ios' : 'android',
@@ -221,8 +223,10 @@ class NotificationService {
   Future<void> unregisterFCMToken() async {
     try {
       final token = await _firebaseMessaging.getToken();
-      if (token != null) {
-        await FirebaseFirestore.instance.collection('fcm_tokens').doc(token).delete();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (token != null && userId != null) {
+        final tokenDocId = '${userId}_$token';
+        await FirebaseFirestore.instance.collection('fcm_tokens').doc(tokenDocId).delete();
         print('✅ Token FCM supprimé de Firestore');
       }
 

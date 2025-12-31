@@ -5,14 +5,12 @@
 
 import {
   collection,
-  doc,
   documentId,
   onSnapshot,
   query,
   where,
   Unsubscribe,
   getDocs,
-  Timestamp,
   type QueryDocumentSnapshot,
   type DocumentData,
   type QueryConstraint,

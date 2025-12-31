@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/auth';
 import { LoginPage } from '@/pages/LoginPage';

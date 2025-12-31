@@ -47,7 +47,7 @@ This is a Firebase-based bus tracking system (PROJET_BUS) designed to provide re
      - `/notifications/{notificationId}` - Push notifications
      - `/routes/{routeId}` - Bus routes and schedules
      - `/attendance/{attendanceId}` - Student boarding/alighting records
-     - `/fcm_tokens/{tokenId}` - Push notification device tokens
+     - `/fcm_tokens/{userId}_{token}` - Push notification device tokens
    - Security rules: Currently permissive (expires 2025-12-13) - needs production rules
 
 ## Directory Structure
@@ -398,7 +398,7 @@ describe('POST /api/gps', () => {
 - `/notifications` - Authenticated read (if in recipientIds), Admin write
 - `/routes` - Authenticated read, Admin write
 - `/attendance` - Driver/Admin write, Admin read
-- `/fcm_tokens` - User manages own tokens only
+- `/fcm_tokens` - User manages own tokens only (doc id: `{userId}_{token}`)
 
 **CRITICAL:** Current rules expire 2025-12-13 - Update before expiration!
 

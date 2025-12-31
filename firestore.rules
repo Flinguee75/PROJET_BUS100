@@ -104,7 +104,7 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.schoolId != null && resource.data.schoolId == getUserData().schoolId) ||
         (isAssignedDriver(busId) && resource.data.schoolId == getUserData().schoolId) ||
         (isParentOfBus(busId) && resource.data.schoolId == getUserData().schoolId);
-      allow write: if isAssignedDriver(busId) && resource.data.schoolId == getUserData().schoolId;
+      allow write: if isAssignedDriver(busId) && getUserData().schoolId != null;
     }
 
     // ========================================
@@ -184,7 +184,11 @@ service cloud.firestore {
     // ========================================
     match /fcm_tokens/{tokenId} {
       // Utilisateur peut gérer ses propres tokens
-      allow read, write: if isAuthenticated() &&
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create, update: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data != null &&
         resource.data.userId == request.auth.uid;
     }
 

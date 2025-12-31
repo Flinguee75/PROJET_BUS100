@@ -272,7 +272,7 @@ backend/
 /notifications      → Notifications push
 /routes             → Parcours
 /attendance         → Présences
-/fcm_tokens         → Tokens FCM
+/fcm_tokens         → Tokens FCM (doc id: `{userId}_{token}`)
 ```
 
 ### Sécurité Firestore

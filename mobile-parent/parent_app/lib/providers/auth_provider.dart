@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 import '../services/driver_service.dart';
 import '../services/notification_service.dart';
+import '../services/gps_queue_manager.dart';
 
 /// Provider pour gérer l'authentification
 class AuthProvider with ChangeNotifier {
@@ -100,6 +101,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> signOut() async {
     // Supprimer le token FCM avant de se déconnecter
     await NotificationService().unregisterFCMToken();
+    await GpsQueueManager.instance.clearAll();
 
     await FirebaseService.signOut();
     _user = null;

@@ -46,10 +46,8 @@ vi.mock('@/services/firebase', () => ({
   db: {},
 }));
 
-import axios from 'axios';
 import * as busApi from '@/services/bus.api';
 
-const mockedAxios = vi.mocked(axios, true);
 
 describe('Bus API Service', () => {
   beforeEach(() => {
@@ -82,6 +80,7 @@ describe('Bus API Service', () => {
       mockAxiosInstance.post.mockResolvedValue(mockResponse);
 
       const input = {
+        busNumber: 12,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes Sprinter',
         year: 2024,
@@ -106,6 +105,7 @@ describe('Bus API Service', () => {
       mockAxiosInstance.post.mockRejectedValue(errorResponse);
 
       const input = {
+        busNumber: 12,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes',
         year: 2024,
@@ -119,6 +119,7 @@ describe('Bus API Service', () => {
       mockAxiosInstance.post.mockRejectedValue(new Error('Network error'));
 
       const input = {
+        busNumber: 12,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes',
         year: 2024,
@@ -359,4 +360,3 @@ describe('Bus API Service', () => {
     });
   });
 });
-

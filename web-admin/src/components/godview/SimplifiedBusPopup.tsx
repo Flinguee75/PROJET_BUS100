@@ -28,6 +28,9 @@ interface SimplifiedBusPopupOptions {
   };
   speed?: number;
   tripDuration?: string;
+  showTrackingToggle?: boolean;
+  trackingEnabled?: boolean;
+  onTrackingToggle?: string;
 }
 
 /**
@@ -49,6 +52,9 @@ export const generateSimplifiedBusPopupHTML = ({
   lastScan,
   nextStudent,
   tripDuration,
+  showTrackingToggle = false,
+  trackingEnabled = false,
+  onTrackingToggle = '',
 }: SimplifiedBusPopupOptions): string => {
   // Déterminer la couleur du ratio (vert si complet ou si bus ARRIVED, rouge sinon)
   const isArrived = busStatus === 'arrived';
@@ -200,8 +206,16 @@ export const generateSimplifiedBusPopupHTML = ({
         </div>
       </div>
 
-      <!-- Footer: Bouton centrer sur carte -->
-      <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb;">
+      <!-- Footer: Boutons d'action -->
+      <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; display: grid; gap: 8px;">
+        ${showTrackingToggle ? `
+          <button
+            ${onTrackingToggle ? `onclick="${onTrackingToggle}"` : ''}
+            style="width: 100%; background-color: ${trackingEnabled ? '#0f172a' : '#e2e8f0'}; color: ${trackingEnabled ? '#ffffff' : '#0f172a'}; font-weight: 700; font-size: 13px; padding: 9px 14px; border: none; border-radius: 8px; cursor: pointer;"
+          >
+            ${trackingEnabled ? 'Suivi actif' : 'Suivre le bus'}
+          </button>
+        ` : ''}
         <button
           ${onCenterClick ? `onclick="${onCenterClick}"` : ''}
           style="width: 100%; background-color: #3b82f6; color: white; font-weight: 600; font-size: 14px; padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s;"

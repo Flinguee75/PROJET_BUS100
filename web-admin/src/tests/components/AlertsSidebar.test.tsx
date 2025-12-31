@@ -279,7 +279,7 @@ describe('AlertsSidebar', () => {
         ...mockBuses[0],
         liveStatus: BusLiveStatus.EN_ROUTE,
         currentZone: null,
-        route: { id: 'route1', name: 'Route Plateau', createdAt: Date.now() },
+        route: { id: 'route1', name: 'Route Plateau', fromZone: 'Cocody', toZone: 'Plateau' },
         tripStartTime: Date.now() - 10 * 60000,
         isActive: true,
       };
@@ -349,7 +349,7 @@ describe('AlertsSidebar', () => {
         isActive: true,
       };
 
-      const { container } = renderSidebar({
+      renderSidebar({
         buses: [busEnRoute],
         studentsCounts: {
           'bus_1': { scanned: 14, unscanned: 1, total: 15 }

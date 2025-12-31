@@ -63,7 +63,7 @@ describe('StatCard', () => {
   });
 
   it('renders badge with success variant styling', () => {
-    const { container } = render(
+    render(
       <StatCard
         title="Users"
         value={100}
