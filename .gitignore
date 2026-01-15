@@ -34,6 +34,21 @@ Thumbs.db
 # Logs
 *.log
 
+# Project noise to keep out of the public repo
+docs/
+INFO/
+auth.png
+travel.gpx
+users.json
+apply-kalman-fix.sh
+patch-godview.py
+CLAUDE.md
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+**/lib_backup/
+**/pubspec_backup.yaml
+
 # Flutter
 .dart_tool/
 .flutter-plugins*
