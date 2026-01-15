@@ -81,6 +81,7 @@ PROJET_BUS100/
 cd backend
 npm install
 firebase emulators:start
+npm run dev:init
 ````
 
 ### Web admin
