@@ -235,12 +235,12 @@ Les émulateurs incluent : Functions, Firestore, Authentication
 - ✅ Système de notifications push (Firebase Cloud Messaging)
 - ✅ API REST sécurisée avec validation (Zod)
 - ✅ Tests automatisés (Jest + Vitest)
-- ✅ CI/CD avec GitHub Actions
 - ✅ Historique des trajets (archivage quotidien)
 - ✅ Calcul d'ETA (temps d'arrivée estimé)
+- ✅ Application mobile conducteur (UI mockups ready)
+
 
 ### Fonctionnalités en développement 🔄
-- 🔄 Application mobile conducteur (UI mockups ready)
 - 🔄 Import CSV en masse pour gestion de données
 - 🔄 Comptage automatique de passagers
 - 🔄 Calcul automatique de zones géographiques
