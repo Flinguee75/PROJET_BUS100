@@ -11,7 +11,7 @@
 .claude
 .cursor
 .cursorrules
-docs/
+# docs/ - Keep docs for documentation
 
 # Logs
 logs

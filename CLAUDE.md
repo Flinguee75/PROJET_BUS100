@@ -4,10 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Firebase-based bus tracking system (PROJET_BUS) designed to provide real-time GPS tracking, notifications, and management features for school buses. The project follows an iterative quality philosophy with vertical slice development.
+Projet personnel de système de suivi GPS pour flottes de transport scolaire.
+Solution complète pour aider les écoles et parents à localiser les bus en temps réel.
+Architecture Firebase multi-plateforme (Backend Node.js, Dashboard React, App Flutter).
 
+The project follows an iterative quality philosophy with vertical slice development.
+
+**Statut:** Prototype fonctionnel - Projet personnel
 **Firebase Project ID:** `projet-bus-60a3f`
 **Region:** europe-west4 (RGPD compliance)
+
+## Contexte du Projet
+
+### Objectif
+Développer une solution complète de tracking GPS pour le transport scolaire permettant:
+- Aux **écoles** de superviser leurs flottes en temps réel
+- Aux **parents** de savoir où se trouve le bus de leur enfant
+- Aux **conducteurs** de signaler leur position automatiquement
+
+### Problématique adressée
+Dans de nombreux systèmes de transport scolaire:
+- Les parents manquent de visibilité sur les trajets
+- Les écoles ont peu de contrôle centralisé sur la flotte
+- Le suivi GPS et la communication sont fragmentés ou inexistants
+
+### Compétences démontrées
+- Architecture backend cloud-native avec Firebase Cloud Functions
+- Développement frontend React moderne avec TypeScript strict
+- Développement mobile cross-platform avec Flutter
+- CI/CD automatisé avec GitHub Actions
+- Testing rigoureux (unit, integration) avec coverage
+- Documentation technique professionnelle
+- Pratiques de sécurité (validation, authentification)
+
+**Note pour les contributeurs:** Ce repository suit des patterns professionnels.
+Certaines fonctionnalités avancées sont en cours de développement (voir Known Gaps section).
 
 ## Architecture
 
