@@ -1,352 +1,61 @@
-# ============================================
-# GÉNÉRAL
-# ============================================
-
-
-.env
-.env.local
-.env.production.local
-.env.development.local
-
-.claude
-.cursor
-.cursorrules
-# docs/ - Keep docs for documentation
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-firebase-debug.log*
-firebase-debug.*.log*
-firestore-debug.log*
-
-# Fichiers système
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# ============================================
-# FIREBASE
-# ============================================
-
-.firebase/
-firebase-debug.log
-.dataconnect
-
-# Fichiers sensibles Firebase
-service-account-key.json
-**/google-services.json
-**/GoogleService-Info.plist
-
-# ============================================
-# NODE.JS / WEB ADMIN / BACKEND / FUNCTIONS
-# ============================================
-
-# Dependencies
-node_modules/
-jspm_packages/
-
-# Build
-dist/
-build/
-out/
-functions/lib/
-# Note: Ne pas ignorer mobile-parent/**/lib car c'est le code source Flutter
-
-# Cache
-.npm
-.eslintcache
-.cache/
-.parcel-cache/
-
-# Coverage
-coverage/
-.nyc_output/
-
 # Environment variables
 .env
 .env.local
 .env.*.local
-.env.*
-.envrc
 !.env.example
-!.env.sample
 
-# Runtime
-pids
-*.pid
-*.seed
-*.pid.lock
+# Dependencies
+node_modules/
 
-# Package manager files (ne pas ignorer package.json!)
-# package-lock.json  # Décommentez si vous ne voulez pas le commiter
+# Build outputs
+dist/
+build/
+out/
+backend/lib/
+coverage/
 
-# Output of npm pack
-*.tgz
+# Firebase
+.firebase/
+firebase-debug*.log
+service-account-key.json
+**/google-services.json
+**/GoogleService-Info.plist
 
-# Yarn
-.yarn-integrity
+# IDE
+.idea/
+.vscode/
+.claude/
+.cursor/
 
-# Optional files
-.node_repl_history
-lib-cov
-.grunt
-bower_components
-.lock-wscript
+# OS
+.DS_Store
+Thumbs.db
 
-# Secrets / credentials
+# Logs
+*.log
+
+# Flutter
+.dart_tool/
+.flutter-plugins*
+.packages
+.pub-cache/
+*.apk
+*.aar
+*.aab
+mobile-parent/flutter/
+**/android/local.properties
+**/ios/Pods/
+**/ios/Podfile.lock
+
+# Credentials & secrets
 *.pem
 *.key
 *.p12
-*.pfx
-*.crt
-*.cer
-*.der
 *.jks
 *.keystore
-*.mobileprovision
+users.json
 
-# ============================================
-# FLUTTER / DART
-# ============================================
-
-# Miscellaneous
-*.class
-*.lock
-*.pyc
-.atom/
-.buildlog/
-.history
-.svn/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-
-# Flutter/Dart/Pub related
-**/doc/api/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-
-# Web related
-lib/generated_plugin_registrant.dart
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# ============================================
-# FLUTTER SDK (NE PAS COMMITER LE SDK!)
-# ============================================
-
-# Ignorer tout le SDK Flutter téléchargé
-mobile-parent/flutter/
-
-# Ou créez un fichier .gitkeep pour garder le dossier
-!mobile-parent/flutter/.gitkeep
-
-# ============================================
-# ANDROID
-# ============================================
-
-# Built application files
-*.apk
-*.aar
-*.ap_
-*.aab
-
-# Files for the ART/Dalvik VM
-*.dex
-
-# Generated files
-**/android/**/bin/
-**/android/**/gen/
-**/android/**/out/
-**/android/**/release/
-**/android/**/debug/
-**/android/**/profile/
-
-# Gradle files
-.gradle/
-**/android/**/build/
-**/android/captures/
-**/android/.externalNativeBuild
-**/android/.cxx
-
-# Local configuration file
-**/android/local.properties
-
-# Android Studio
-**/*.iml
-**/android/.idea/
-**/android/.gradle
-**/*.jks
-**/*.keystore
-
-# NDK
-**/android/obj/
-
-# Proguard
-**/android/proguard/
-
-# Google Services (SENSIBLE - ne pas commiter!)
-**/android/app/google-services.json
-
-# ============================================
-# iOS / XCODE
-# ============================================
-
-# Xcode user settings
-**/ios/**/xcuserdata/
-
-# Xcode 8 and earlier
-**/ios/**/*.xcscmblueprint
-**/ios/**/*.xccheckout
-
-# Xcode 3 and earlier
-**/ios/**/DerivedData/
-**/ios/**/*.moved-aside
-**/ios/**/*.pbxuser
-!**/ios/**/default.pbxuser
-**/ios/**/*.mode1v3
-!**/ios/**/default.mode1v3
-**/ios/**/*.mode2v3
-!**/ios/**/default.mode2v3
-**/ios/**/*.perspectivev3
-!**/ios/**/default.perspectivev3
-
-# Obj-C/Swift specific
-**/ios/**/*.hmap
-
-# App packaging
-**/ios/**/*.ipa
-**/ios/**/*.dSYM.zip
-**/ios/**/*.dSYM
-
-# Playgrounds
-**/ios/**/timeline.xctimeline
-**/ios/**/playground.xcworkspace
-
-# Swift Package Manager
-**/ios/**/Packages/
-**/ios/**/Package.pins
-**/ios/**/Package.resolved
-**/ios/**/*.xcodeproj
-!**/ios/**/default.xcodeproj
-
-# CocoaPods
-**/ios/Pods/
-**/ios/Podfile.lock
-**/ios/**/*.xcworkspace
-!**/ios/**/default.xcworkspace
-
-# Carthage
-**/ios/Carthage/Build/
-
-# Accio
-**/ios/Dependencies/
-**/ios/.accio/
-
-# fastlane
-**/ios/fastlane/report.xml
-**/ios/fastlane/Preview.html
-**/ios/fastlane/screenshots/**/*.png
-**/ios/fastlane/test_output
-
-# Code Injection
-**/ios/iOSInjectionProject/
-
-# Google Services (SENSIBLE - ne pas commiter!)
-**/ios/**/GoogleService-Info.plist
-
-# ============================================
-# MACOS
-# ============================================
-
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# ============================================
-# PYTHON (si vous utilisez Python)
-# ============================================
-
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-
-# ============================================
-# TESTS & COVERAGE
-# ============================================
-
-coverage/
-*.coverage
-.coverage.*
-htmlcov/
-.pytest_cache/
-
-# ============================================
-# FICHIERS TEMPORAIRES
-# ============================================
-
+# Temporary files
 *.tmp
 *.temp
 *.bak
-*.backup
-*~
-
-# ============================================
-# DONNEES LOCALES
-# ============================================
-
-*.sqlite
-*.db
-*.db-journal
-*.rdb
-
-# User data (ne jamais commiter de données utilisateur réelles)
-users.json
-*.json.local
-
-# IDE settings (Claude)
-.claude/settings.local.json
