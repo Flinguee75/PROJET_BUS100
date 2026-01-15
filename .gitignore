@@ -343,3 +343,10 @@ htmlcov/
 *.db
 *.db-journal
 *.rdb
+
+# User data (ne jamais commiter de données utilisateur réelles)
+users.json
+*.json.local
+
+# IDE settings (Claude)
+.claude/settings.local.json
