@@ -1,7 +1,7 @@
 # Prototype – Bus Tracking System (Transport scolaire)
 
 ## Contexte
-Ce projet est un **prototype logiciel** visant à explorer la conception d’un système de **suivi GPS pour le transport scolaire**, afin d’améliorer la visibilité et la coordination entre **écoles, parents et chauffeurs**.
+Ce projet est un **prototype logiciel** visant à explorer la conception d’un système de **suivi GPS pour le transport scolaire**, afin d’améliorer la visibilité et la coordination entre **écoles, parents et chauffeurs**. Je voulais également prendre en main pour la premiere fois l'outil Claude Code, j'ai donc choisi ce projet qui me tenait a coeur pour un premiere exploration du LLM.
 
 Le projet a été développé comme un **exercice de conception full-stack**, avec une architecture multi-clients (web et mobile) et un backend cloud.
 
@@ -98,24 +98,16 @@ npm run dev
 
 ## Statut du projet
 
-* **Statut** : Prototype fonctionnel
+* **Statut** : Prototype fonctionnel avec quelques soucis 
 * **Objectif** : démonstration technique et exploration d’architecture
 * **Limites connues** :
 
   * règles de sécurité simplifiées,
   * dépendance à Firebase,
   * non prêt pour un usage en production.
-
----
-
-## Ce que ce projet démontre
-
-* Conception d’une **architecture full-stack**
-* Intégration backend cloud + frontend web + mobile
-* Manipulation de données temps réel
-* Structuration d’un projet multi-clients
-* Raisonnement produit sous forme de prototype
-
+  * faible couverture de code,
+  * code un peu spaghetti je dois l'avouer
+    
 ---
 
 ## Licence
