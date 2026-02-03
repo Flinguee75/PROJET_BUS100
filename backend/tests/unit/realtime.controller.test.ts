@@ -5,12 +5,9 @@
 
 import { Request, Response } from 'express';
 import { RealtimeController } from '../../src/controllers/realtime.controller';
-import realtimeService from '../../src/services/realtime.service';
+import { RealtimeService } from '../../src/services/realtime.service';
 import { BusStatus } from '../../src/types/bus.types';
 import { BusLiveStatus } from '../../src/types/gps.types';
-
-// Mock du service
-jest.mock('../../src/services/realtime.service');
 
 describe('RealtimeController', () => {
   let controller: RealtimeController;
@@ -18,9 +15,13 @@ describe('RealtimeController', () => {
   let mockRes: Partial<Response>;
   let mockJson: jest.Mock;
   let mockStatus: jest.Mock;
+  let mockGetAll: jest.SpyInstance;
+  let mockGetStats: jest.SpyInstance;
 
   beforeEach(() => {
     controller = new RealtimeController();
+    mockGetAll = jest.spyOn(RealtimeService.prototype, 'getAllBusesRealtimeData');
+    mockGetStats = jest.spyOn(RealtimeService.prototype, 'getBusStatistics');
 
     mockJson = jest.fn();
     mockStatus = jest.fn().mockReturnValue({ json: mockJson });
@@ -71,7 +72,7 @@ describe('RealtimeController', () => {
         },
       ];
 
-      (realtimeService.getAllBusesRealtime as jest.Mock).mockResolvedValue(mockBuses);
+      mockGetAll.mockResolvedValue(mockBuses);
 
       await controller.getAllBusesRealtime(mockReq as Request, mockRes as Response);
 
@@ -84,7 +85,7 @@ describe('RealtimeController', () => {
     });
 
     it('should return 500 on service error', async () => {
-      (realtimeService.getAllBusesRealtime as jest.Mock).mockRejectedValue(
+      mockGetAll.mockRejectedValue(
         new Error('Database error')
       );
 
@@ -93,8 +94,8 @@ describe('RealtimeController', () => {
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         success: false,
-        error: 'Failed to fetch realtime bus data',
-        message: 'Database error',
+        message: 'Erreur lors de la récupération des données en temps réel',
+        error: 'Database error',
       });
     });
   });
@@ -110,7 +111,7 @@ describe('RealtimeController', () => {
         totalPassengers: 75,
       };
 
-      (realtimeService.getBusStatistics as jest.Mock).mockResolvedValue(mockStats);
+      mockGetStats.mockResolvedValue(mockStats);
 
       await controller.getBusStatistics(mockReq as Request, mockRes as Response);
 
@@ -122,7 +123,7 @@ describe('RealtimeController', () => {
     });
 
     it('should return 500 on service error', async () => {
-      (realtimeService.getBusStatistics as jest.Mock).mockRejectedValue(
+      mockGetStats.mockRejectedValue(
         new Error('Stats calculation failed')
       );
 
@@ -131,8 +132,8 @@ describe('RealtimeController', () => {
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         success: false,
-        error: 'Failed to fetch bus statistics',
-        message: 'Stats calculation failed',
+        message: 'Erreur lors de la récupération des statistiques',
+        error: 'Stats calculation failed',
       });
     });
   });
@@ -166,7 +167,7 @@ describe('RealtimeController', () => {
       };
 
       mockReq.params = { busId: 'bus-1' };
-      (realtimeService.getBusRealtime as jest.Mock).mockResolvedValue(mockBus);
+      mockGetAll.mockResolvedValue([mockBus]);
 
       await controller.getBusRealtime(mockReq as Request, mockRes as Response);
 
@@ -179,14 +180,14 @@ describe('RealtimeController', () => {
 
     it('should return 404 when bus not found', async () => {
       mockReq.params = { busId: 'non-existent' };
-      (realtimeService.getBusRealtime as jest.Mock).mockResolvedValue(null);
+      mockGetAll.mockResolvedValue([]);
 
       await controller.getBusRealtime(mockReq as Request, mockRes as Response);
 
       expect(mockStatus).toHaveBeenCalledWith(404);
       expect(mockJson).toHaveBeenCalledWith({
         success: false,
-        error: 'Bus with ID non-existent not found',
+        message: 'Bus non-existent not found',
       });
     });
 
@@ -198,13 +199,13 @@ describe('RealtimeController', () => {
       expect(mockStatus).toHaveBeenCalledWith(400);
       expect(mockJson).toHaveBeenCalledWith({
         success: false,
-        error: 'Bus ID is required',
+        message: 'busId parameter is required',
       });
     });
 
     it('should return 500 on service error', async () => {
       mockReq.params = { busId: 'bus-1' };
-      (realtimeService.getBusRealtime as jest.Mock).mockRejectedValue(
+      mockGetAll.mockRejectedValue(
         new Error('Database error')
       );
 
@@ -213,8 +214,8 @@ describe('RealtimeController', () => {
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         success: false,
-        error: 'Failed to fetch realtime bus data',
-        message: 'Database error',
+        message: 'Erreur lors de la récupération des données du bus',
+        error: 'Database error',
       });
     });
   });

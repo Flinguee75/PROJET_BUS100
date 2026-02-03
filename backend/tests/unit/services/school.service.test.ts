@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour SchoolService
  * Teste toutes les opérations CRUD sur les écoles
@@ -60,6 +61,7 @@ describe('SchoolService', () => {
       const mockDocRef: any = {
         id: 'school-123',
         get: (jest.fn() as any).mockResolvedValue({
+          exists: true,
           id: 'school-123',
           data: () => ({
             name: 'École Primaire Cocody',
@@ -95,6 +97,7 @@ describe('SchoolService', () => {
       const mockDocRef: any = {
         id: 'school-123',
         get: (jest.fn() as any).mockResolvedValue({
+          exists: true,
           id: 'school-123',
           data: () => ({
             name: 'École Primaire Cocody',
@@ -139,6 +142,7 @@ describe('SchoolService', () => {
       const mockDocRef: any = {
         id: 'school-123',
         get: (jest.fn() as any).mockResolvedValue({
+          exists: true,
           id: 'school-123',
           data: () => ({
             ...input,
@@ -180,7 +184,7 @@ describe('SchoolService', () => {
 
       // @ts-ignore - Mock return value
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockSchoolDoc),
+        get: jest.fn().mockResolvedValue(mockSchoolDoc as any),
       });
 
       const result = await schoolService.getSchoolById('school-123');
@@ -352,7 +356,7 @@ describe('SchoolService', () => {
 
       // @ts-ignore - Mock return value
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockSchoolDoc),
+        get: jest.fn().mockResolvedValue(mockSchoolDoc as any),
         update: mockUpdate,
       });
 
@@ -374,7 +378,7 @@ describe('SchoolService', () => {
 
       // @ts-ignore - Mock return value
       mockDoc.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockSchoolDoc),
+        get: jest.fn().mockResolvedValue(mockSchoolDoc as any),
       });
 
       await expect(schoolService.deleteSchool('school-inexistant')).rejects.toThrow(
@@ -390,7 +394,7 @@ describe('SchoolService', () => {
       };
 
       mockWhere.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockSnapshot),
+        get: jest.fn().mockResolvedValue(mockSnapshot as any),
       });
 
       const count = await schoolService.getSchoolFleetCount('school-123');
@@ -405,7 +409,7 @@ describe('SchoolService', () => {
       };
 
       mockWhere.mockReturnValue({
-        get: jest.fn().mockResolvedValue(mockSnapshot),
+        get: jest.fn().mockResolvedValue(mockSnapshot as any),
       });
 
       const count = await schoolService.getSchoolFleetCount('school-123');
@@ -414,4 +418,3 @@ describe('SchoolService', () => {
     });
   });
 });
-

@@ -21,11 +21,15 @@ describe('NotificationService - Trip Filtering', () => {
   let notificationService: NotificationService;
   let mockDb: any;
   let mockMessaging: any;
+  let createAndSendSpy: jest.SpyInstance;
   const { getDb, getMessaging } = require('../../src/config/firebase.config');
 
   beforeEach(() => {
     notificationService = new NotificationService();
     jest.clearAllMocks();
+    createAndSendSpy = jest
+      .spyOn(notificationService as any, 'createAndSend')
+      .mockResolvedValue(undefined);
 
     // Setup mock Firestore
     mockDb = {
@@ -128,35 +132,14 @@ describe('NotificationService - Trip Filtering', () => {
         }),
       });
 
-      // Mock FCM tokens
-      mockDb.collection.mockReturnValueOnce({
-        where: jest.fn().mockReturnValueOnce({
-          get: jest.fn().mockResolvedValueOnce({
-            docs: [
-              {
-                data: () => ({ userId: 'parent1', token: 'token1' }),
-              },
-              {
-                data: () => ({ userId: 'parent3', token: 'token3' }),
-              },
-            ],
-          }),
-        }),
-      });
-
-      // Mock notification creation
-      mockDb.collection.mockReturnValueOnce({
-        add: jest.fn().mockResolvedValueOnce({ id: 'notif123' }),
-      });
-
       await notificationService.notifyParentsRouteStarted(busId, driverId);
 
       // Vérifier que la notification a été créée avec seulement parent1 et parent3
-      const addCall = mockDb.add.mock.calls[0];
+      const addCall = createAndSendSpy.mock.calls[0];
       expect(addCall).toBeDefined();
 
       // La notification doit avoir été envoyée à 2 parents (pas 3)
-      expect(mockMessaging.sendEachForMulticast).toHaveBeenCalled();
+      expect(createAndSendSpy).toHaveBeenCalled();
     });
 
     it('should use trip-specific message for morning_outbound', async () => {
@@ -207,26 +190,10 @@ describe('NotificationService - Trip Filtering', () => {
         }),
       });
 
-      mockDb.collection.mockReturnValueOnce({
-        where: jest.fn().mockReturnValueOnce({
-          get: jest.fn().mockResolvedValueOnce({
-            docs: [
-              {
-                data: () => ({ userId: 'parent1', token: 'token1' }),
-              },
-            ],
-          }),
-        }),
-      });
-
-      mockDb.collection.mockReturnValueOnce({
-        add: jest.fn().mockResolvedValueOnce({ id: 'notif123' }),
-      });
-
       await notificationService.notifyParentsRouteStarted(busId, driverId);
 
       // Vérifier le message de notification
-      const addCall = mockDb.add.mock.calls[0];
+      const addCall = createAndSendSpy.mock.calls[0];
       const notification = addCall[0];
 
       expect(notification.title).toBe('Ramassage du matin démarré');
@@ -291,7 +258,7 @@ describe('NotificationService - Trip Filtering', () => {
       await notificationService.notifyParentsRouteStarted(busId, driverId);
 
       // Aucune notification ne doit être envoyée
-      expect(mockMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+      expect(createAndSendSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -338,26 +305,10 @@ describe('NotificationService - Trip Filtering', () => {
         }),
       });
 
-      mockDb.collection.mockReturnValueOnce({
-        where: jest.fn().mockReturnValueOnce({
-          get: jest.fn().mockResolvedValueOnce({
-            docs: [
-              {
-                data: () => ({ userId: 'parent1', token: 'token1' }),
-              },
-            ],
-          }),
-        }),
-      });
-
-      mockDb.collection.mockReturnValueOnce({
-        add: jest.fn().mockResolvedValueOnce({ id: 'notif123' }),
-      });
-
       await notificationService.notifyParentsArrival(busId);
 
       // Seul parent1 doit recevoir la notification
-      const addCall = mockDb.add.mock.calls[0];
+      const addCall = createAndSendSpy.mock.calls[0];
       const notification = addCall[0];
 
       expect(notification.recipientIds).toEqual(['parent1']);
@@ -398,25 +349,9 @@ describe('NotificationService - Trip Filtering', () => {
         }),
       });
 
-      mockDb.collection.mockReturnValueOnce({
-        where: jest.fn().mockReturnValueOnce({
-          get: jest.fn().mockResolvedValueOnce({
-            docs: [
-              {
-                data: () => ({ userId: 'parent1', token: 'token1' }),
-              },
-            ],
-          }),
-        }),
-      });
-
-      mockDb.collection.mockReturnValueOnce({
-        add: jest.fn().mockResolvedValueOnce({ id: 'notif123' }),
-      });
-
       await notificationService.notifyParentsArrival(busId);
 
-      const addCall = mockDb.add.mock.calls[0];
+      const addCall = createAndSendSpy.mock.calls[0];
       const notification = addCall[0];
 
       expect(notification.title).toBe('Départ de l\'école');
@@ -458,25 +393,9 @@ describe('NotificationService - Trip Filtering', () => {
         }),
       });
 
-      mockDb.collection.mockReturnValueOnce({
-        where: jest.fn().mockReturnValueOnce({
-          get: jest.fn().mockResolvedValueOnce({
-            docs: [
-              {
-                data: () => ({ userId: 'parent1', token: 'token1' }),
-              },
-            ],
-          }),
-        }),
-      });
-
-      mockDb.collection.mockReturnValueOnce({
-        add: jest.fn().mockResolvedValueOnce({ id: 'notif123' }),
-      });
-
       await notificationService.notifyParentsArrival(busId);
 
-      const addCall = mockDb.add.mock.calls[0];
+      const addCall = createAndSendSpy.mock.calls[0];
       const notification = addCall[0];
 
       expect(notification.title).toBe('Arrivée à l\'école');

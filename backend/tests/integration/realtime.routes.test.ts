@@ -6,12 +6,9 @@
 import request from 'supertest';
 import express from 'express';
 import realtimeRoutes from '../../src/routes/realtime.routes';
-import realtimeService from '../../src/services/realtime.service';
+import { RealtimeService } from '../../src/services/realtime.service';
 import { BusStatus } from '../../src/types/bus.types';
 import { BusLiveStatus } from '../../src/types/gps.types';
-
-// Mock du service
-jest.mock('../../src/services/realtime.service');
 
 // Setup Express app pour les tests
 const app = express();
@@ -19,6 +16,9 @@ app.use(express.json());
 app.use('/api/realtime', realtimeRoutes);
 
 describe('Realtime Routes Integration Tests', () => {
+  const mockGetAll = jest.spyOn(RealtimeService.prototype, 'getAllBusesRealtimeData');
+  const mockGetStats = jest.spyOn(RealtimeService.prototype, 'getBusStatistics');
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -28,6 +28,7 @@ describe('Realtime Routes Integration Tests', () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          number: 'BUS-01',
           plateNumber: 'CI 1001 AB 11',
           capacity: 35,
           model: 'Mercedes Sprinter',
@@ -54,12 +55,13 @@ describe('Realtime Routes Integration Tests', () => {
             toZone: 'Plateau',
           },
           passengersCount: 25,
-          currentZone: 'Cocody',
-          lastUpdate: new Date(),
+          currentZone: null,
+          lastUpdate: new Date().toISOString(),
           isActive: true,
         },
         {
           id: 'bus-2',
+          number: 'BUS-02',
           plateNumber: 'CI 1002 AB 12',
           capacity: 35,
           model: 'Toyota Coaster',
@@ -76,7 +78,7 @@ describe('Realtime Routes Integration Tests', () => {
         },
       ];
 
-      (realtimeService.getAllBusesRealtime as jest.Mock).mockResolvedValue(mockBuses);
+      mockGetAll.mockResolvedValue(mockBuses);
 
       const response = await request(app).get('/api/realtime/buses').expect(200);
 
@@ -97,11 +99,11 @@ describe('Realtime Routes Integration Tests', () => {
         count: 2,
       });
 
-      expect(realtimeService.getAllBusesRealtime).toHaveBeenCalledTimes(1);
+      expect(mockGetAll).toHaveBeenCalledTimes(1);
     });
 
     it('should return 200 with empty array when no buses exist', async () => {
-      (realtimeService.getAllBusesRealtime as jest.Mock).mockResolvedValue([]);
+      mockGetAll.mockResolvedValue([]);
 
       const response = await request(app).get('/api/realtime/buses').expect(200);
 
@@ -113,15 +115,14 @@ describe('Realtime Routes Integration Tests', () => {
     });
 
     it('should return 500 on service error', async () => {
-      (realtimeService.getAllBusesRealtime as jest.Mock).mockRejectedValue(
-        new Error('Database connection failed')
-      );
+      mockGetAll.mockRejectedValue(new Error('Database connection failed'));
 
       const response = await request(app).get('/api/realtime/buses').expect(500);
 
       expect(response.body).toMatchObject({
         success: false,
-        error: 'Failed to fetch realtime bus data',
+        message: 'Erreur lors de la récupération des données en temps réel',
+        error: 'Database connection failed',
       });
     });
   });
@@ -137,7 +138,7 @@ describe('Realtime Routes Integration Tests', () => {
         totalPassengers: 150,
       };
 
-      (realtimeService.getBusStatistics as jest.Mock).mockResolvedValue(mockStats);
+      mockGetStats.mockResolvedValue(mockStats);
 
       const response = await request(app).get('/api/realtime/statistics').expect(200);
 
@@ -146,19 +147,18 @@ describe('Realtime Routes Integration Tests', () => {
         data: mockStats,
       });
 
-      expect(realtimeService.getBusStatistics).toHaveBeenCalledTimes(1);
+      expect(mockGetStats).toHaveBeenCalledTimes(1);
     });
 
     it('should return 500 on service error', async () => {
-      (realtimeService.getBusStatistics as jest.Mock).mockRejectedValue(
-        new Error('Stats calculation failed')
-      );
+      mockGetStats.mockRejectedValue(new Error('Stats calculation failed'));
 
       const response = await request(app).get('/api/realtime/statistics').expect(500);
 
       expect(response.body).toMatchObject({
         success: false,
-        error: 'Failed to fetch bus statistics',
+        message: 'Erreur lors de la récupération des statistiques',
+        error: 'Stats calculation failed',
       });
     });
   });
@@ -167,6 +167,7 @@ describe('Realtime Routes Integration Tests', () => {
     it('should return 200 with specific bus data', async () => {
       const mockBus = {
         id: 'bus-1',
+        number: 'BUS-01',
         plateNumber: 'CI 1001 AB 11',
         capacity: 35,
         model: 'Mercedes Sprinter',
@@ -181,24 +182,15 @@ describe('Realtime Routes Integration Tests', () => {
           timestamp: Date.now(),
         },
         liveStatus: BusLiveStatus.EN_ROUTE,
-        driver: {
-          id: 'driver-1',
-          name: 'Kouassi Jean',
-          phone: '+225 07 12 34 56 78',
-        },
-        route: {
-          id: 'route-1',
-          name: 'Cocody → Plateau',
-          fromZone: 'Cocody',
-          toZone: 'Plateau',
-        },
+        driver: null,
+        route: null,
         passengersCount: 25,
-        currentZone: 'Cocody',
-        lastUpdate: new Date(),
+        currentZone: null,
+        lastUpdate: new Date().toISOString(),
         isActive: true,
       };
 
-      (realtimeService.getBusRealtime as jest.Mock).mockResolvedValue(mockBus);
+      mockGetAll.mockResolvedValue([mockBus]);
 
       const response = await request(app).get('/api/realtime/buses/bus-1').expect(200);
 
@@ -211,30 +203,29 @@ describe('Realtime Routes Integration Tests', () => {
         }),
       });
 
-      expect(realtimeService.getBusRealtime).toHaveBeenCalledWith('bus-1');
+      expect(mockGetAll).toHaveBeenCalledTimes(1);
     });
 
     it('should return 404 when bus not found', async () => {
-      (realtimeService.getBusRealtime as jest.Mock).mockResolvedValue(null);
+      mockGetAll.mockResolvedValue([]);
 
       const response = await request(app).get('/api/realtime/buses/non-existent').expect(404);
 
       expect(response.body).toEqual({
         success: false,
-        error: 'Bus with ID non-existent not found',
+        message: 'Bus non-existent not found',
       });
     });
 
     it('should return 500 on service error', async () => {
-      (realtimeService.getBusRealtime as jest.Mock).mockRejectedValue(
-        new Error('Database error')
-      );
+      mockGetAll.mockRejectedValue(new Error('Database error'));
 
       const response = await request(app).get('/api/realtime/buses/bus-1').expect(500);
 
       expect(response.body).toMatchObject({
         success: false,
-        error: 'Failed to fetch realtime bus data',
+        message: 'Erreur lors de la récupération des données du bus',
+        error: 'Database error',
       });
     });
   });
@@ -243,7 +234,6 @@ describe('Realtime Routes Integration Tests', () => {
     it('should return 404 for unknown routes', async () => {
       const response = await request(app).get('/api/realtime/unknown').expect(404);
 
-      // Express default 404 handling
       expect(response.status).toBe(404);
     });
   });

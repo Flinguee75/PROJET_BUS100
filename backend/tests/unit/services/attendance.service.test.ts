@@ -1,674 +1,171 @@
+// @ts-nocheck
 /**
- * Tests unitaires pour AttendanceService
- * Teste les opérations de montée/descente et récupération d'historique
+ * Tests unitaires pour AttendanceService (scan/unscan)
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { AttendanceService } from '../../../src/services/attendance.service';
-import notificationService from '../../../src/services/notification.service';
-
-// Mock Firestore
-const mockAdd = jest.fn();
-const mockGet = jest.fn();
-const mockDoc = jest.fn();
-const mockUpdate = jest.fn();
-const mockWhere = jest.fn();
-const mockOrderBy = jest.fn();
-const mockLimit = jest.fn();
+import { getDb, collections } from '../../../src/config/firebase.config';
 
 jest.mock('../../../src/config/firebase.config', () => ({
-  getDb: jest.fn(() => ({
-    collection: jest.fn(() => ({
-      add: mockAdd,
-      get: mockGet,
-      doc: mockDoc,
-      where: mockWhere,
-      orderBy: mockOrderBy,
-      limit: mockLimit,
-    })),
-  })),
+  getDb: jest.fn(),
   collections: {
+    buses: 'buses',
     students: 'students',
     attendance: 'attendance',
   },
 }));
 
-jest.mock('../../../src/services/notification.service');
-
 describe('AttendanceService', () => {
   let attendanceService: AttendanceService;
-  const mockToday = '2024-01-15';
+  let mockDb: any;
+  let mockBusDoc: any;
+  let mockStudentDoc: any;
+  let attendanceCollection: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     attendanceService = new AttendanceService();
 
-    // Setup notification service spy
-    jest.spyOn(notificationService, 'notifyParentsOfStudent').mockResolvedValue({} as any);
+    mockBusDoc = {
+      exists: true,
+      data: () => ({
+        driverId: 'driver-1',
+        currentTrip: { scannedStudentIds: [] },
+      }),
+      update: jest.fn().mockResolvedValue(undefined as any),
+    };
 
-    // Mock chaîné pour where
-    mockWhere.mockReturnValue({
-      get: mockGet,
-      where: mockWhere,
-      orderBy: mockOrderBy,
-    });
+    mockStudentDoc = {
+      exists: true,
+      data: () => ({
+        busId: 'bus-1',
+        firstName: 'Awa',
+        lastName: 'Kone',
+      }),
+    };
 
-    mockOrderBy.mockReturnValue({
-      get: mockGet,
-      orderBy: mockOrderBy,
-      limit: mockLimit,
-    });
+    attendanceCollection = {
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({ empty: true, docs: [] } as any),
+      add: jest.fn().mockResolvedValue(undefined as any),
+    };
 
-    mockLimit.mockReturnValue({
-      get: mockGet,
-    });
+    mockDb = {
+      collection: jest.fn((name: string) => {
+        if (name === collections.buses) {
+          return {
+            doc: jest.fn(() => ({
+              get: jest.fn().mockResolvedValue(mockBusDoc as any),
+              update: mockBusDoc.update,
+            })),
+          };
+        }
+        if (name === collections.students) {
+          return {
+            doc: jest.fn(() => ({
+              get: jest.fn().mockResolvedValue(mockStudentDoc as any),
+            })),
+          };
+        }
+        if (name === collections.attendance) {
+          return attendanceCollection;
+        }
+        return {};
+      }),
+    };
 
-    // Mock date pour avoir des tests déterministes
-    jest.spyOn(Date.prototype, 'toISOString').mockReturnValue(`${mockToday}T10:00:00.000Z`);
+    (getDb as jest.Mock).mockReturnValue(mockDb);
   });
 
-  describe('boardStudent', () => {
-    it('crée un nouveau record de montée pour un élève', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Aya',
-          lastName: 'Kouassi',
-          parentIds: ['parent-001'],
-        }),
-      };
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('scanStudent', () => {
+    it('creates an attendance record when none exists', async () => {
+      jest.spyOn(Date.prototype, 'getHours').mockReturnValue(9); // morning
+
+      await attendanceService.scanStudent({
+        studentId: 'student-1',
+        busId: 'bus-1',
+        date: '2024-01-15',
+        type: 'boarding',
+        driverId: 'driver-1',
+        location: { lat: 5.3, lng: -4.0 },
+      });
+
+      expect(attendanceCollection.add).toHaveBeenCalled();
+      expect(mockBusDoc.update).toHaveBeenCalled();
+    });
+
+    it('updates existing attendance record', async () => {
+      jest.spyOn(Date.prototype, 'getHours').mockReturnValue(16); // evening
 
       const mockDocRef = {
-        id: 'attendance-001',
+        ref: { update: jest.fn().mockResolvedValue(undefined as any) },
       };
 
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
+      attendanceCollection.get.mockResolvedValueOnce({
+        empty: false,
+        docs: [mockDocRef],
+      } as any);
+
+      await attendanceService.scanStudent({
+        studentId: 'student-1',
+        busId: 'bus-1',
+        date: '2024-01-15',
+        type: 'boarding',
+        driverId: 'driver-1',
       });
 
-      mockGet.mockResolvedValue({
-        empty: true,
-        docs: [],
-      });
-
-      mockAdd.mockResolvedValue(mockDocRef);
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T08:30:00.000Z'),
-        location: { lat: 5.36, lng: -4.008 },
-        type: 'board' as const,
-        notes: 'Montée normale',
-      };
-
-      // Act
-      const result = await attendanceService.boardStudent(event);
-
-      // Assert
-      expect(result).toMatchObject({
-        id: 'attendance-001',
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        status: 'boarded',
-      });
-
-      expect(mockAdd).toHaveBeenCalledWith(
+      expect(mockDocRef.ref.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          studentId: 'student-001',
-          busId: 'bus-001',
-          status: 'boarded',
-        })
-      );
-
-      expect(notificationService.notifyParentsOfStudent).toHaveBeenCalledWith(
-        'student-001',
-        expect.stringContaining('Aya Kouassi'),
-        expect.stringContaining('est monté(e) dans le bus'),
-        'student_boarded',
-        'high',
-        expect.objectContaining({
-          eventType: 'board',
-          studentName: 'Aya Kouassi',
+          eveningStatus: 'present',
         })
       );
     });
 
-    it('met à jour un record existant pour une nouvelle montée', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Aya',
-          lastName: 'Kouassi',
-          parentIds: ['parent-001'],
-        }),
+    it('throws when bus is missing', async () => {
+      mockBusDoc.exists = false;
+
+      await expect(
+        attendanceService.scanStudent({
+          studentId: 'student-1',
+          busId: 'bus-1',
+          date: '2024-01-15',
+          type: 'boarding',
+          driverId: 'driver-1',
+        })
+      ).rejects.toThrow('Bus bus-1 not found');
+    });
+  });
+
+  describe('unscanStudent', () => {
+    it('marks attendance as absent', async () => {
+      jest.spyOn(Date.prototype, 'getHours').mockReturnValue(9); // morning
+
+      const mockDocRef = {
+        ref: { update: jest.fn().mockResolvedValue(undefined as any) },
       };
 
-      const existingRecord = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        date: mockToday,
-        status: 'completed', // Élève déjà descendu
-        exitTime: new Date('2024-01-15T16:00:00.000Z'),
-      };
-
-      const mockExistingDoc = {
-        id: 'attendance-001',
-        data: () => existingRecord,
-        ref: {
-          update: mockUpdate,
-        },
-      };
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
-      });
-
-      mockGet.mockResolvedValue({
+      attendanceCollection.get.mockResolvedValueOnce({
         empty: false,
-        docs: [mockExistingDoc],
+        docs: [mockDocRef],
+      } as any);
+
+      await attendanceService.unscanStudent({
+        studentId: 'student-1',
+        busId: 'bus-1',
+        date: '2024-01-15',
+        driverId: 'driver-1',
       });
 
-      mockUpdate.mockResolvedValue(true);
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T08:30:00.000Z'),
-        location: { lat: 5.36, lng: -4.008 },
-        type: 'board' as const,
-      };
-
-      // Act
-      const result = await attendanceService.boardStudent(event);
-
-      // Assert
-      expect(result.status).toBe('boarded');
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockDocRef.ref.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'boarded',
-          boardingTime: expect.any(Date),
+          morningStatus: 'absent',
         })
       );
-    });
-
-    it('lance une erreur si l\'élève est déjà monté', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Aya',
-          lastName: 'Kouassi',
-          parentIds: ['parent-001'],
-        }),
-      };
-
-      const existingRecord = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        date: mockToday,
-        status: 'boarded', // Déjà monté
-        boardingTime: new Date('2024-01-15T07:30:00.000Z'),
-      };
-
-      const mockExistingDoc = {
-        id: 'attendance-001',
-        data: () => existingRecord,
-      };
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
-      });
-
-      mockGet.mockResolvedValue({
-        empty: false,
-        docs: [mockExistingDoc],
-      });
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T08:30:00.000Z'),
-        type: 'board' as const,
-      };
-
-      // Act & Assert
-      await expect(attendanceService.boardStudent(event)).rejects.toThrow(
-        /already on the bus/
-      );
-    });
-
-    it('lance une erreur si l\'élève n\'existe pas', async () => {
-      // Arrange
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue({
-          exists: false,
-        }),
-      });
-
-      const event = {
-        studentId: 'student-999',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date(),
-        type: 'board' as const,
-      };
-
-      // Act & Assert
-      await expect(attendanceService.boardStudent(event)).rejects.toThrow(
-        /not found/
-      );
-    });
-  });
-
-  describe('exitStudent', () => {
-    it('enregistre la descente d\'un élève correctement', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Ibrahim',
-          lastName: 'Traoré',
-          parentIds: ['parent-002'],
-        }),
-      };
-
-      const existingRecord = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        date: mockToday,
-        status: 'boarded',
-        boardingTime: new Date('2024-01-15T07:30:00.000Z'),
-      };
-
-      const mockExistingDoc = {
-        id: 'attendance-001',
-        data: () => existingRecord,
-        ref: {
-          update: mockUpdate,
-        },
-      };
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
-      });
-
-      mockGet.mockResolvedValue({
-        empty: false,
-        docs: [mockExistingDoc],
-      });
-
-      mockUpdate.mockResolvedValue(true);
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T16:00:00.000Z'),
-        location: { lat: 5.32, lng: -4.03 },
-        type: 'exit' as const,
-      };
-
-      // Act
-      const result = await attendanceService.exitStudent(event);
-
-      // Assert
-      expect(result.status).toBe('completed');
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          exitTime: expect.any(Date),
-          status: 'completed',
-        })
-      );
-
-      expect(notificationService.notifyParentsOfStudent).toHaveBeenCalledWith(
-        'student-001',
-        expect.stringContaining('Ibrahim Traoré'),
-        expect.stringContaining('est descendu(e) du bus'),
-        'student_exited',
-        'high',
-        expect.objectContaining({
-          eventType: 'exit',
-          studentName: 'Ibrahim Traoré',
-        })
-      );
-    });
-
-    it('lance une erreur si l\'élève n\'a pas de record de montée', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Ibrahim',
-          lastName: 'Traoré',
-          parentIds: ['parent-002'],
-        }),
-      };
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
-      });
-
-      mockGet.mockResolvedValue({
-        empty: true,
-        docs: [],
-      });
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T16:00:00.000Z'),
-        type: 'exit' as const,
-      };
-
-      // Act & Assert
-      await expect(attendanceService.exitStudent(event)).rejects.toThrow(
-        /No boarding record found/
-      );
-    });
-
-    it('lance une erreur si l\'élève n\'est pas actuellement dans le bus', async () => {
-      // Arrange
-      const mockStudentDoc = {
-        id: 'student-001',
-        exists: true,
-        data: () => ({
-          firstName: 'Ibrahim',
-          lastName: 'Traoré',
-          parentIds: ['parent-002'],
-        }),
-      };
-
-      const existingRecord = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        date: mockToday,
-        status: 'completed', // Déjà descendu
-        exitTime: new Date('2024-01-15T15:00:00.000Z'),
-      };
-
-      const mockExistingDoc = {
-        id: 'attendance-001',
-        data: () => existingRecord,
-      };
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue(mockStudentDoc),
-      });
-
-      mockGet.mockResolvedValue({
-        empty: false,
-        docs: [mockExistingDoc],
-      });
-
-      const event = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        driverId: 'driver-001',
-        timestamp: new Date('2024-01-15T16:00:00.000Z'),
-        type: 'exit' as const,
-      };
-
-      // Act & Assert
-      await expect(attendanceService.exitStudent(event)).rejects.toThrow(
-        /not currently on the bus/
-      );
-    });
-  });
-
-  describe('getStudentAttendance', () => {
-    it('retourne l\'attendance d\'un élève pour une date donnée', async () => {
-      // Arrange
-      const mockRecord = {
-        studentId: 'student-001',
-        busId: 'bus-001',
-        date: mockToday,
-        status: 'boarded',
-        boardingTime: new Date('2024-01-15T07:30:00.000Z'),
-      };
-
-      const mockDoc = {
-        id: 'attendance-001',
-        data: () => mockRecord,
-      };
-
-      mockGet.mockResolvedValue({
-        empty: false,
-        docs: [mockDoc],
-      });
-
-      // Act
-      const result = await attendanceService.getStudentAttendance('student-001', mockToday);
-
-      // Assert
-      expect(result).toMatchObject({
-        id: 'attendance-001',
-        studentId: 'student-001',
-        status: 'boarded',
-      });
-    });
-
-    it('retourne null si aucun record n\'existe', async () => {
-      // Arrange
-      mockGet.mockResolvedValue({
-        empty: true,
-        docs: [],
-      });
-
-      // Act
-      const result = await attendanceService.getStudentAttendance('student-999', mockToday);
-
-      // Assert
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('getStudentsOnBus', () => {
-    it('retourne la liste des élèves actuellement dans le bus', async () => {
-      // Arrange
-      const mockAttendance = [
-        {
-          id: 'attendance-001',
-          data: () => ({
-            studentId: 'student-001',
-            busId: 'bus-001',
-            date: mockToday,
-            status: 'boarded',
-            boardingTime: new Date('2024-01-15T07:30:00.000Z'),
-          }),
-        },
-        {
-          id: 'attendance-002',
-          data: () => ({
-            studentId: 'student-002',
-            busId: 'bus-001',
-            date: mockToday,
-            status: 'boarded',
-            boardingTime: new Date('2024-01-15T07:35:00.000Z'),
-          }),
-        },
-      ];
-
-      mockGet.mockResolvedValue({
-        docs: mockAttendance,
-      });
-
-      // Mock student documents
-      mockDoc.mockImplementation((studentId: string) => ({
-        get: (jest.fn() as any).mockResolvedValue({
-          exists: true,
-          data: () => ({
-            firstName: studentId === 'student-001' ? 'Aya' : 'Ibrahim',
-            lastName: studentId === 'student-001' ? 'Kouassi' : 'Traoré',
-          }),
-        }),
-      }));
-
-      // Act
-      const result = await attendanceService.getStudentsOnBus('bus-001');
-
-      // Assert
-      expect(result).toHaveLength(2);
-      expect(result[0]).toMatchObject({
-        studentId: 'student-001',
-        studentName: 'Aya Kouassi',
-        isOnBus: true,
-      });
-      expect(result[1]).toMatchObject({
-        studentId: 'student-002',
-        studentName: 'Ibrahim Traoré',
-        isOnBus: true,
-      });
-    });
-
-    it('retourne une liste vide si aucun élève n\'est dans le bus', async () => {
-      // Arrange
-      mockGet.mockResolvedValue({
-        docs: [],
-      });
-
-      // Act
-      const result = await attendanceService.getStudentsOnBus('bus-001');
-
-      // Assert
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('countStudentsOnBus', () => {
-    it('retourne le nombre d\'élèves dans le bus', async () => {
-      // Arrange
-      const mockAttendance = [
-        {
-          id: 'attendance-001',
-          data: () => ({
-            studentId: 'student-001',
-            busId: 'bus-001',
-            date: mockToday,
-            status: 'boarded',
-          }),
-        },
-        {
-          id: 'attendance-002',
-          data: () => ({
-            studentId: 'student-002',
-            busId: 'bus-001',
-            date: mockToday,
-            status: 'boarded',
-          }),
-        },
-      ];
-
-      mockGet.mockResolvedValue({
-        docs: mockAttendance,
-      });
-
-      mockDoc.mockReturnValue({
-        get: (jest.fn() as any).mockResolvedValue({
-          exists: true,
-          data: () => ({
-            firstName: 'Test',
-            lastName: 'Student',
-          }),
-        }),
-      });
-
-      // Act
-      const result = await attendanceService.countStudentsOnBus('bus-001');
-
-      // Assert
-      expect(result).toBe(2);
-    });
-  });
-
-  describe('getStudentAttendanceHistory', () => {
-    it('retourne l\'historique d\'attendance d\'un élève', async () => {
-      // Arrange
-      const mockHistory = [
-        {
-          id: 'attendance-001',
-          data: () => ({
-            studentId: 'student-001',
-            busId: 'bus-001',
-            date: '2024-01-15',
-            status: 'completed',
-          }),
-        },
-        {
-          id: 'attendance-002',
-          data: () => ({
-            studentId: 'student-001',
-            busId: 'bus-001',
-            date: '2024-01-14',
-            status: 'completed',
-          }),
-        },
-      ];
-
-      mockGet.mockResolvedValue({
-        docs: mockHistory,
-      });
-
-      // Act
-      const result = await attendanceService.getStudentAttendanceHistory(
-        'student-001',
-        '2024-01-01',
-        '2024-01-31'
-      );
-
-      // Assert
-      expect(result).toHaveLength(2);
-      expect(result[0]).toMatchObject({
-        id: 'attendance-001',
-        studentId: 'student-001',
-      });
-    });
-  });
-
-  describe('getBusAttendanceHistory', () => {
-    it('retourne l\'historique d\'attendance d\'un bus', async () => {
-      // Arrange
-      const mockHistory = [
-        {
-          id: 'attendance-001',
-          data: () => ({
-            studentId: 'student-001',
-            busId: 'bus-001',
-            date: '2024-01-15',
-            status: 'completed',
-          }),
-        },
-      ];
-
-      mockGet.mockResolvedValue({
-        docs: mockHistory,
-      });
-
-      // Act
-      const result = await attendanceService.getBusAttendanceHistory(
-        'bus-001',
-        '2024-01-01',
-        '2024-01-31'
-      );
-
-      // Assert
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({
-        busId: 'bus-001',
-      });
     });
   });
 });

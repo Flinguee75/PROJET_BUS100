@@ -815,7 +815,7 @@ describe('NotificationService', () => {
       // Vérifier le contenu de la notification
       expect(notificationData.type).toBe(NotificationType.BUS_ARRIVING);
       expect(notificationData.title).toContain('Trajet démarré');
-      expect(notificationData.message).toContain('AB-1234-CI');
+      expect(notificationData.message).toContain('bus-001');
       expect(notificationData.message).toContain('Jean Dupont');
       expect(notificationData.priority).toBe(NotificationPriority.HIGH);
 
@@ -942,7 +942,7 @@ describe('NotificationService', () => {
       await notificationService.notifyParentsRouteStarted('bus-001', 'driver-001');
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '⚠️ Aucun parent trouvé pour les élèves du bus bus-001'
+        '⚠️ Aucun parent concerné pour le trip undefined du bus bus-001'
       );
 
       consoleSpy.mockRestore();

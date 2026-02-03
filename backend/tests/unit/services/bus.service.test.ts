@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests unitaires pour BusService
  * Teste toutes les opérations CRUD sur les bus
@@ -6,6 +7,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { BusService } from '../../../src/services/bus.service';
 import { BusStatus, BusMaintenanceStatus } from '../../../src/types/bus.types';
+import { getDb } from '../../../src/config/firebase.config';
 
 // Mock Firestore
 // @ts-ignore - Mock types
@@ -397,5 +399,122 @@ describe('BusService', () => {
       expect(result.studentIds).toEqual(['student-1', 'student-2']);
     });
   });
-});
 
+  describe('getBusesWithLivePosition', () => {
+    it('maps currentPosition from gps_live BusRealtimeData shape', async () => {
+      const mockDb: any = {
+        collection: jest.fn(),
+      };
+      (getDb as jest.Mock).mockReturnValue(mockDb);
+
+      const mockBuses = [
+        {
+          id: 'bus-1',
+          data: () => ({
+            plateNumber: 'TU 111 TN 111',
+            model: 'Mercedes',
+            year: 2024,
+            capacity: 50,
+            status: BusStatus.ACTIVE,
+            maintenanceStatus: BusMaintenanceStatus.OK,
+          }),
+          createTime: { toDate: () => new Date() },
+          updateTime: { toDate: () => new Date() },
+        },
+      ];
+
+      const mockGpsDocs = [
+        {
+          id: 'bus-1',
+          data: () => ({
+            currentPosition: { lat: 5.3, lng: -4.0, speed: 12, timestamp: 123 },
+          }),
+        },
+      ];
+
+      mockDb.collection.mockImplementation((collectionName: string) => {
+        if (collectionName === 'buses') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockBuses } as any) };
+        }
+        if (collectionName === 'gps_live') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockGpsDocs } as any) };
+        }
+        if (collectionName === 'users') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue({ docs: [] }),
+          };
+        }
+        return { get: jest.fn().mockResolvedValue({ docs: [] } as any) };
+      });
+
+      const result = (await busService.getBusesWithLivePosition()) as any[];
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.currentPosition).toMatchObject({
+        lat: 5.3,
+        lng: -4.0,
+        speed: 12,
+        timestamp: 123,
+      });
+    });
+
+    it('maps legacy position from gps_live GPSLiveData shape', async () => {
+      const mockDb: any = {
+        collection: jest.fn(),
+      };
+      (getDb as jest.Mock).mockReturnValue(mockDb);
+
+      const mockBuses = [
+        {
+          id: 'bus-2',
+          data: () => ({
+            plateNumber: 'TU 222 TN 222',
+            model: 'Volvo',
+            year: 2023,
+            capacity: 40,
+            status: BusStatus.ACTIVE,
+            maintenanceStatus: BusMaintenanceStatus.OK,
+          }),
+          createTime: { toDate: () => new Date() },
+          updateTime: { toDate: () => new Date() },
+        },
+      ];
+
+      const mockGpsDocs = [
+        {
+          id: 'bus-2',
+          data: () => ({
+            position: { lat: 5.31, lng: -4.01, speed: 8, timestamp: 456 },
+          }),
+        },
+      ];
+
+      mockDb.collection.mockImplementation((collectionName: string) => {
+        if (collectionName === 'buses') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockBuses } as any) };
+        }
+        if (collectionName === 'gps_live') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockGpsDocs } as any) };
+        }
+        if (collectionName === 'users') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue({ docs: [] }),
+          };
+        }
+        return { get: jest.fn().mockResolvedValue({ docs: [] } as any) };
+      });
+
+      const result = (await busService.getBusesWithLivePosition()) as any[];
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.currentPosition).toMatchObject({
+        lat: 5.31,
+        lng: -4.01,
+        speed: 8,
+        timestamp: 456,
+      });
+    });
+  });
+});

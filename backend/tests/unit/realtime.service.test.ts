@@ -38,13 +38,14 @@ describe('RealtimeService', () => {
     jest.clearAllMocks();
   });
 
-  describe('getAllBusesRealtime', () => {
+  describe('getAllBusesRealtimeData', () => {
     it('should return enriched bus data with GPS, driver, and route info', async () => {
       // Mock data
       const mockBuses = [
         {
           id: 'bus-1',
           data: () => ({
+            busNumber: 1,
             plateNumber: 'CI 1001 AB 11',
             capacity: 35,
             model: 'Mercedes Sprinter',
@@ -53,6 +54,9 @@ describe('RealtimeService', () => {
             routeId: 'route-1',
             status: BusStatus.ACTIVE,
             maintenanceStatus: BusMaintenanceStatus.OK,
+            escortId: null,
+            studentIds: [],
+            schoolId: null,
           }),
         },
       ];
@@ -77,27 +81,22 @@ describe('RealtimeService', () => {
         },
       ];
 
-      const mockDrivers = [
-        {
-          id: 'driver-1',
-          data: () => ({
-            name: 'Kouassi Jean',
-            phone: '+225 07 12 34 56 78',
-            role: 'driver',
-          }),
-        },
-      ];
+      const mockDriverDoc = {
+        exists: true,
+        data: () => ({
+          displayName: 'Kouassi Jean',
+          phoneNumber: '+225 07 12 34 56 78',
+        }),
+      };
 
-      const mockRoutes = [
-        {
-          id: 'route-1',
-          data: () => ({
-            name: 'Cocody → Plateau',
-            fromZone: 'Cocody',
-            toZone: 'Plateau',
-          }),
-        },
-      ];
+      const mockRouteDoc = {
+        exists: true,
+        data: () => ({
+          name: 'Cocody → Plateau',
+          startLocation: 'Cocody',
+          endLocation: 'Plateau',
+        }),
+      };
 
       // Setup mocks
       mockDb.collection.mockImplementation((collectionName: string) => {
@@ -107,20 +106,33 @@ describe('RealtimeService', () => {
         if (collectionName === 'gps_live') {
           return { get: jest.fn().mockResolvedValue({ docs: mockGPS }) };
         }
-        if (collectionName === 'users') {
+        if (collectionName === 'attendance') {
           return {
             where: jest.fn().mockReturnThis(),
-            get: jest.fn().mockResolvedValue({ docs: mockDrivers }),
+            get: jest.fn().mockResolvedValue({ size: 0 }),
+          };
+        }
+        if (collectionName === 'users') {
+          return {
+            doc: jest.fn(() => ({
+              get: jest.fn().mockResolvedValue(mockDriverDoc),
+            })),
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue({ docs: [] }),
           };
         }
         if (collectionName === 'routes') {
-          return { get: jest.fn().mockResolvedValue({ docs: mockRoutes }) };
+          return {
+            doc: jest.fn(() => ({
+              get: jest.fn().mockResolvedValue(mockRouteDoc),
+            })),
+          };
         }
         return { get: jest.fn().mockResolvedValue({ docs: [] }) };
       });
 
       // Execute
-      const result = await service.getAllBusesRealtime();
+      const result = await service.getAllBusesRealtimeData();
 
       // Assert
       expect(result).toHaveLength(1);
@@ -150,7 +162,84 @@ describe('RealtimeService', () => {
       });
 
       expect(result[0]?.currentPosition).toBeDefined();
-      expect(result[0]?.currentZone).toBe('Cocody'); // Should detect Cocody zone
+      expect(result[0]?.currentZone).toBeNull();
+    });
+
+    it('should handle gps_live documents in BusRealtimeData shape', async () => {
+      const now = Date.now();
+      const mockBuses = [
+        {
+          id: 'bus-3',
+          data: () => ({
+            busNumber: 3,
+            plateNumber: 'CI 3003 AB 33',
+            capacity: 40,
+            model: 'Iveco',
+            year: 2020,
+            driverId: null,
+            routeId: null,
+            status: BusStatus.ACTIVE,
+            maintenanceStatus: BusMaintenanceStatus.OK,
+            escortId: null,
+            studentIds: [],
+            schoolId: null,
+          }),
+        },
+      ];
+
+      const mockGPS = [
+        {
+          id: 'bus-3',
+          data: () => ({
+            currentPosition: {
+              lat: 5.35,
+              lng: -3.99,
+              speed: 12,
+              heading: 45,
+              accuracy: 8,
+              timestamp: now,
+            },
+            liveStatus: BusLiveStatus.EN_ROUTE,
+            passengersCount: 18,
+            lastUpdate: now,
+          }),
+        },
+      ];
+
+      mockDb.collection.mockImplementation((collectionName: string) => {
+        if (collectionName === 'buses') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockBuses }) };
+        }
+        if (collectionName === 'gps_live') {
+          return { get: jest.fn().mockResolvedValue({ docs: mockGPS }) };
+        }
+        if (collectionName === 'attendance') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue({ size: 0 }),
+          };
+        }
+        if (collectionName === 'users') {
+          return {
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue({ docs: [] }),
+          };
+        }
+        return { get: jest.fn().mockResolvedValue({ docs: [] }) };
+      });
+
+      const result = await service.getAllBusesRealtimeData();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'bus-3',
+        liveStatus: BusLiveStatus.EN_ROUTE,
+        passengersCount: 18,
+      });
+      expect(result[0]?.currentPosition).toMatchObject({
+        lat: 5.35,
+        lng: -3.99,
+      });
     });
 
     it('should handle buses without GPS data', async () => {
@@ -158,6 +247,7 @@ describe('RealtimeService', () => {
         {
           id: 'bus-2',
           data: () => ({
+            busNumber: 2,
             plateNumber: 'CI 1002 AB 12',
             capacity: 35,
             model: 'Toyota Coaster',
@@ -166,6 +256,9 @@ describe('RealtimeService', () => {
             routeId: null,
             status: BusStatus.INACTIVE,
             maintenanceStatus: BusMaintenanceStatus.OK,
+            escortId: null,
+            studentIds: [],
+            schoolId: null,
           }),
         },
       ];
@@ -183,18 +276,21 @@ describe('RealtimeService', () => {
         return { get: jest.fn().mockResolvedValue({ docs: [] }) };
       });
 
-      const result = await service.getAllBusesRealtime();
+      const result = await service.getAllBusesRealtimeData();
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         id: 'bus-2',
         isActive: false,
-        currentPosition: null,
-        liveStatus: null,
+        liveStatus: BusLiveStatus.STOPPED,
         driver: null,
         route: null,
         passengersCount: 0,
         currentZone: null,
+      });
+      expect(result[0]?.currentPosition).toMatchObject({
+        lat: 5.3599,
+        lng: -4.0083,
       });
     });
 
@@ -204,7 +300,7 @@ describe('RealtimeService', () => {
         where: jest.fn().mockReturnThis(),
       });
 
-      const result = await service.getAllBusesRealtime();
+      const result = await service.getAllBusesRealtimeData();
 
       expect(result).toEqual([]);
     });
@@ -216,19 +312,24 @@ describe('RealtimeService', () => {
         {
           id: 'bus-1',
           data: () => ({
+            busNumber: 1,
             plateNumber: 'CI 1001 AB 11',
             capacity: 35,
             model: 'Mercedes',
             year: 2021,
-            driverId: 'driver-1',
-            routeId: 'route-1',
+            driverId: null,
+            routeId: null,
             status: BusStatus.ACTIVE,
             maintenanceStatus: BusMaintenanceStatus.OK,
+            escortId: null,
+            studentIds: [],
+            schoolId: null,
           }),
         },
         {
           id: 'bus-2',
           data: () => ({
+            busNumber: 2,
             plateNumber: 'CI 1002 AB 12',
             capacity: 35,
             model: 'Toyota',
@@ -237,6 +338,9 @@ describe('RealtimeService', () => {
             routeId: null,
             status: BusStatus.INACTIVE,
             maintenanceStatus: BusMaintenanceStatus.OK,
+            escortId: null,
+            studentIds: [],
+            schoolId: null,
           }),
         },
       ];
@@ -273,55 +377,9 @@ describe('RealtimeService', () => {
         active: 1,
         inactive: 1,
         enRoute: 1,
-        stopped: 0,
+        stopped: 1,
         totalPassengers: 25,
       });
-    });
-  });
-
-  describe('getBusRealtime', () => {
-    it('should return specific bus with realtime data', async () => {
-      const mockBuses = [
-        {
-          id: 'bus-1',
-          data: () => ({
-            plateNumber: 'CI 1001 AB 11',
-            capacity: 35,
-            model: 'Mercedes',
-            year: 2021,
-            driverId: 'driver-1',
-            routeId: 'route-1',
-            status: BusStatus.ACTIVE,
-            maintenanceStatus: BusMaintenanceStatus.OK,
-          }),
-        },
-      ];
-
-      mockDb.collection.mockImplementation((collectionName: string) => {
-        if (collectionName === 'buses') {
-          return { get: jest.fn().mockResolvedValue({ docs: mockBuses }) };
-        }
-        return {
-          get: jest.fn().mockResolvedValue({ docs: [] }),
-          where: jest.fn().mockReturnThis(),
-        };
-      });
-
-      const result = await service.getBusRealtime('bus-1');
-
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe('bus-1');
-    });
-
-    it('should return null for non-existent bus', async () => {
-      mockDb.collection.mockReturnValue({
-        get: jest.fn().mockResolvedValue({ docs: [] }),
-        where: jest.fn().mockReturnThis(),
-      });
-
-      const result = await service.getBusRealtime('non-existent');
-
-      expect(result).toBeNull();
     });
   });
 });

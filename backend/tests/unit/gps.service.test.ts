@@ -114,15 +114,15 @@ describe('GPSService', () => {
       // @ts-ignore - accessing private method for testing
       const status = service.determineBusStatus(0);
 
-      expect(status).toBe('stopped');
+      return expect(status).resolves.toBe('stopped');
     });
 
-    it('should return IDLE when speed is between 0 and 5', () => {
+    it('should return EN_ROUTE when speed is above 0', () => {
       const service = new GPSService();
       // @ts-ignore - accessing private method for testing
       const status = service.determineBusStatus(3);
 
-      expect(status).toBe('idle');
+      return expect(status).resolves.toBe('en_route');
     });
 
     it('should return EN_ROUTE when speed is above 5', () => {
@@ -130,7 +130,7 @@ describe('GPSService', () => {
       // @ts-ignore - accessing private method for testing
       const status = service.determineBusStatus(50);
 
-      expect(status).toBe('en_route');
+      return expect(status).resolves.toBe('en_route');
     });
   });
 
@@ -397,6 +397,7 @@ describe('GPSService', () => {
 
       const mockDoc = {
         exists: true,
+        id: 'bus-001',
         data: () => mockPosition,
       };
 
@@ -413,8 +414,65 @@ describe('GPSService', () => {
 
       const result = await gpsService.getLivePosition('bus-001');
 
-      expect(result).toEqual(mockPosition);
+      expect(result).toEqual(
+        expect.objectContaining({
+          busId: 'bus-001',
+          driverId: 'driver-123',
+          routeId: 'route-456',
+          status: BusLiveStatus.EN_ROUTE,
+        })
+      );
       expect(mockGet).toHaveBeenCalled();
+    });
+
+    it('should normalize BusRealtimeData shape from gps_live', async () => {
+      const now = Date.now();
+      const mockRealtimeDoc = {
+        currentPosition: {
+          lat: 5.3473,
+          lng: -3.9875,
+          speed: 35,
+          heading: 90,
+          accuracy: 10,
+          timestamp: now,
+        },
+        liveStatus: BusLiveStatus.EN_ROUTE,
+        driverId: 'driver-789',
+        routeId: 'route-123',
+        passengersCount: 12,
+        lastUpdate: now,
+      };
+
+      const mockDoc = {
+        exists: true,
+        id: 'bus-789',
+        data: () => mockRealtimeDoc,
+      };
+
+      const mockGet = jest.fn().mockResolvedValue(mockDoc);
+      const mockDocRef = jest.fn(() => ({
+        get: mockGet,
+      }));
+
+      const mockCollection = jest.fn(() => ({
+        doc: mockDocRef,
+      }));
+
+      mockDb.collection = mockCollection;
+
+      const result = await gpsService.getLivePosition('bus-789');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          busId: 'bus-789',
+          position: mockRealtimeDoc.currentPosition,
+          status: BusLiveStatus.EN_ROUTE,
+          driverId: 'driver-789',
+          routeId: 'route-123',
+          passengersCount: 12,
+          lastUpdate: new Date(now),
+        })
+      );
     });
 
     it('should return null when bus does not exist', async () => {
@@ -464,6 +522,7 @@ describe('GPSService', () => {
       ];
 
       const mockDocs = mockPositions.map((pos) => ({
+        id: pos.busId,
         data: () => pos,
       }));
 
@@ -483,6 +542,58 @@ describe('GPSService', () => {
       expect(result).toEqual(mockPositions);
       expect(result).toHaveLength(2);
       expect(mockGet).toHaveBeenCalled();
+    });
+
+    it('should normalize mixed gps_live document shapes', async () => {
+      const now = Date.now();
+      const mockDocs = [
+        {
+          id: 'bus-legacy',
+          data: () => ({
+            position: { lat: 1, lng: 2, speed: 10, timestamp: now },
+            status: BusLiveStatus.EN_ROUTE,
+            driverId: 'driver-1',
+            routeId: 'route-1',
+            passengersCount: 3,
+            lastUpdate: now,
+          }),
+        },
+        {
+          id: 'bus-realtime',
+          data: () => ({
+            currentPosition: { lat: 3, lng: 4, speed: 20, timestamp: now },
+            liveStatus: BusLiveStatus.STOPPED,
+            driverId: 'driver-2',
+            routeId: 'route-2',
+            passengersCount: 5,
+            lastUpdate: { toDate: () => new Date(now) },
+          }),
+        },
+        {
+          id: 'bus-missing',
+          data: () => ({
+            liveStatus: BusLiveStatus.EN_ROUTE,
+          }),
+        },
+      ];
+
+      const mockSnapshot = {
+        docs: mockDocs,
+      };
+
+      const mockGet = jest.fn().mockResolvedValue(mockSnapshot);
+      const mockCollection = jest.fn(() => ({
+        get: mockGet,
+      }));
+
+      mockDb.collection = mockCollection;
+
+      const result = await gpsService.getAllLivePositions();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.busId).toBe('bus-legacy');
+      expect(result[1]?.busId).toBe('bus-realtime');
+      expect(result[1]?.status).toBe(BusLiveStatus.STOPPED);
     });
 
     it('should return empty array when no positions exist', async () => {

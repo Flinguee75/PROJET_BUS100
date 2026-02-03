@@ -26,6 +26,7 @@ describe('Bus Routes Integration Tests', () => {
     it('crée un nouveau bus avec des données valides', async () => {
       const mockBus = {
         id: 'bus-123',
+        busNumber: 1,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes Sprinter',
         year: 2024,
@@ -33,7 +34,10 @@ describe('Bus Routes Integration Tests', () => {
         status: BusStatus.ACTIVE,
         maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
+        escortId: null,
         routeId: null,
+        studentIds: [],
+        schoolId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -92,6 +96,7 @@ describe('Bus Routes Integration Tests', () => {
       const mockBuses = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes',
           year: 2024,
@@ -99,12 +104,16 @@ describe('Bus Routes Integration Tests', () => {
           status: BusStatus.ACTIVE,
           maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
+          escortId: null,
           routeId: null,
+          studentIds: [],
+          schoolId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
         {
           id: 'bus-2',
+          busNumber: 2,
           plateNumber: 'TU 222 TN 222',
           model: 'Volvo',
           year: 2023,
@@ -112,7 +121,10 @@ describe('Bus Routes Integration Tests', () => {
           status: BusStatus.ACTIVE,
           maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
+          escortId: null,
           routeId: null,
+          studentIds: [],
+          schoolId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -132,6 +144,7 @@ describe('Bus Routes Integration Tests', () => {
       const mockBusesWithGPS = [
         {
           id: 'bus-1',
+          busNumber: 1,
           plateNumber: 'TU 111 TN 111',
           model: 'Mercedes',
           year: 2024,
@@ -139,7 +152,10 @@ describe('Bus Routes Integration Tests', () => {
           status: BusStatus.ACTIVE,
           maintenanceStatus: BusMaintenanceStatus.OK,
           driverId: null,
+          escortId: null,
           routeId: null,
+          studentIds: [],
+          schoolId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           currentPosition: {
@@ -178,6 +194,7 @@ describe('Bus Routes Integration Tests', () => {
     it('retourne un bus spécifique', async () => {
       const mockBus = {
         id: 'bus-123',
+        busNumber: 1,
         plateNumber: 'TU 123 TN 456',
         model: 'Mercedes',
         year: 2024,
@@ -185,7 +202,10 @@ describe('Bus Routes Integration Tests', () => {
         status: BusStatus.ACTIVE,
         maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
+        escortId: null,
         routeId: null,
+        studentIds: [],
+        schoolId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -214,6 +234,7 @@ describe('Bus Routes Integration Tests', () => {
     it('met à jour un bus existant', async () => {
       const mockUpdatedBus = {
         id: 'bus-123',
+        busNumber: 1,
         plateNumber: 'TU 999 TN 999',
         model: 'Mercedes',
         year: 2024,
@@ -221,7 +242,10 @@ describe('Bus Routes Integration Tests', () => {
         status: BusStatus.ACTIVE,
         maintenanceStatus: BusMaintenanceStatus.OK,
         driverId: null,
+        escortId: null,
         routeId: null,
+        studentIds: [],
+        schoolId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -278,4 +302,3 @@ describe('Bus Routes Integration Tests', () => {
     });
   });
 });
-

@@ -6,7 +6,6 @@
 import { SchoolController } from '../../src/controllers/school.controller';
 import schoolService from '../../src/services/school.service';
 import { Request, Response } from 'express';
-import { ZodError } from 'zod';
 
 // Mock School Service
 jest.mock('../../src/services/school.service');
@@ -78,29 +77,7 @@ describe('SchoolController', () => {
         location: { lat: 200, lng: -4.0083 }, // Latitude invalide
       };
 
-      const zodError = new ZodError([
-        {
-          path: ['name'],
-          message: 'Le nom de l\'école doit contenir au moins 2 caractères',
-          code: 'too_small',
-        },
-        {
-          path: ['location', 'lat'],
-          message: 'Latitude invalide',
-          code: 'too_big',
-        },
-      ]);
-
       mockRequest.body = invalidData;
-
-      // Simuler une erreur de validation Zod
-      jest.spyOn(require('zod'), 'z').mockImplementation(() => ({
-        object: () => ({
-          parse: () => {
-            throw zodError;
-          },
-        }),
-      }));
 
       await controller.createSchool(
         mockRequest as Request,
@@ -292,22 +269,11 @@ describe('SchoolController', () => {
 
   describe('getSchoolFleet', () => {
     it('récupère la flotte d\'une école avec succès', async () => {
-      const mockBuses = [
-        {
-          id: 'bus-1',
-          busNumber: 1,
-          plateNumber: 'TU 123 AB',
-          schoolId: 'school-123',
-        },
-        {
-          id: 'bus-2',
-          busNumber: 2,
-          plateNumber: 'TU 456 CD',
-          schoolId: 'school-123',
-        },
-      ];
-
       (schoolService.getSchoolFleetCount as jest.Mock).mockResolvedValue(2);
+      (schoolService.getSchoolById as jest.Mock).mockResolvedValue({
+        id: 'school-123',
+        name: 'École Primaire Cocody',
+      });
       // Mock pour récupérer les bus (nécessitera une méthode dans le service)
       // Pour l'instant, on teste juste le comptage
 
@@ -325,4 +291,3 @@ describe('SchoolController', () => {
     });
   });
 });
-
