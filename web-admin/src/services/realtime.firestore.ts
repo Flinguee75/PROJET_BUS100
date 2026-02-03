@@ -147,9 +147,22 @@ export function calculateStatistics(buses: BusRealtimeData[]): BusStatistics {
 /**
  * Mapper le statut Firestore vers BusStatus enum
  */
-function mapFirestoreToBusStatus(status: string | undefined): BusStatus {
-  const isActive = status === 'en_route' || status === 'moving';
-  return isActive ? BusStatus.ACTIVE : BusStatus.INACTIVE;
+function mapFirestoreToBusStatus(status: string | undefined, liveStatus?: string | null): BusStatus {
+  if (typeof status === 'string') {
+    const normalized = status.toLowerCase();
+    if (normalized === BusStatus.ACTIVE) return BusStatus.ACTIVE;
+    if (normalized === BusStatus.INACTIVE) return BusStatus.INACTIVE;
+    if (normalized === BusStatus.IN_MAINTENANCE) return BusStatus.IN_MAINTENANCE;
+    if (normalized === BusStatus.OUT_OF_SERVICE) return BusStatus.OUT_OF_SERVICE;
+    if (normalized === 'en_route' || normalized === 'moving') return BusStatus.ACTIVE;
+  }
+
+  if (typeof liveStatus === 'string') {
+    const normalizedLive = liveStatus.toLowerCase();
+    if (normalizedLive === 'en_route' || normalizedLive === 'moving') return BusStatus.ACTIVE;
+  }
+
+  return BusStatus.INACTIVE;
 }
 
 /**
@@ -179,6 +192,7 @@ function mapFirestoreToLiveStatus(status: string | undefined): BusLiveStatus | n
 
 export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRealtimeData => {
   const rawPosition = data.position || data.currentPosition || null;
+  const rawLiveStatus = data.liveStatus || data.status || null;
 
   // 🔍 LOG: Afficher le stoppedAt brut pour debugging
   if (data.stoppedAt) {
@@ -197,12 +211,12 @@ export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRea
     model: data.model || 'Bus scolaire',
     year: data.year || 2020,
     capacity: data.capacity || 45,
-    status: mapFirestoreToBusStatus(data.status),
+    status: mapFirestoreToBusStatus(data.status, data.liveStatus),
     isActive:
       typeof data.isActive === 'boolean'
         ? data.isActive
-        : data.status === 'en_route' || data.status === 'moving',
-    liveStatus: mapFirestoreToLiveStatus(data.status),
+        : rawLiveStatus === 'en_route' || rawLiveStatus === 'moving',
+    liveStatus: mapFirestoreToLiveStatus(rawLiveStatus || undefined),
     currentPosition: rawPosition
       ? {
           lat: rawPosition.lat,

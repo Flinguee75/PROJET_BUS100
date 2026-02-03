@@ -504,7 +504,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             .collection('gps_live')
             .doc(_driver!.busId!)
             .update({
-          'status': 'stopped',
+          'liveStatus': 'stopped',
           'stoppedAt': FieldValue.serverTimestamp(),
           'tripType': null,
           'tripLabel': null,

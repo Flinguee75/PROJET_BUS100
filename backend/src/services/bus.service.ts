@@ -248,14 +248,25 @@ export class BusService {
 
     return buses.map((bus) => {
       const gpsData = gpsMap.get(bus.id);
-      return {
-        ...bus,
-        currentPosition: gpsData
+      const rawPosition =
+        gpsData?.currentPosition ||
+        gpsData?.position ||
+        (gpsData?.lat !== undefined && gpsData?.lng !== undefined
           ? {
               lat: gpsData.lat,
               lng: gpsData.lng,
-              speed: gpsData.speed || 0,
+              speed: gpsData.speed,
               timestamp: gpsData.timestamp,
+            }
+          : null);
+      return {
+        ...bus,
+        currentPosition: rawPosition
+          ? {
+              lat: rawPosition.lat,
+              lng: rawPosition.lng,
+              speed: rawPosition.speed || 0,
+              timestamp: rawPosition.timestamp,
             }
           : undefined,
       };

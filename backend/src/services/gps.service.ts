@@ -250,7 +250,7 @@ export class GPSService {
       return null;
     }
 
-    return doc.data() as GPSLiveData;
+    return this.normalizeLiveData(doc.id, doc.data());
   }
 
   /**
@@ -260,7 +260,9 @@ export class GPSService {
     const db = getDb();
     const snapshot = await db.collection(collections.gpsLive).get();
 
-    return snapshot.docs.map((doc) => doc.data() as GPSLiveData);
+    return snapshot.docs
+      .map((doc) => this.normalizeLiveData(doc.id, doc.data()))
+      .filter((data): data is GPSLiveData => data !== null);
   }
 
   /**
@@ -387,6 +389,98 @@ export class GPSService {
 
     // Convertir en minutes
     return Math.round(etaHours * 60);
+  }
+
+  /**
+   * Normalise un document gps_live pour retourner un GPSLiveData stable
+   * Supporte les formats GPSLiveData (position/status) et BusRealtimeData (currentPosition/liveStatus)
+   */
+  private normalizeLiveData(busId: string, data: any): GPSLiveData | null {
+    if (!data) {
+      return null;
+    }
+
+    const rawPosition = data.position || data.currentPosition || null;
+    if (!rawPosition || rawPosition.lat === undefined || rawPosition.lng === undefined) {
+      return null;
+    }
+
+    const status = this.normalizeLiveStatus(data.liveStatus ?? data.status);
+
+    return {
+      busId,
+      position: {
+        lat: Number(rawPosition.lat),
+        lng: Number(rawPosition.lng),
+        speed: Number(rawPosition.speed ?? 0),
+        heading: rawPosition.heading !== undefined ? Number(rawPosition.heading) : undefined,
+        accuracy: rawPosition.accuracy !== undefined ? Number(rawPosition.accuracy) : undefined,
+        timestamp: Number(rawPosition.timestamp ?? Date.now()),
+      },
+      driverId: data.driverId ?? data.driver?.id ?? '',
+      routeId: data.routeId ?? data.route?.id ?? null,
+      status,
+      passengersCount: Number(data.passengersCount ?? 0),
+      lastUpdate: this.normalizeLastUpdate(data.lastUpdate ?? data.updatedAt ?? data.timestamp),
+    };
+  }
+
+  private normalizeLiveStatus(rawStatus: unknown): BusLiveStatus {
+    if (typeof rawStatus === 'string') {
+      const normalized = rawStatus.toLowerCase();
+      switch (normalized) {
+        case BusLiveStatus.EN_ROUTE:
+        case BusLiveStatus.STOPPED:
+        case BusLiveStatus.DELAYED:
+        case BusLiveStatus.ARRIVED:
+        case BusLiveStatus.IDLE:
+          return normalized as BusLiveStatus;
+        case 'moving':
+          return BusLiveStatus.EN_ROUTE;
+        case 'a_l_arret':
+          return BusLiveStatus.STOPPED;
+        case 'attente':
+          return BusLiveStatus.IDLE;
+        case 'en_retard':
+          return BusLiveStatus.DELAYED;
+        case 'arrive':
+          return BusLiveStatus.ARRIVED;
+        default:
+          return BusLiveStatus.STOPPED;
+      }
+    }
+
+    return BusLiveStatus.STOPPED;
+  }
+
+  private normalizeLastUpdate(value: unknown): Date {
+    if (value instanceof Date) {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return new Date(value);
+    }
+    if (typeof value === 'string') {
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? new Date() : new Date(parsed);
+    }
+    if (
+      value &&
+      typeof value === 'object' &&
+      'toDate' in value &&
+      typeof (value as { toDate: () => Date }).toDate === 'function'
+    ) {
+      return (value as { toDate: () => Date }).toDate();
+    }
+    if (
+      value &&
+      typeof value === 'object' &&
+      'toMillis' in value &&
+      typeof (value as { toMillis: () => number }).toMillis === 'function'
+    ) {
+      return new Date((value as { toMillis: () => number }).toMillis());
+    }
+    return new Date();
   }
 }
 

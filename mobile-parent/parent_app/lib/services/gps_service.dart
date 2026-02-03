@@ -40,10 +40,10 @@ class GPSService {
       // Déterminer le statut du bus
       final finalStatus = statusOverride ?? _determineBusStatus(position.speed);
 
-      // Créer l'objet GPS Live selon le format backend
+      // Créer l'objet GPS Live (format temps réel)
       final gpsLiveData = {
         'busId': busId,
-        'position': {
+        'currentPosition': {
           'lat': position.latitude,
           'lng': position.longitude,
           'speed': position.speed, // m/s
@@ -53,7 +53,7 @@ class GPSService {
         },
         'driverId': driverId ?? '',
         'routeId': routeId,
-        'status': finalStatus,
+        'liveStatus': finalStatus,
         'passengersCount': 0, // TODO: Implémenter comptage passagers
         'tripType': tripType,
         'tripLabel': tripLabel,
@@ -88,7 +88,7 @@ class GPSService {
     try {
       final payload = {
         'busId': busId,
-        'status': status,
+        'liveStatus': status,
         'driverId': driverId ?? '',
         'driverName': driverName,
         'driverPhone': driverPhone,
@@ -103,7 +103,7 @@ class GPSService {
       if (parkingLocation != null &&
           parkingLocation.containsKey('lat') &&
           parkingLocation.containsKey('lng')) {
-        payload['position'] = {
+        payload['currentPosition'] = {
           'lat': parkingLocation['lat'],
           'lng': parkingLocation['lng'],
           'speed': 0.0,
