@@ -16,6 +16,7 @@ import { SidebarProvider } from '@/contexts/SidebarContext';
 import { Layout } from '@/components/Layout';
 import { FirebaseConfigError } from '@/components/FirebaseConfigError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { IS_DEMO } from '@/demo';
 import { LoginPage } from '@/pages/LoginPage';
 import { GodViewPage } from '@/pages/GodViewPage';
 import { CSVImportPage } from '@/pages/CSVImportPage';
@@ -103,7 +104,9 @@ function App() {
   const hasConfig = import.meta.env.VITE_FIREBASE_API_KEY &&
                    import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
-  if (!hasConfig) {
+  // En mode démo, on démarre l'application avec les données simulées même sans
+  // configuration Firebase. Sinon, si rien n'est configuré, on guide l'utilisateur.
+  if (!hasConfig && !IS_DEMO) {
     return <FirebaseConfigError />;
   }
 

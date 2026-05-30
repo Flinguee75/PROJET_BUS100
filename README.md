@@ -132,41 +132,81 @@ PROJET_BUS100/
 
 ## Lancer le projet (local)
 
-### Prérequis
+Il existe **deux façons** de lancer le dashboard web :
 
-* Node.js ≥ 18
-* Firebase CLI
-* Flutter (pour l’application mobile)
+| Mode | Backend / Firebase requis | Pour quoi |
+|------|---------------------------|-----------|
+| **Démo** (par défaut) | ❌ Non | Présentations, découverte, démos en école |
+| **Réel** | ✅ Oui | Données live (Firestore + Cloud Functions) |
 
-### Backend
+### 🚀 Démarrage rapide — Mode démo (recommandé pour une démo)
 
-```bash
-cd backend
-npm install
-firebase emulators:start
-npm run dev:init
-```
-
-### Web admin
+Le mode démo affiche des **bus simulés** qui roulent en temps réel vers l’école,
+scannent les élèves et déclenchent des alertes — **sans aucun backend ni Firebase**.
+Seul un token Mapbox (gratuit) est nécessaire pour le fond de carte.
 
 ```bash
 cd web-admin
 npm install
+cp .env.example .env        # puis renseignez VITE_MAPBOX_ACCESS_TOKEN
 npm run dev
 ```
 
-Remarque : le projet nécessite un **projet Firebase configuré** pour fonctionner correctement.
+Ouvrez ensuite `http://localhost:5173` : vous êtes connecté automatiquement et la
+carte s’anime. Aucune étape de configuration Firebase n’est requise.
+
+> Token Mapbox gratuit : https://account.mapbox.com/access-tokens/
+> Le mode démo s’active **automatiquement** tant que Firebase n’est pas configuré
+> (ou en forçant `VITE_DEMO_MODE=true`).
+
+### Mode réel (données live)
+
+#### Prérequis
+
+* Node.js ≥ 18
+* Firebase CLI (`npm install -g firebase-tools`)
+* Java (pour les émulateurs Firestore/Auth)
+* Flutter (uniquement pour l’application mobile)
+
+#### Backend
+
+```bash
+cd backend
+npm install
+npm run serve          # build + émulateurs (functions, firestore, auth)
+npm run dev:init       # (optionnel) données de démarrage dans l'émulateur
+```
+
+#### Web admin
+
+```bash
+cd web-admin
+npm install
+cp .env.example .env   # renseignez toute la config Firebase + Mapbox
+npm run dev
+```
+
+Renseigner l’intégralité des variables `VITE_FIREBASE_*` bascule automatiquement
+l’application en **mode réel**.
 
 ---
 
 ## Statut du projet
 
-* **Statut** : Prototype fonctionnel
-* **Objectif** : démonstration technique et exploration d’architecture
+* **Statut** : Prototype fonctionnel, **relancé** avec un mode démo autonome
+* **Objectif** : démonstration technique, démos en école, exploration d’architecture
+* **Vérifié** : le web-admin compile, build et passe ses tests ; mode démo opérationnel sans backend
+
+### Ce qui tourne sans backend (mode démo)
+
+* Carte temps réel avec bus simulés convergeant vers l’école
+* Scans d’élèves, alertes (retard, élève non ramassé), historique des courses
+* Connexion automatique (aucun login requis)
 
 ### Limites connues
 
+* Mode réel **dépendant de Firebase** (config + émulateurs ou projet cloud),
 * règles de sécurité simplifiées,
-* dépendance à Firebase,
-* non prêt pour un usage en production,
-* couverture de tests partielle.
+* `npm run lint` du web-admin remonte une dette historique (`as any`) — sans impact sur le build,
+* application mobile (Flutter) et émulateurs non couverts par le mode démo,
+* non prêt pour un usage en production.

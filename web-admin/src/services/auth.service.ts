@@ -12,11 +12,17 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User, LoginCredentials, UserRole } from '@/types/auth';
+import { IS_DEMO, DEMO_USER } from '@/demo';
 
 /**
  * Connexion d'un utilisateur avec email et mot de passe
  */
 export const login = async (credentials: LoginCredentials): Promise<User> => {
+  // MODE DÉMO : connexion immédiate sans Firebase.
+  if (IS_DEMO) {
+    return DEMO_USER;
+  }
+
   try {
     const userCredential = await signInWithEmailAndPassword(
       auth,
@@ -36,6 +42,11 @@ export const login = async (credentials: LoginCredentials): Promise<User> => {
  * Déconnexion de l'utilisateur
  */
 export const logout = async (): Promise<void> => {
+  // MODE DÉMO : pas de session Firebase à fermer.
+  if (IS_DEMO) {
+    return;
+  }
+
   try {
     await signOut(auth);
   } catch (error) {
@@ -92,6 +103,12 @@ export const getUserProfile = async (uid: string): Promise<User> => {
 export const observeAuthState = (
   callback: (user: User | null) => void
 ): (() => void) => {
+  // MODE DÉMO : utilisateur fictif connecté immédiatement.
+  if (IS_DEMO) {
+    callback(DEMO_USER);
+    return () => undefined;
+  }
+
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
       // Toujours appeler le callback avec un utilisateur valide
@@ -108,5 +125,6 @@ export const observeAuthState = (
  * Récupère l'utilisateur actuellement connecté
  */
 export const getCurrentUser = (): FirebaseUser | null => {
+  if (IS_DEMO) return null;
   return auth.currentUser;
 };

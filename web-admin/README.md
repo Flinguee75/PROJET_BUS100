@@ -47,22 +47,37 @@ npm install
 
 ### 3. Configuration des variables d'environnement
 
-Créer un fichier `.env` à la racine du projet :
+```bash
+cp .env.example .env
+```
+
+Le dashboard fonctionne selon **deux modes**, déterminés par votre `.env` :
+
+#### 🟢 Mode démo (par défaut — aucun backend requis)
+
+Des bus simulés roulent vers l'école en temps réel. **Seul Mapbox est nécessaire** :
 
 ```env
-# Firebase Configuration
+VITE_DEMO_MODE=true
+VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
+```
+
+> Le mode démo s'active aussi **automatiquement** dès que la configuration Firebase
+> est incomplète. Vous êtes connecté automatiquement (pas d'écran de login).
+
+#### 🔵 Mode réel (données live Firestore)
+
+Renseignez l'intégralité de la configuration Firebase (et laissez `VITE_DEMO_MODE` vide) :
+
+```env
+VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
 VITE_FIREBASE_API_KEY=your_api_key_here
 VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
-
-# Mapbox Configuration
-VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
-
-# API Configuration
-VITE_API_BASE_URL=http://localhost:3000
+VITE_API_BASE_URL=http://localhost:5001/<project-id>/europe-west4
 ```
 
 ### 4. Lancer le serveur de développement
@@ -114,44 +129,31 @@ npm run preview
 ```
 web-admin/
 ├── src/
-│   ├── components/          # Composants réutilisables
-│   │   ├── Sidebar.tsx
-│   │   ├── Header.tsx
-│   │   ├── BusMarker.tsx
-│   │   ├── StatsCard.tsx
-│   │   ├── LoadingSpinner.tsx
-│   │   ├── ErrorMessage.tsx
-│   │   ├── Layout.tsx
-│   │   └── ProtectedRoute.tsx
-│   ├── pages/               # Pages de l'application
+│   ├── demo/                     # 🟢 MODE DÉMO (simulation autonome, sans backend)
+│   │   ├── config.ts             #   Détection du mode démo (IS_DEMO)
+│   │   ├── seed.ts               #   École, bus, chauffeurs et élèves simulés
+│   │   ├── simulation.ts         #   Moteur : déplacement des bus, scans, alertes
+│   │   └── index.ts
+│   ├── pages/
+│   │   ├── GodViewPage.tsx       # 🗺️  Carte « tour de contrôle » (cœur de l'app)
 │   │   ├── LoginPage.tsx
-│   │   ├── DashboardPage.tsx
-│   │   └── RealtimeMapPage.tsx
-│   ├── hooks/               # Hooks personnalisés
-│   │   ├── useAuth.ts
-│   │   └── useRealtimeGPS.ts
-│   ├── services/            # Services API et Firebase
-│   │   ├── firebase.ts
-│   │   ├── auth.service.ts
-│   │   └── gps.api.ts
-│   ├── types/               # Types TypeScript
-│   │   ├── bus.ts
-│   │   └── auth.ts
-│   ├── tests/               # Tests unitaires
-│   │   ├── components/
-│   │   ├── services/
-│   │   ├── mocks/
-│   │   └── setup.ts
-│   ├── App.tsx              # Point d'entrée de l'app
-│   ├── main.tsx             # Point d'entrée React
-│   └── index.css            # Styles globaux
-├── public/                  # Assets publics
-├── index.html               # HTML principal
-├── package.json
-├── tsconfig.json            # Configuration TypeScript
-├── vite.config.ts           # Configuration Vite
-├── tailwind.config.js       # Configuration Tailwind
-└── README.md
+│   │   ├── CourseHistoryPage.tsx #   Historique des courses
+│   │   └── CSVImportPage.tsx     #   Import CSV en masse
+│   ├── components/
+│   │   ├── godview/              #   Marqueurs et popups de la carte
+│   │   ├── AlertsSidebar.tsx     #   Panneau latéral d'alertes
+│   │   ├── Layout.tsx · Header.tsx · Sidebar.tsx · ...
+│   ├── hooks/                    # useSchool, useRealtimeBuses, useRealtimeAlerts, ...
+│   ├── services/                 # Firestore + API (firebase.ts, *.firestore.ts, *.api.ts)
+│   ├── contexts/                 # AuthContext, SidebarContext
+│   ├── types/                    # realtime.ts, school.ts, alerts.ts, auth.ts, bus.ts
+│   ├── utils/                    # gpsKalmanFilter.ts (lissage des positions GPS)
+│   ├── styles/godview.css
+│   ├── tests/                    # Tests Vitest (composants, hooks, services, pages)
+│   ├── App.tsx · main.tsx · index.css
+├── public/
+├── .env.example
+└── vite.config.ts · tsconfig.json · tailwind.config.js · postcss.config.js
 ```
 
 ## 🎨 Architecture & Bonnes Pratiques

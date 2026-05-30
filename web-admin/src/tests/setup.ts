@@ -12,6 +12,14 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom ne fournit pas ResizeObserver, utilisé par la carte (GodViewPage)
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 // Mock des variables d'environnement
 vi.stubEnv('VITE_FIREBASE_API_KEY', 'test-api-key');
 vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'test-project.firebaseapp.com');
@@ -33,16 +41,24 @@ vi.mock('@/services/school.firestore', () => {
   return mock;
 });
 
-// Mock de Mapbox GL
+// Mock de Mapbox GL (interface complète utilisée par GodViewPage)
 vi.mock('mapbox-gl', () => ({
   default: {
     accessToken: '',
     Map: vi.fn(() => ({
       on: vi.fn(),
+      off: vi.fn(),
       remove: vi.fn(),
       addControl: vi.fn(),
+      resize: vi.fn(),
       fitBounds: vi.fn(),
       flyTo: vi.fn(),
+      easeTo: vi.fn(),
+      getCenter: vi.fn(() => ({ lat: 5.351824, lng: -3.953979 })),
+      getZoom: vi.fn(() => 16),
+      isMoving: vi.fn(() => false),
+      isZooming: vi.fn(() => false),
+      getContainer: vi.fn(() => document.createElement('div')),
     })),
     Marker: vi.fn(() => ({
       setLngLat: vi.fn().mockReturnThis(),
@@ -50,9 +66,17 @@ vi.mock('mapbox-gl', () => ({
       remove: vi.fn(),
       setPopup: vi.fn().mockReturnThis(),
       togglePopup: vi.fn(),
+      getLngLat: vi.fn(() => ({ lat: 5.351824, lng: -3.953979 })),
+      getElement: vi.fn(() => document.createElement('div')),
     })),
     Popup: vi.fn(() => ({
       setHTML: vi.fn().mockReturnThis(),
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      isOpen: vi.fn(() => false),
+      getElement: vi.fn(() => null),
     })),
     NavigationControl: vi.fn(),
     FullscreenControl: vi.fn(),
