@@ -29,6 +29,7 @@ import { IS_DEMO, demoSim } from '@/demo';
 import { DEMO_BUSES } from '@/demo/seed';
 import { splitPolylineAt } from '@/demo/polyline';
 import { DemoControls } from '@/components/godview/DemoControls';
+import { BusDetailPanel } from '@/components/godview/BusDetailPanel';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -1634,51 +1635,12 @@ export const GodViewPage = () => {
         essential: true,
       });
 
-      // Ouvrir le popup du bus ciblé après un petit délai pour synchroniser avec l'animation
+      // Ouvrir le panneau latéral après l'animation flyTo
       setTimeout(() => {
-        const mapInstance = map.current;
-        if (!mapInstance) return;
-        const existingPopup = popups.current.get(busId);
-        if (existingPopup) {
-          existingPopup.setLngLat([targetLng!, targetLat!]).addTo(mapInstance);
-          return;
-        }
-
-        createPopupHTML(targetBus).then((html) => {
-          const popup = new mapboxgl.Popup({
-            offset: 25,
-            closeButton: false,
-            closeOnClick: false,
-          }).setHTML(html);
-
-          popup.on('open', () => {
-            setActivePopupBusId(busId);
-            popups.current.forEach((existingPopup, existingBusId) => {
-              if (existingBusId !== busId && existingPopup.isOpen()) {
-                existingPopup.remove();
-              }
-            });
-            if (parkingZonePopup.current?.isOpen()) {
-              parkingZonePopup.current.remove();
-            }
-            attachPopupCloseHandler(popup);
-          });
-
-          // Setter fonctionnel : n'efface activePopupBusId que si c'est bien
-          // CE popup qui était actif. Sans ça, quand popup A est fermé par
-          // l'ouverture de popup B (remove() dans le handler 'open' de B),
-          // le close de A appelle setActivePopupBusId(null) dans le même batch
-          // React et écrase le busId de B → l'itinéraire disparaît.
-          popup.on('close', () => {
-            setActivePopupBusId((prev) => (prev === busId ? null : prev));
-          });
-
-          popups.current.set(busId, popup);
-          popup.setLngLat([targetLng!, targetLat!]).addTo(mapInstance);
-        });
-      }, 600); // Délai court pour attendre la fin de l'animation flyTo
+        setActivePopupBusId(busId);
+      }, 600);
     },
-    [mapLoaded, processedBuses, stationedBuses, school, parkingZone, createPopupHTML, attachPopupCloseHandler, clearStudentMarkers, courseTripTypeByBus]
+    [mapLoaded, processedBuses, stationedBuses, school, parkingZone, clearStudentMarkers, courseTripTypeByBus]
   );
 
   // Ref pour stocker les données temps réel des bus (tripType, tripStartTime)
@@ -2291,52 +2253,15 @@ export const GodViewPage = () => {
           });
         }
 
-        // Attacher le popup une fois le HTML résolu.
-        createPopupHTML(bus).then(html => {
-          // Garde-fou : si le marker a été nettoyé entre-temps (ex: bus
-          // déclassifié), on n'attache rien.
-          if (!markers.current.has(busId)) return;
-
-          const popup = new mapboxgl.Popup({
-            offset: 25,
-            closeButton: false,
-            closeOnClick: false,
-          }).setHTML(html);
-
-          popup.on('open', () => {
-            setActivePopupBusId(bus.id);
-            setSelectedBusId(bus.id);
-            popups.current.forEach((existingPopup, existingBusId) => {
-              if (existingBusId !== bus.id && existingPopup.isOpen()) {
-                existingPopup.remove();
-              }
-            });
-            if (parkingZonePopup.current?.isOpen()) {
-              parkingZonePopup.current.remove();
-            }
-            attachPopupCloseHandler(popup);
-          });
-
-          popup.on('close', () => {
-            setActivePopupBusId((prev) => (prev === bus.id ? null : prev));
-          });
-
-          popups.current.set(busId, popup);
-
-          // Ouvrir le popup à la position courante du marqueur sans l'y attacher
-          // (marker.setPopup ferait suivre le popup quand le bus bouge).
+        // Clic marqueur → ouvre le panneau latéral (plus de Mapbox popup flottant).
+        if (!el.dataset.clickAttached) {
+          el.dataset.clickAttached = '1';
           el.addEventListener('click', (e) => {
             e.stopPropagation();
-            const m = markers.current.get(busId);
-            const mapInst = map.current;
-            if (!m || !mapInst) return;
-            if (popup.isOpen()) {
-              popup.remove();
-              return;
-            }
-            popup.setLngLat(m.getLngLat()).addTo(mapInst);
+            setActivePopupBusId((prev) => (prev === busId ? null : prev === null ? busId : busId));
+            setSelectedBusId(busId);
           });
-        });
+        }
       }
     });
 
@@ -2553,6 +2478,33 @@ export const GodViewPage = () => {
         {/* Conteneur de la carte */}
         <div ref={mapContainer} className="w-full h-full absolute inset-0" />
       </div>
+
+      {/* Panneau détail bus — remplace le popup flottant Mapbox */}
+      {activePopupBusId && (() => {
+        const activeBus = processedBuses.find((b) => b.id === activePopupBusId)
+          ?? stationedBuses.find((b) => b.id === activePopupBusId);
+        if (!activeBus) return null;
+        const stoppedAtMs = typeof activeBus.stoppedAt === 'number'
+          ? activeBus.stoppedAt
+          : (typeof activeBus.stoppedAt === 'string' ? Date.parse(activeBus.stoppedAt) : null);
+        const arrivedAt = gpsHistoryByBus[activePopupBusId] ?? stoppedAtMs ?? null;
+        return (
+          <BusDetailPanel
+            bus={activeBus}
+            studentCounts={studentsCounts[activePopupBusId] ?? { scanned: 0, unscanned: 0, total: 0 }}
+            roster={courseRosterByBus[activePopupBusId]}
+            arrivedAt={arrivedAt}
+            isTracking={trackedBusId === activePopupBusId}
+            onClose={() => { setActivePopupBusId(null); setSelectedBusId(null); }}
+            onCenter={() => focusBusOnMap(activePopupBusId)}
+            onToggleTrack={() => {
+              const next = trackedBusId === activePopupBusId ? null : activePopupBusId;
+              setTrackedBusId(next);
+              trackedBusIdRef.current = next;
+            }}
+          />
+        );
+      })()}
 
       {/* Sidebar Alertes - 30% */}
       <AlertsSidebar 
