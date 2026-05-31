@@ -24,6 +24,7 @@ import { getLatestGpsHistoryTimestamp } from '@/services/gps_history.firestore';
 import { watchRecentCourseHistory } from '@/services/courseHistory.firestore';
  
 import { GpsKalmanFilter } from '@/utils/gpsKalmanFilter';
+import { IS_DEMO } from '@/demo';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -87,15 +88,6 @@ const isBusEnCourse = (bus: BusRealtimeData): boolean => {
 
     const elapsed = Date.now() - stoppedAtTimestamp;
     const ARRIVED_DISPLAY_DURATION_MS = 15 * 60 * 1000;
-    const elapsedMinutes = Math.floor(elapsed / 60000);
-
-    console.log(`🚦 [isBusEnCourse] Bus ${bus.number} STOPPED avec stoppedAt:`, {
-      stoppedAt: bus.stoppedAt,
-      stoppedAtTimestamp,
-      elapsed: `${elapsedMinutes} min`,
-      threshold: '15 min',
-      passFiltre: elapsed < ARRIVED_DISPLAY_DURATION_MS,
-    });
 
     if (elapsed < ARRIVED_DISPLAY_DURATION_MS) {
       return true; // Bus arrêté récemment → afficher comme ARRIVED
@@ -376,19 +368,11 @@ export const GodViewPage = () => {
       return currentStatus ?? BusLiveStatus.IDLE;
     }
 
-    // ✅ NOUVEAU : Lire stoppedAt depuis Firestore (source de vérité backend)
+    // Lire stoppedAt depuis Firestore (source de vérité backend)
     const stoppedAt = bus.stoppedAt;
-
-    console.log(`🔍 [DISPLAY STATUS] Bus ${bus.number}:`, {
-      stoppedAt,
-      type: typeof stoppedAt,
-      raw: bus.stoppedAt,
-      currentStatus,
-    });
 
     // Si pas de timestamp, le bus était déjà STOPPED avant la transition → afficher STOPPED
     if (!stoppedAt) {
-      console.log(`❌ [DISPLAY STATUS] Bus ${bus.number}: Pas de stoppedAt → STOPPED`);
       return BusLiveStatus.STOPPED;
     }
 
@@ -397,14 +381,11 @@ export const GodViewPage = () => {
 
     if (typeof stoppedAt === 'string') {
       stoppedAtTimestamp = new Date(stoppedAt).getTime();
-      console.log(`🔄 [DISPLAY STATUS] Bus ${bus.number}: Conversion string → timestamp`, stoppedAtTimestamp);
     } else if (typeof stoppedAt === 'object' && stoppedAt !== null && 'seconds' in stoppedAt) {
       // Firestore Timestamp format
       stoppedAtTimestamp = (stoppedAt as any).seconds * 1000;
-      console.log(`🔄 [DISPLAY STATUS] Bus ${bus.number}: Conversion Firestore Timestamp → timestamp`, stoppedAtTimestamp);
     } else if (typeof stoppedAt === 'number') {
       stoppedAtTimestamp = stoppedAt;
-      console.log(`✅ [DISPLAY STATUS] Bus ${bus.number}: stoppedAt déjà en timestamp`, stoppedAtTimestamp);
     } else {
       console.error(`⚠️ [DISPLAY STATUS] Bus ${bus.number}: Format stoppedAt inconnu`, stoppedAt);
       return BusLiveStatus.STOPPED;
@@ -412,22 +393,10 @@ export const GodViewPage = () => {
 
     // Calculer le temps écoulé depuis l'arrêt
     const elapsed = Date.now() - stoppedAtTimestamp;
-    const elapsedMinutes = Math.floor(elapsed / 60000);
-    const thresholdMinutes = ARRIVED_DISPLAY_DURATION_MS / 60000;
 
-    const result = elapsed < ARRIVED_DISPLAY_DURATION_MS
+    return elapsed < ARRIVED_DISPLAY_DURATION_MS
       ? BusLiveStatus.ARRIVED
       : BusLiveStatus.STOPPED;
-
-    console.log(`🎯 [DISPLAY STATUS] Bus ${bus.number}:`, {
-      now: Date.now(),
-      stoppedAtTimestamp,
-      elapsed: `${elapsedMinutes} min`,
-      threshold: `${thresholdMinutes} min`,
-      result,
-    });
-
-    return result;
   }, [ARRIVED_DISPLAY_DURATION_MS]);
 
   const processedBuses: ClassifiedBus[] = useMemo(() => {
@@ -914,6 +883,20 @@ export const GodViewPage = () => {
   const fleetAtSchoolCount = useMemo(
     () => dedupedSchoolBuses.filter((bus) => isBusStationed(bus)).length,
     [dedupedSchoolBuses]
+  );
+
+  // Agrégat des élèves à bord (somme des comptages de tous les bus suivis)
+  const studentsAggregate = useMemo(
+    () =>
+      Object.values(studentsCounts).reduce(
+        (acc, counts) => {
+          acc.scanned += counts.scanned;
+          acc.total += counts.total;
+          return acc;
+        },
+        { scanned: 0, total: 0 }
+      ),
+    [studentsCounts]
   );
 
   // ===== Fonctions pour les arrêts d'élèves =====
@@ -2191,6 +2174,56 @@ export const GodViewPage = () => {
             </div>
           ))}
         </div>
+
+        {/* Badge MODE DÉMO (uniquement quand les données sont simulées) */}
+        {IS_DEMO && (
+          <div className="godview-demo-badge" style={{ position: 'absolute', top: '46px', left: '10px', zIndex: 2 }}>
+            <span className="godview-demo-dot" />
+            MODE DÉMO — données simulées
+          </div>
+        )}
+
+        {/* Barre de statistiques de la flotte */}
+        {MAPBOX_TOKEN && !isLoading && (
+          <div className="godview-stats-bar" style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 2 }}>
+            <div className="godview-stat">
+              <span className="godview-stat__value">{dedupedSchoolBuses.length}</span>
+              <span className="godview-stat__label">Bus</span>
+            </div>
+            <div className="godview-stat">
+              <span className="godview-stat__value" style={{ color: '#2563eb' }}>{fleetEnCourseCount}</span>
+              <span className="godview-stat__label">En course</span>
+            </div>
+            <div className="godview-stat">
+              <span className="godview-stat__value" style={{ color: '#16a34a' }}>{fleetAtSchoolCount}</span>
+              <span className="godview-stat__label">À l’école</span>
+            </div>
+            <div className="godview-stat">
+              <span className="godview-stat__value">
+                {studentsAggregate.scanned}<span style={{ color: '#94a3b8', fontWeight: 600 }}>/{studentsAggregate.total}</span>
+              </span>
+              <span className="godview-stat__label">Élèves à bord</span>
+            </div>
+          </div>
+        )}
+
+        {/* Légende des couleurs de marqueurs */}
+        {MAPBOX_TOKEN && (
+          <div className="godview-legend" style={{ position: 'absolute', bottom: '16px', left: '10px', zIndex: 2 }}>
+            <div className="godview-legend__title">Légende</div>
+            {[
+              { color: '#3b82f6', label: 'En route' },
+              { color: '#dc2626', label: 'En retard' },
+              { color: '#22c55e', label: 'Arrivé / à l’école' },
+              { color: '#64748b', label: 'Inactif' },
+            ].map((item) => (
+              <div key={item.label} className="godview-legend__row">
+                <span className="godview-legend__dot" style={{ backgroundColor: item.color }} />
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Conteneur de la carte */}
         <div ref={mapContainer} className="w-full h-full absolute inset-0" />

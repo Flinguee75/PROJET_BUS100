@@ -459,11 +459,11 @@ export class NotificationService {
         break;
       case 'midday_outbound':
         title = "Départ de l'école";
-        message = "Votre enfant est en route vers la maison (pause midi).";
+        message = 'Votre enfant est en route vers la maison (pause midi).';
         break;
       case 'evening_return':
         title = "Départ de l'école";
-        message = "Votre enfant est en route vers la maison (fin de journée).";
+        message = 'Votre enfant est en route vers la maison (fin de journée).';
         break;
       default:
         message = `Le bus ${bus?.plateNumber || busId} est arrivé à l'école.`;

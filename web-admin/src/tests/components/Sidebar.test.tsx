@@ -54,9 +54,9 @@ describe('Sidebar', () => {
   it('affiche les icônes des liens de navigation', () => {
     renderSidebar();
 
-    // Vérifier qu'il y a 2 liens (correspondant aux 2 items MVP)
+    // Vérifier qu'il y a 3 liens (Tour de Contrôle, Historique, Import CSV)
     const links = screen.getAllByRole('link');
-    expect(links.length).toBe(2);
+    expect(links.length).toBe(3);
   });
 
   it('applique la classe active au lien actif', () => {

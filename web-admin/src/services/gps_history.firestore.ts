@@ -4,6 +4,7 @@
 
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
+import { IS_DEMO, demoSim } from '@/demo';
 
 const normalizeTimestamp = (value: unknown): number | null => {
   if (typeof value === 'number') {
@@ -54,6 +55,10 @@ export const getLatestGpsHistoryTimestamp = async (
   busId: string,
   date: string
 ): Promise<number | null> => {
+  if (IS_DEMO) {
+    return demoSim.getLatestGpsTimestamp(busId);
+  }
+
   const fromDay = await readLatestTimestamp(['gps_history', busId, date]);
   if (fromDay) {
     return fromDay;

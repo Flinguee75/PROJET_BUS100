@@ -19,8 +19,16 @@ vi.mock('mapbox-gl', () => ({
       mapContainer.className = 'mapboxgl-map';
       return {
         on: vi.fn(),
+        off: vi.fn(),
         remove: vi.fn(),
         addControl: vi.fn(),
+        resize: vi.fn(),
+        flyTo: vi.fn(),
+        easeTo: vi.fn(),
+        getCenter: vi.fn(() => ({ lat: 5.35, lng: -3.95 })),
+        getZoom: vi.fn(() => 16),
+        isMoving: vi.fn(() => false),
+        isZooming: vi.fn(() => false),
         getContainer: vi.fn(() => mapContainer),
         _container: mapContainer,
       };

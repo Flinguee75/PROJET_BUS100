@@ -17,6 +17,7 @@ import {
 import { getFirebaseDb } from './firebase';
 import { BusStatus, BusLiveStatus, type BusRealtimeData, type BusStatistics } from '../types/realtime';
 import type { Alert } from '@/types/alerts';
+import { IS_DEMO, demoSim } from '@/demo';
 
 /**
  * Écouter tous les bus en temps réel depuis gps_live
@@ -56,6 +57,10 @@ export function watchActiveAlerts(
   onUpdate: (alerts: Alert[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
+  if (IS_DEMO) {
+    return demoSim.subscribeAlerts(onUpdate);
+  }
+
   const db = getFirebaseDb();
   const alertsRef = collection(db, 'alerts_live');
   const alertsQuery = query(alertsRef, orderBy('timestamp', 'desc'), limit(100));
@@ -193,16 +198,6 @@ function mapFirestoreToLiveStatus(status: string | undefined): BusLiveStatus | n
 export const mapSnapshotToRealtimeBus = (id: string, data: DocumentData): BusRealtimeData => {
   const rawPosition = data.position || data.currentPosition || null;
   const rawLiveStatus = data.liveStatus || data.status || null;
-
-  // 🔍 LOG: Afficher le stoppedAt brut pour debugging
-  if (data.stoppedAt) {
-    console.log(`📡 [FIRESTORE] Bus ${data.number || id} stoppedAt reçu:`, {
-      raw: data.stoppedAt,
-      type: typeof data.stoppedAt,
-      hasToMillis: data.stoppedAt && typeof data.stoppedAt === 'object' && 'toMillis' in data.stoppedAt,
-      hasSeconds: data.stoppedAt && typeof data.stoppedAt === 'object' && 'seconds' in data.stoppedAt,
-    });
-  }
 
   return {
     id,
@@ -396,8 +391,11 @@ export const updateBusStatus = async (
   busId: string,
   status: string
 ): Promise<void> => {
-  // #region agent log
-  // #endregion
+  // MODE DÉMO : la simulation gère elle-même les statuts.
+  if (IS_DEMO) {
+    return;
+  }
+
   try {
     const db = getFirebaseDb();
     const busRef = doc(db, 'gps_live', busId);
@@ -406,12 +404,7 @@ export const updateBusStatus = async (
       updatedAt: Date.now(),
       lastUpdate: new Date(),
     });
-    // #region agent log
-    // #endregion
-    console.log(`✅ Statut du bus ${busId} mis à jour: ${status}`);
   } catch (error) {
-    // #region agent log
-    // #endregion
     console.error(`❌ Erreur lors de la mise à jour du statut du bus ${busId}:`, error);
     throw error;
   }

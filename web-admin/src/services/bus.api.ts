@@ -4,6 +4,7 @@
  */
 
 import api from './gps.api';
+import { IS_DEMO, demoSim } from '@/demo';
 
 export interface BusCreateInput {
   busNumber: number;
@@ -146,6 +147,10 @@ export interface NextStudentInfo {
  * Retourne null si tous les élèves ont été scannés
  */
 export const getNextStudent = async (busId: string): Promise<NextStudentInfo | null> => {
+  if (IS_DEMO) {
+    return demoSim.getNextStudent(busId);
+  }
+
   try {
     const response = await api.get(`/api/buses/${busId}/next-student`);
     return response.data.data;
