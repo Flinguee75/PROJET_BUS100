@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mock_exceptions/mock_exceptions.dart';
 
 // Test pour AuthProvider
 // Note: Ces tests vérifient la logique métier sans dépendre de l'implémentation exacte
@@ -100,12 +101,14 @@ void main() {
 
     test('should handle authentication errors', () async {
       // Arrange
-      final auth = MockFirebaseAuth(
-        authExceptions: AuthExceptions(
-          signInWithEmailAndPassword: FirebaseAuthException(
-            code: 'wrong-password',
-            message: 'The password is invalid',
-          ),
+      final auth = MockFirebaseAuth();
+      whenCalling(Invocation.method(#signInWithEmailAndPassword, null, {
+        #email: 'test@example.com',
+        #password: 'wrongpassword',
+      })).on(auth).thenThrow(
+        FirebaseAuthException(
+          code: 'wrong-password',
+          message: 'The password is invalid',
         ),
       );
 
@@ -121,12 +124,14 @@ void main() {
 
     test('should handle user-not-found error', () async {
       // Arrange
-      final auth = MockFirebaseAuth(
-        authExceptions: AuthExceptions(
-          signInWithEmailAndPassword: FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'No user found for that email',
-          ),
+      final auth = MockFirebaseAuth();
+      whenCalling(Invocation.method(#signInWithEmailAndPassword, null, {
+        #email: 'nonexistent@example.com',
+        #password: 'password123',
+      })).on(auth).thenThrow(
+        FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'No user found for that email',
         ),
       );
 

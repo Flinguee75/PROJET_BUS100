@@ -7,7 +7,7 @@ import 'dart:math';
 void main() {
   group('ETA Service Tests', () {
     test('should calculate distance between two GPS coordinates', () {
-      // Arrange - Paris to Lyon (environ 465 km)
+      // Arrange - Paris to Lyon (distance as-the-crow-flies ~390 km)
       final parisLat = 48.8566;
       final parisLng = 2.3522;
       final lyonLat = 45.7640;
@@ -16,9 +16,9 @@ void main() {
       // Act
       final distance = _calculateDistance(parisLat, parisLng, lyonLat, lyonLng);
 
-      // Assert - Distance should be approximately 465 km
-      expect(distance, greaterThan(450));
-      expect(distance, lessThan(480));
+      // Assert - Distance should be approximately 390 km
+      expect(distance, greaterThan(380));
+      expect(distance, lessThan(410));
     });
 
     test('should calculate distance for short distances', () {

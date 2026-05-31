@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -127,58 +128,76 @@ class _MainMapScreenState extends State<MainMapScreen> {
   /// - Marqueur stop enfant : affiché si inscrit au trip actuel
   /// - Marqueur bus : affiché uniquement si en_route ET enfant inscrit au trip
   void _updateMarkers(Bus? bus, Enfant? enfant) {
-    setState(() {
-      _markers.clear();
+    final nextMarkers = <Marker>{};
 
-      // Vérifier si l'enfant est inscrit au trip actuel
-      final isActiveForTrip = _isEnfantActiveForCurrentTrip(bus, enfant);
-      final enfantLocation = _getEnfantLocationForCurrentTrip(bus, enfant);
+    // Vérifier si l'enfant est inscrit au trip actuel
+    final isActiveForTrip = _isEnfantActiveForCurrentTrip(bus, enfant);
+    final enfantLocation = _getEnfantLocationForCurrentTrip(bus, enfant);
 
-      // 1. Marqueur pour l'arrêt de l'enfant
-      if (enfantLocation != null) {
-        // Si pas de trip actif OU enfant inscrit au trip
-        if (bus?.currentTrip == null || isActiveForTrip) {
-          _markers.add(
-            Marker(
-              markerId: const MarkerId('stop'),
-              position: LatLng(
-                enfantLocation.lat,
-                enfantLocation.lng,
-              ),
-              infoWindow: InfoWindow(
-                title: 'Arrêt de ${enfant!.prenom}',
-                snippet: enfant.ecole,
-              ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueOrange, // Orange pour meilleure visibilité
-              ),
-            ),
-          );
-        }
-      }
-
-      // 2. Marqueur pour le bus (seulement si en course ET enfant inscrit)
-      final tripStatus = TripStatusHelper.determineTripStatus(bus);
-      if (tripStatus == TripStatus.active &&
-          bus!.currentPosition != null &&
-          isActiveForTrip) {
-        _markers.add(
+    // 1. Marqueur pour l'arrêt de l'enfant
+    if (enfantLocation != null) {
+      // Si pas de trip actif OU enfant inscrit au trip
+      if (bus?.currentTrip == null || isActiveForTrip) {
+        nextMarkers.add(
           Marker(
-            markerId: MarkerId(bus.id),
+            markerId: const MarkerId('stop'),
             position: LatLng(
-              bus.currentPosition!.lat,
-              bus.currentPosition!.lng,
+              enfantLocation.lat,
+              enfantLocation.lng,
             ),
             infoWindow: InfoWindow(
-              title: 'Bus ${bus.immatriculation}',
-              snippet: '${bus.currentPosition!.speed.toStringAsFixed(0)} km/h',
+              title: 'Arrêt de ${enfant!.prenom}',
+              snippet: enfant.ecole,
             ),
             icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueAzure, // Bleu pour bon contraste avec orange
+              BitmapDescriptor.hueOrange, // Orange pour meilleure visibilité
             ),
           ),
         );
       }
+    }
+
+    // 2. Marqueur pour le bus (seulement si en course ET enfant inscrit)
+    final tripStatus = TripStatusHelper.determineTripStatus(bus);
+    if (tripStatus == TripStatus.active &&
+        bus!.currentPosition != null &&
+        isActiveForTrip) {
+      nextMarkers.add(
+        Marker(
+          markerId: MarkerId(bus.id),
+          position: LatLng(
+            bus.currentPosition!.lat,
+            bus.currentPosition!.lng,
+          ),
+          infoWindow: InfoWindow(
+            title: 'Bus ${bus.immatriculation}',
+            snippet: '${bus.currentPosition!.speed.toStringAsFixed(0)} km/h',
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure, // Bleu pour bon contraste avec orange
+          ),
+        ),
+      );
+    }
+
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _markers
+            ..clear()
+            ..addAll(nextMarkers);
+        });
+      });
+      return;
+    }
+
+    setState(() {
+      _markers
+        ..clear()
+        ..addAll(nextMarkers);
     });
   }
 
@@ -350,39 +369,41 @@ class _MainMapScreenState extends State<MainMapScreen> {
             decoration: const BoxDecoration(
               color: AppColors.primary,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  authProvider.user?.email ?? 'Parent',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (selectedEnfant != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Enfant: ${selectedEnfant.nomComplet}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: AppColors.primary,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    authProvider.user?.email ?? 'Parent',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (selectedEnfant != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Enfant: ${selectedEnfant.nomComplet}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           ListTile(

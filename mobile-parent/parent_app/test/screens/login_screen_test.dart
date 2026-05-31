@@ -309,8 +309,9 @@ void main() {
       );
 
       // Assert - Initialement masqué
-      final textField = tester.widget<TextFormField>(find.byType(TextFormField));
-      expect(textField.obscureText, true);
+      final editableText =
+          tester.widget<EditableText>(find.byType(EditableText));
+      expect(editableText.obscureText, true);
       expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
 
       // Act - Cliquer sur l'icône

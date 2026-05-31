@@ -13,6 +13,7 @@ void main() {
             body: RefreshIndicator(
               onRefresh: () async {},
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   ListTile(title: Text('Item 1')),
                   ListTile(title: Text('Item 2')),
@@ -40,6 +41,7 @@ void main() {
                 await Future.delayed(const Duration(milliseconds: 100));
               },
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   SizedBox(height: 100, child: Text('Item 1')),
                   SizedBox(height: 100, child: Text('Item 2')),
@@ -57,8 +59,8 @@ void main() {
         1000,
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle(const Duration(milliseconds: 200));
 
       // Assert
       expect(refreshCalled, true);
@@ -74,6 +76,7 @@ void main() {
                 await Future.delayed(const Duration(milliseconds: 500));
               },
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   SizedBox(height: 100, child: Text('Item 1')),
                 ],
@@ -113,6 +116,7 @@ void main() {
                     });
                   },
                   child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: itemCount,
                     itemBuilder: (context, index) {
                       return SizedBox(
@@ -140,8 +144,8 @@ void main() {
         1000,
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle(const Duration(milliseconds: 200));
 
       // Assert - Data should be updated
       expect(find.text('Item 3'), findsOneWidget);
