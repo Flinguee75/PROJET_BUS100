@@ -30,7 +30,17 @@ module.exports = {
   rules: {
     'prettier/prettier': 'error',
     'import/no-unresolved': 0,
-    'max-len': ['error', { code: 100 }],
+    'max-len': [
+      'error',
+      {
+        code: 100,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+        ignoreUrls: true,
+        ignoreComments: true,
+        ignoreRegExpLiterals: true,
+      },
+    ],
     'object-curly-spacing': ['error', 'always'],
     'require-jsdoc': 0,
     'valid-jsdoc': 0,

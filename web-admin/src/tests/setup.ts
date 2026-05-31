@@ -30,6 +30,21 @@ vi.stubEnv('VITE_FIREBASE_APP_ID', '1:123456789:web:abcdef');
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'test-mapbox-token');
 vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000');
 
+// Empêcher l'initialisation réelle de Firebase (et donc toute connexion aux
+// émulateurs/au backend) pendant les tests : c'est la principale cause des
+// connexions qui retentent en boucle et bloquent la fin du runner.
+vi.mock('@/services/firebase', () => {
+  const inert = {} as unknown;
+  return {
+    app: inert,
+    auth: inert,
+    db: inert,
+    getFirebaseApp: () => inert,
+    getFirebaseAuth: () => inert,
+    getFirebaseDb: () => inert,
+  };
+});
+
 // Mock des services Firestore School
 vi.mock('@/services/school.firestore', () => {
   const noopUnsubscribe = () => undefined;
@@ -40,6 +55,37 @@ vi.mock('@/services/school.firestore', () => {
   };
   return mock;
 });
+
+// Empêcher toute connexion Firestore/réseau réelle pendant les tests.
+// Sans ces mocks, certains tests déclenchent de vraies connexions Firestore qui
+// retentent en boucle (ECONNREFUSED) et empêchent le runner de se terminer.
+// Aucun de ces modules n'a de test dédié : les mocker globalement est sans risque.
+const noopUnsub = () => () => undefined;
+vi.mock('@/services/students.firestore', () => ({
+  watchBusStudents: vi.fn(noopUnsub),
+  getBusStudents: vi.fn(async () => []),
+  watchBusAttendance: vi.fn(noopUnsub),
+  getScannedStudents: vi.fn(async () => []),
+  getUnscannedStudents: vi.fn(async () => []),
+  getStudentsByIds: vi.fn(async () => []),
+}));
+vi.mock('@/services/courseHistory.firestore', () => ({
+  watchRecentCourseHistory: vi.fn(noopUnsub),
+  getRecentCoursesWithMissedStudents: vi.fn(async () => []),
+}));
+vi.mock('@/services/gps_history.firestore', () => ({
+  getLatestGpsHistoryTimestamp: vi.fn(async () => null),
+}));
+vi.mock('@/services/realtime.firestore', () => ({
+  watchAllBuses: vi.fn(noopUnsub),
+  watchActiveAlerts: vi.fn(noopUnsub),
+  watchBus: vi.fn(noopUnsub),
+  updateBusStatus: vi.fn(async () => undefined),
+  calculateStatistics: vi.fn(() => ({
+    total: 0, active: 0, inactive: 0, enRoute: 0, stopped: 0, totalPassengers: 0,
+  })),
+  mapSnapshotToRealtimeBus: vi.fn((id: string) => ({ id })),
+}));
 
 // Mock de Mapbox GL (interface complète utilisée par GodViewPage)
 vi.mock('mapbox-gl', () => ({

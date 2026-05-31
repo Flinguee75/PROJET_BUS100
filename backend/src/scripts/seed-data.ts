@@ -24,6 +24,8 @@ if (!admin.apps.length) {
   const serviceAccountPath = path.join(__dirname, '../../service-account-key.json');
 
   if (fs.existsSync(serviceAccountPath)) {
+    // Chargement dynamique d'un fichier de credentials résolu au runtime.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const serviceAccount = require(serviceAccountPath);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
