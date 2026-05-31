@@ -27,7 +27,7 @@ import {
 } from './seed';
 import { DEMO_ROUTES } from './seed-routes';
 import { polylineAt, polylineHeadingAt } from './polyline';
-import { DEMO_DWELL_AT_SCHOOL_MS, DEMO_TICK_MS, DEMO_TRIP_DURATION_MS } from './config';
+import { DEMO_DWELL_AT_SCHOOL_MS, DEMO_STOP_DWELL_MS, DEMO_TICK_MS, DEMO_TRIP_DURATION_MS } from './config';
 
 export { DEMO_SCHOOL, DEMO_USER } from './seed';
 
@@ -47,6 +47,7 @@ interface RuntimeBus {
   stoppedAt: number | null;
   arrivedAt: number | null;
   dwellStart: number | null;
+  pauseUntil: number | null; // timestamp de fin de pause à un arrêt élève
   scanned: Map<string, number>; // studentId -> scanTime
   scannedVersion: number;
   lastScan?: BusRealtimeData['lastScan'];
@@ -224,6 +225,7 @@ class DemoSimulation {
       stoppedAt: isArrived ? now - 120_000 : null,
       arrivedAt: isArrived ? now - 120_000 : null,
       dwellStart: isArrived ? now - 120_000 : null,
+      pauseUntil: null,
       scanned,
       scannedVersion: 1,
     };
@@ -238,6 +240,7 @@ class DemoSimulation {
     bus.stoppedAt = null;
     bus.arrivedAt = null;
     bus.dwellStart = null;
+    bus.pauseUntil = null;
     bus.scanned = new Map();
     bus.scannedVersion += 1;
     bus.lastScan = undefined;
@@ -265,6 +268,7 @@ class DemoSimulation {
 
     const speed = this.speedMultiplier;
     const dwellMs = DEMO_DWELL_AT_SCHOOL_MS / speed;
+    const stopDwellMs = DEMO_STOP_DWELL_MS / speed;
 
     for (const bus of this.buses) {
       if (bus.phase === 'dwell') {
@@ -274,11 +278,18 @@ class DemoSimulation {
         continue;
       }
 
+      // Pause à un arrêt élève : le bus reste immobile jusqu'à la fin du délai.
+      if (bus.pauseUntil !== null && now < bus.pauseUntil) {
+        bus.speed = 0;
+        continue;
+      }
+      bus.pauseUntil = null;
+
       const prev = bus.position;
       const step = (DEMO_TICK_MS / DEMO_TRIP_DURATION_MS) * bus.seed.speedFactor * speed;
       bus.progress = Math.min(1, bus.progress + step);
 
-      // Scanner les élèves dont l'arrêt vient d'être dépassé.
+      // Scanner les élèves dont l'arrêt vient d'être dépassé, puis pause.
       for (const student of orderedStudents(bus.seed)) {
         if (!bus.scanned.has(student.id) && bus.progress >= student.stopT) {
           bus.scanned.set(student.id, now);
@@ -289,6 +300,8 @@ class DemoSimulation {
             timestamp: now,
             type: 'boarding',
           };
+          // Pause de 5 s à l'arrêt (réutilise le dernier stopDwellMs si plusieurs élèves au même arrêt)
+          bus.pauseUntil = now + stopDwellMs;
         }
       }
 

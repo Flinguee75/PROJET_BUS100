@@ -90,18 +90,11 @@ export const calculateHeadingToSchool = (
   busPosition: { lat: number; lng: number },
   schoolPosition: { lat: number; lng: number }
 ): number => {
-  const dx = schoolPosition.lng - busPosition.lng;
-  const dy = schoolPosition.lat - busPosition.lat;
+  const dLng = schoolPosition.lng - busPosition.lng;
+  const dLat = schoolPosition.lat - busPosition.lat;
 
-  // Math.atan2 retourne angle où 0° = Est
-  // Pour CSS rotate où 0° = Nord, on convertit : angle - 90°
-  const angleRadians = Math.atan2(dy, dx);
-  let rotation = (angleRadians * 180) / Math.PI - 90;
-
-  // Normaliser entre 0 et 360
-  if (rotation < 0) {
-    rotation += 360;
-  }
+  let rotation = (Math.atan2(dLng, dLat) * 180) / Math.PI;
+  if (rotation < 0) rotation += 360;
 
   return rotation;
 };

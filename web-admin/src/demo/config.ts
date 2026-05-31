@@ -46,3 +46,6 @@ export const DEMO_TRIP_DURATION_MS = 90_000;
 
 /** Temps d'attente à l'école avant qu'un bus reparte pour une nouvelle tournée (ms). */
 export const DEMO_DWELL_AT_SCHOOL_MS = 25_000;
+
+/** Temps d'arrêt simulé à chaque arrêt élève (ms). Mis à l'échelle par speedMultiplier. */
+export const DEMO_STOP_DWELL_MS = 5_000;

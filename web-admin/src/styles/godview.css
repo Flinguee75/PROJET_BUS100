@@ -24,6 +24,25 @@
   animation: popup-slide-fade 0.2s ease-out;
 }
 
+/* Drag handle on bus popup header */
+.bus-popup-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.bus-popup-drag-handle:active {
+  cursor: grabbing;
+}
+
+.bus-popup-drag-handle:hover .bus-popup-grip {
+  opacity: 0.6;
+}
+
+.bus-popup-grip {
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+
 /* Parking zone popup background - Phase 5 optimized */
 .parking-zone-popup .mapboxgl-popup-content {
   @apply bg-white;
@@ -46,6 +65,23 @@
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Transition de fermeture douce */
+.mapboxgl-popup.popup-closing {
+  animation: popup-fade-out 0.18s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes popup-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
   }
 }
 
@@ -76,15 +112,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(255, 255, 255, 0.97);
   color: #0f172a;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
   pointer-events: none;
 }
 
@@ -398,8 +434,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
@@ -460,7 +496,7 @@
 }
 
 .godview-stat__label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;

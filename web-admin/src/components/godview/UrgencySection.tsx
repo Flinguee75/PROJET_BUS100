@@ -24,9 +24,10 @@ export const UrgencySection: React.FC<UrgencySectionProps> = ({
     (total, course) => total + (course.stats?.unscannedCount ?? course.missedStudentIds?.length ?? 0),
     0
   );
+  const totalUrgencies = totalMissedStudents + delayedBusCount;
 
   // Ne rien afficher si aucune urgence
-  if (totalMissedStudents === 0 && delayedBusCount === 0) {
+  if (totalUrgencies === 0) {
     return null;
   }
 
@@ -43,7 +44,7 @@ export const UrgencySection: React.FC<UrgencySectionProps> = ({
           Urgences
         </h3>
         <span className="ml-auto px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded-full">
-          {totalMissedStudents}
+          {totalUrgencies}
         </span>
       </div>
 

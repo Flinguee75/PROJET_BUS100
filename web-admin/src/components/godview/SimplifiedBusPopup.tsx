@@ -64,10 +64,16 @@ export const generateSimplifiedBusPopupHTML = ({
 
   return `
     <div class="simplified-bus-popup" style="min-width:240px; font-family: Inter, system-ui, sans-serif;">
-      <!-- Header: Numéro du bus + Ratio géant -->
-      <div style="padding: 16px; border-bottom: 1px solid #e5e7eb; position: relative;">
-        <button class="bus-popup-close" aria-label="Fermer le popup">×</button>
-        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">
+      <!-- Header: Numéro du bus + Ratio géant (draggable) -->
+      <div class="bus-popup-drag-handle" data-drag-handle="true" style="padding: 16px; border-bottom: 1px solid #e5e7eb; position: relative;">
+        <button class="bus-popup-close" aria-label="Fermer le popup" style="cursor:pointer;">×</button>
+        <!-- Grip icon top-center -->
+        <div class="bus-popup-grip" style="position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:3px; align-items:center;">
+          <div style="width:24px; height:2px; background:#94a3b8; border-radius:2px;"></div>
+          <div style="width:24px; height:2px; background:#94a3b8; border-radius:2px;"></div>
+          <div style="width:24px; height:2px; background:#94a3b8; border-radius:2px;"></div>
+        </div>
+        <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 8px 0 12px 0;">
           ${busNumber}
         </h3>
         <div class="popup-ratio-badge ${ratioBgClass}" style="display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 12px; border: 2px solid ${isComplete ? '#16a34a' : '#dc2626'};">

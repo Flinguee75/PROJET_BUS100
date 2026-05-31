@@ -324,7 +324,7 @@ export const GodViewPage = () => {
 
   // État Pause/Reset/Vitesse du moteur de simulation démo (uniquement IS_DEMO).
   const [demoPaused, setDemoPaused] = useState<boolean>(false);
-  const DEMO_SPEED_CYCLE = [1, 2, 5] as const;
+  const DEMO_SPEED_CYCLE = [0.5, 1, 2, 5] as const;
   const [demoSpeed, setDemoSpeed] = useState<number>(1);
 
   const handleTogglePauseDemo = useCallback(() => {
@@ -647,8 +647,8 @@ export const GodViewPage = () => {
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11', // Style clair vectoriel - fond blanc avec routes grises
       center: initialCenter,
-      zoom: 16,
-      minZoom: 13,
+      zoom: 13,
+      minZoom: 11,
       maxZoom: 18,
       dragPan: true,
       scrollZoom: true,
@@ -724,7 +724,7 @@ export const GodViewPage = () => {
 
     map.current.flyTo({
       center: [school.location.lng, school.location.lat],
-      zoom: 16,
+      zoom: 13,
       speed: 0.8,
       curve: 1,
       easing: (t) => t,
@@ -853,7 +853,7 @@ export const GodViewPage = () => {
         layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': '#3b82f6',
-          'line-width': 5,
+          'line-width': 6,
           'line-opacity': 0.92,
         },
       });
@@ -942,20 +942,14 @@ export const GodViewPage = () => {
     from: { lat: number; lng: number },
     to: { lat: number; lng: number }
   ): number => {
-    const dx = to.lng - from.lng;
-    const dy = to.lat - from.lat;
-    const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared < 1e-10) {
-      return 0;
-    }
-
-    const angleRadians = Math.atan2(dy, dx);
-    let rotation = (angleRadians * 180) / Math.PI - 90;
-    if (rotation < 0) {
-      rotation += 360;
-    }
-
-    return rotation;
+    const dLng = to.lng - from.lng;
+    const dLat = to.lat - from.lat;
+    if (dLng * dLng + dLat * dLat < 1e-10) return 0;
+    // Bearing géographique : 0° = Nord, sens horaire. atan2(dLng, dLat) est
+    // la convention correcte — identique à polylineHeadingAt dans polyline.ts.
+    let deg = (Math.atan2(dLng, dLat) * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    return deg;
   };
 
   const getMarkerRotation = useCallback(
@@ -1474,12 +1468,75 @@ export const GodViewPage = () => {
   const attachPopupCloseHandler = useCallback((popup: mapboxgl.Popup) => {
     const popupElement = popup.getElement();
     if (!popupElement) return;
+
+    // Close button — animate out before removing
     const closeButton = popupElement.querySelector('.bus-popup-close') as HTMLButtonElement | null;
-    if (!closeButton) return;
-    closeButton.onclick = (event) => {
-      event.stopPropagation();
-      popup.remove();
+    if (closeButton) {
+      closeButton.onclick = (event) => {
+        event.stopPropagation();
+        const el = popup.getElement();
+        if (el) {
+          el.classList.add('popup-closing');
+          setTimeout(() => popup.remove(), 180);
+        } else {
+          popup.remove();
+        }
+      };
+    }
+
+    // Drag-to-move: grab the header and reposition the popup.
+    // Guard: attachPopupCloseHandler est rappelée à chaque mise à jour du HTML
+    // du popup (tick GPS). Sans garde, on empilement des handlers document-level
+    // → drag erratique. On marque le handle dès la 1ère inscription.
+    const dragHandle = popupElement.querySelector('[data-drag-handle]') as HTMLElement | null;
+    const mapInstance = map.current;
+    if (!dragHandle || !mapInstance) return;
+    if (dragHandle.dataset.dragAttached === '1') return;
+    dragHandle.dataset.dragAttached = '1';
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let originLngLat: mapboxgl.LngLat | null = null;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.bus-popup-close')) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      originLngLat = popup.getLngLat();
+      dragHandle.style.cursor = 'grabbing';
+      mapInstance.dragPan.disable();
+      e.stopPropagation();
+      e.preventDefault(); // évite la sélection de texte pendant le drag
     };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !originLngLat) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const origin = mapInstance.project(originLngLat);
+      const newLngLat = mapInstance.unproject([origin.x + dx, origin.y + dy]);
+      popup.setLngLat(newLngLat);
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      dragHandle.style.cursor = 'grab';
+      mapInstance.dragPan.enable();
+    };
+
+    dragHandle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    popup.once('close', () => {
+      dragHandle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      mapInstance.dragPan.enable();
+    });
   }, []);
 
   const focusBusOnMap = useCallback(
@@ -1607,8 +1664,13 @@ export const GodViewPage = () => {
             attachPopupCloseHandler(popup);
           });
 
+          // Setter fonctionnel : n'efface activePopupBusId que si c'est bien
+          // CE popup qui était actif. Sans ça, quand popup A est fermé par
+          // l'ouverture de popup B (remove() dans le handler 'open' de B),
+          // le close de A appelle setActivePopupBusId(null) dans le même batch
+          // React et écrase le busId de B → l'itinéraire disparaît.
           popup.on('close', () => {
-            setActivePopupBusId(null);
+            setActivePopupBusId((prev) => (prev === busId ? null : prev));
           });
 
           popups.current.set(busId, popup);
@@ -2256,11 +2318,24 @@ export const GodViewPage = () => {
           });
 
           popup.on('close', () => {
-            setActivePopupBusId(null);
+            setActivePopupBusId((prev) => (prev === bus.id ? null : prev));
           });
 
           popups.current.set(busId, popup);
-          marker.setPopup(popup);
+
+          // Ouvrir le popup à la position courante du marqueur sans l'y attacher
+          // (marker.setPopup ferait suivre le popup quand le bus bouge).
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const m = markers.current.get(busId);
+            const mapInst = map.current;
+            if (!m || !mapInst) return;
+            if (popup.isOpen()) {
+              popup.remove();
+              return;
+            }
+            popup.setLngLat(m.getLngLat()).addTo(mapInst);
+          });
         });
       }
     });
@@ -2411,9 +2486,55 @@ export const GodViewPage = () => {
           </div>
         )}
 
+        {/* Bouton Vue d'ensemble — recadre sur toute la flotte (utile pour enregistrement) */}
+        {MAPBOX_TOKEN && processedBuses.length > 0 && (
+          <button
+            onClick={() => {
+              const mapInst = map.current;
+              if (!mapInst) return;
+              const positions = processedBuses
+                .filter((b) => b.displayPosition)
+                .map((b) => b.displayPosition!);
+              if (positions.length === 0) return;
+              const lngs = positions.map((p) => p.lng);
+              const lats = positions.map((p) => p.lat);
+              mapInst.fitBounds(
+                [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                { padding: 80, maxZoom: 14, duration: 900 }
+              );
+            }}
+            style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '10px',
+              zIndex: 2,
+              background: 'rgba(255,255,255,0.96)',
+              backdropFilter: 'blur(4px)',
+              border: '1.5px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              fontSize: '13px',
+              fontWeight: 700,
+              color: '#0f172a',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'box-shadow 0.15s',
+            }}
+            title="Centrer la vue sur toute la flotte"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M3 3l7 7M3 21l7-7M21 3l-7 7M21 21l-7-7"/>
+            </svg>
+            Vue d'ensemble
+          </button>
+        )}
+
         {/* Légende des couleurs de marqueurs */}
         {MAPBOX_TOKEN && (
-          <div className="godview-legend" style={{ position: 'absolute', bottom: '16px', left: '10px', zIndex: 2 }}>
+          <div className="godview-legend" style={{ position: 'absolute', bottom: '60px', left: '10px', zIndex: 2 }}>
             <div className="godview-legend__title">Légende</div>
             {[
               { color: '#3b82f6', label: 'En route' },

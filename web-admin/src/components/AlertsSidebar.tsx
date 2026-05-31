@@ -62,6 +62,14 @@ export const AlertsSidebar = ({
   const [width, setWidth] = useState(ALERTS_DEFAULT_WIDTH);
   const isResizingRef = useRef(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll automatique vers le haut quand un bus est sélectionné (il est trié en tête de liste)
+  useEffect(() => {
+    if (selectedBusId && listScrollRef.current) {
+      listScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedBusId]);
 
   // Onglet actif : FLOTTE ou ÉLÈVES
   const [activeTab, setActiveTab] = useState<'fleet' | 'students'>('fleet');
@@ -105,7 +113,7 @@ export const AlertsSidebar = ({
 
   // Filtre flotte sélectionné (single selection)
   const [selectedFleetFilter, setSelectedFleetFilter] = useState<
-    'all' | 'en_course' | 'at_school' | 'arrived'
+    'all' | 'en_course' | 'at_school' | 'arrived' | 'delayed'
   >('all');
 
   // État pour les filtres de type d'alerte élèves
@@ -211,6 +219,11 @@ export const AlertsSidebar = ({
   const arrivedCount = useMemo(() => {
     return allBuses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED).length;
   }, [allBuses]);
+
+  // Compteur pour les bus en retard (DELAYED)
+  const delayedCount = useMemo(() => {
+    return allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED).length;
+  }, [allBuses]);
   const atSchoolCount = useMemo(() => {
     return allBuses.filter(
       (b) =>
@@ -221,35 +234,48 @@ export const AlertsSidebar = ({
   }, [allBuses, stationedBuses]);
 
   // Séparation des alertes par contexte
-  const fleetAlerts = alerts.filter((a) => a.type === 'DELAY');
   const studentAlerts = alerts.filter((a) => a.type === 'UNSCANNED_CHILD');
 
   // Filtrer les bus selon le filtre sélectionné pour FLOTTE
   const filteredBuses = useMemo(() => {
     if (activeTab !== 'fleet') return [];
 
+    let buses: typeof allBuses;
     switch (selectedFleetFilter) {
       case 'en_course':
-        return allBuses.filter(
+        buses = allBuses.filter(
           (b) => b.liveStatus === BusLiveStatus.EN_ROUTE || b.liveStatus === BusLiveStatus.DELAYED
         );
+        break;
       case 'at_school':
-        // Afficher tous les bus à l'école (STOPPED, ARRIVED ou ceux dans stationedBuses)
-        return allBuses.filter(
+        buses = allBuses.filter(
           (b) =>
             b.liveStatus === BusLiveStatus.STOPPED ||
             b.liveStatus === BusLiveStatus.ARRIVED ||
             stationedBuses.some((sb) => sb.id === b.id)
         );
+        break;
       case 'arrived':
-        // Afficher uniquement les bus arrivés récemment (ARRIVED)
-        return allBuses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED);
+        buses = allBuses.filter((b) => b.liveStatus === BusLiveStatus.ARRIVED);
+        break;
+      case 'delayed':
+        buses = allBuses.filter((b) => b.liveStatus === BusLiveStatus.DELAYED);
+        break;
       case 'all':
       default:
-        // Afficher tous les bus
-        return allBuses;
+        buses = allBuses;
     }
-  }, [activeTab, selectedFleetFilter, allBuses, stationedBuses]);
+
+    // Bus sélectionné toujours en tête de liste
+    if (selectedBusId) {
+      return [...buses].sort((a, b) => {
+        if (a.id === selectedBusId) return -1;
+        if (b.id === selectedBusId) return 1;
+        return 0;
+      });
+    }
+    return buses;
+  }, [activeTab, selectedFleetFilter, allBuses, stationedBuses, selectedBusId]);
 
   // Fonction supprimée - non nécessaire pour la nouvelle interface simplifiée
 
@@ -695,11 +721,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
       <div className="p-6 bg-white border-b border-slate-200">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-slate-900 font-display">Supervision</h1>
-          {alerts.length > 0 && (
-            <div className="px-3 py-1.5 rounded-full text-base font-bold bg-danger-600 text-white">
-              {alerts.length}
-            </div>
-          )}
         </div>
 
         {/* Segmented Control - Onglets */}
@@ -717,15 +738,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
           >
             <div className="flex items-center justify-center gap-2">
               <span>FLOTTE</span>
-              {fleetAlerts.length > 0 && (
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                    activeTab === 'fleet' ? 'bg-danger-100 text-danger-700' : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {fleetAlerts.length}
-                </span>
-              )}
             </div>
           </button>
           <button
@@ -741,17 +753,6 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
           >
             <div className="flex items-center justify-center gap-2">
               <span>ÉLÈVES</span>
-              {studentAlerts.length > 0 && (
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                    activeTab === 'students'
-                      ? 'bg-warning-100 text-warning-700'
-                      : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {studentAlerts.length}
-                </span>
-              )}
             </div>
           </button>
         </div>
@@ -816,6 +817,23 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
                 En course{effectiveEnCourse > 0 ? ` (${effectiveEnCourse})` : ''}
               </button>
+
+              {/* En retard - affiché uniquement s'il y a des bus DELAYED */}
+              {delayedCount > 0 && (
+                <button
+                  onClick={() => setSelectedFleetFilter('delayed')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 ${
+                    selectedFleetFilter === 'delayed'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-white border-2 border-red-400 text-red-600 hover:bg-red-50'
+                  }`}
+                  aria-pressed={selectedFleetFilter === 'delayed'}
+                  aria-label="Afficher les bus en retard"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  Retard ({delayedCount})
+                </button>
+              )}
 
               {/* À l'école */}
               <button
@@ -916,7 +934,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
       )}
 
       {/* Liste des alertes / bus */}
-      <div className="flex-1 overflow-y-auto p-4 bg-[#F9FAFB]">
+      <div ref={listScrollRef} className="flex-1 overflow-y-auto p-4 bg-[#F9FAFB]">
         {activeTab === 'fleet' && filteredBuses.length === 0 ? (
           <>
             {/* État vide - flotte */}
@@ -974,7 +992,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                   <div
                     key={bus.id}
                     onClick={() => handleAlertClick(bus.id, { forceBusPopup: isArrived, showStops: shouldShowStops })}
-                    className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                    className={`rounded-lg transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500 shadow-md shadow-blue-100' : 'shadow-sm hover:shadow-md'}`}
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
@@ -1110,7 +1128,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       showStops: shouldShowStopsAlert,
                     })
                   }
-                  className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`rounded-lg transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500 shadow-md shadow-blue-100' : 'shadow-sm hover:shadow-md'}`}
                   role="button"
                   tabIndex={0}
                   onKeyPress={(e) => {
