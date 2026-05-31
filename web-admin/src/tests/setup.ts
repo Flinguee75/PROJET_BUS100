@@ -12,6 +12,14 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom ne fournit pas ResizeObserver, utilisé par la carte (GodViewPage)
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 // Mock des variables d'environnement
 vi.stubEnv('VITE_FIREBASE_API_KEY', 'test-api-key');
 vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'test-project.firebaseapp.com');
@@ -21,6 +29,21 @@ vi.stubEnv('VITE_FIREBASE_MESSAGING_SENDER_ID', '123456789');
 vi.stubEnv('VITE_FIREBASE_APP_ID', '1:123456789:web:abcdef');
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'test-mapbox-token');
 vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000');
+
+// Empêcher l'initialisation réelle de Firebase (et donc toute connexion aux
+// émulateurs/au backend) pendant les tests : c'est la principale cause des
+// connexions qui retentent en boucle et bloquent la fin du runner.
+vi.mock('@/services/firebase', () => {
+  const inert = {} as unknown;
+  return {
+    app: inert,
+    auth: inert,
+    db: inert,
+    getFirebaseApp: () => inert,
+    getFirebaseAuth: () => inert,
+    getFirebaseDb: () => inert,
+  };
+});
 
 // Mock des services Firestore School
 vi.mock('@/services/school.firestore', () => {
@@ -33,16 +56,55 @@ vi.mock('@/services/school.firestore', () => {
   return mock;
 });
 
-// Mock de Mapbox GL
+// Empêcher toute connexion Firestore/réseau réelle pendant les tests.
+// Sans ces mocks, certains tests déclenchent de vraies connexions Firestore qui
+// retentent en boucle (ECONNREFUSED) et empêchent le runner de se terminer.
+// Aucun de ces modules n'a de test dédié : les mocker globalement est sans risque.
+const noopUnsub = () => () => undefined;
+vi.mock('@/services/students.firestore', () => ({
+  watchBusStudents: vi.fn(noopUnsub),
+  getBusStudents: vi.fn(async () => []),
+  watchBusAttendance: vi.fn(noopUnsub),
+  getScannedStudents: vi.fn(async () => []),
+  getUnscannedStudents: vi.fn(async () => []),
+  getStudentsByIds: vi.fn(async () => []),
+}));
+vi.mock('@/services/courseHistory.firestore', () => ({
+  watchRecentCourseHistory: vi.fn(noopUnsub),
+  getRecentCoursesWithMissedStudents: vi.fn(async () => []),
+}));
+vi.mock('@/services/gps_history.firestore', () => ({
+  getLatestGpsHistoryTimestamp: vi.fn(async () => null),
+}));
+vi.mock('@/services/realtime.firestore', () => ({
+  watchAllBuses: vi.fn(noopUnsub),
+  watchActiveAlerts: vi.fn(noopUnsub),
+  watchBus: vi.fn(noopUnsub),
+  updateBusStatus: vi.fn(async () => undefined),
+  calculateStatistics: vi.fn(() => ({
+    total: 0, active: 0, inactive: 0, enRoute: 0, stopped: 0, totalPassengers: 0,
+  })),
+  mapSnapshotToRealtimeBus: vi.fn((id: string) => ({ id })),
+}));
+
+// Mock de Mapbox GL (interface complète utilisée par GodViewPage)
 vi.mock('mapbox-gl', () => ({
   default: {
     accessToken: '',
     Map: vi.fn(() => ({
       on: vi.fn(),
+      off: vi.fn(),
       remove: vi.fn(),
       addControl: vi.fn(),
+      resize: vi.fn(),
       fitBounds: vi.fn(),
       flyTo: vi.fn(),
+      easeTo: vi.fn(),
+      getCenter: vi.fn(() => ({ lat: 5.351824, lng: -3.953979 })),
+      getZoom: vi.fn(() => 16),
+      isMoving: vi.fn(() => false),
+      isZooming: vi.fn(() => false),
+      getContainer: vi.fn(() => document.createElement('div')),
     })),
     Marker: vi.fn(() => ({
       setLngLat: vi.fn().mockReturnThis(),
@@ -50,9 +112,17 @@ vi.mock('mapbox-gl', () => ({
       remove: vi.fn(),
       setPopup: vi.fn().mockReturnThis(),
       togglePopup: vi.fn(),
+      getLngLat: vi.fn(() => ({ lat: 5.351824, lng: -3.953979 })),
+      getElement: vi.fn(() => document.createElement('div')),
     })),
     Popup: vi.fn(() => ({
       setHTML: vi.fn().mockReturnThis(),
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      isOpen: vi.fn(() => false),
+      getElement: vi.fn(() => null),
     })),
     NavigationControl: vi.fn(),
     FullscreenControl: vi.fn(),

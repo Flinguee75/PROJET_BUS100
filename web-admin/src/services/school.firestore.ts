@@ -16,6 +16,7 @@ import { getFirebaseDb } from './firebase';
 import type { School } from '@/types/school';
 import type { BusRealtimeData } from '@/types/realtime';
 import { mapSnapshotToRealtimeBus } from './realtime.firestore';
+import { IS_DEMO, demoSim, DEMO_SCHOOL } from '@/demo';
 
 const toDate = (value: unknown): Date => {
   if (value instanceof Date) {
@@ -67,6 +68,11 @@ export const watchSchool = (
   onUpdate?: (school: School | null) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
+  if (IS_DEMO) {
+    onUpdate?.(DEMO_SCHOOL);
+    return () => undefined;
+  }
+
   if (!schoolId) {
     onUpdate?.(null);
     return () => undefined;
@@ -93,6 +99,10 @@ export const watchSchool = (
 };
 
 export const getSchool = async (schoolId: string): Promise<School | null> => {
+  if (IS_DEMO) {
+    return DEMO_SCHOOL;
+  }
+
   const db = getFirebaseDb();
   const schoolRef = doc(db, 'schools', schoolId);
   const snapshot = await getDoc(schoolRef);
@@ -109,6 +119,10 @@ export const watchSchoolBuses = (
   onUpdate?: (buses: BusRealtimeData[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
+  if (IS_DEMO) {
+    return demoSim.subscribeBuses((buses) => onUpdate?.(buses));
+  }
+
   if (!schoolId) {
     onUpdate?.([]);
     return () => undefined;

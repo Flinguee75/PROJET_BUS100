@@ -16,6 +16,7 @@ import {
   type QueryConstraint,
 } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
+import { IS_DEMO, demoSim } from '@/demo';
 
 export interface Student {
   id: string;
@@ -141,6 +142,10 @@ export async function getBusStudents(
   busId: string,
   tripType?: string | null
 ): Promise<Student[]> {
+  if (IS_DEMO) {
+    return demoSim.getStudents(busId);
+  }
+
   const db = getFirebaseDb();
   const studentsRef = collection(db, 'students');
   const constraints: QueryConstraint[] = [
@@ -190,6 +195,10 @@ export function watchBusAttendance(
   onUpdate: (attendance: AttendanceRecord[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
+  if (IS_DEMO) {
+    return demoSim.subscribeAttendance(busId, date, onUpdate);
+  }
+
   const db = getFirebaseDb();
   const attendanceRef = collection(db, 'attendance');
   const attendanceQuery = query(
@@ -295,6 +304,10 @@ async function getBusAttendance(
 export async function getStudentsByIds(ids: string[]): Promise<Student[]> {
   if (!ids.length) {
     return [];
+  }
+
+  if (IS_DEMO) {
+    return demoSim.getStudentsByIds(ids);
   }
 
   const db = getFirebaseDb();

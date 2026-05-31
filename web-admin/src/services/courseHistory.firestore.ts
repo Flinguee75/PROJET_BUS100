@@ -11,6 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
+import { IS_DEMO, demoSim } from '@/demo';
 
 export interface CourseHistoryEntry {
   id: string;
@@ -48,6 +49,17 @@ export type CourseHistory = CourseHistoryEntry;
 export async function getRecentCoursesWithMissedStudents(
   recentMinutes: number = 60
 ): Promise<CourseHistoryEntry[]> {
+  if (IS_DEMO) {
+    const cutoff = Date.now() - recentMinutes * 60 * 1000;
+    return demoSim
+      .getCourseHistory()
+      .filter((course) => {
+        const recent = course.endTime == null || course.endTime >= cutoff;
+        const missed = course.stats?.unscannedCount ?? course.missedStudentIds?.length ?? 0;
+        return recent && missed > 0;
+      });
+  }
+
   const db = getFirebaseDb();
   const cutoffTime = Date.now() - recentMinutes * 60 * 1000;
 
@@ -81,6 +93,10 @@ export function watchRecentCourseHistory(
   onUpdate: (entries: CourseHistoryEntry[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
+  if (IS_DEMO) {
+    return demoSim.subscribeCourseHistory((entries) => onUpdate(entries.slice(0, limitCount)));
+  }
+
   const db = getFirebaseDb();
   const historyRef = collection(db, 'course_history');
   const historyQuery = query(historyRef, orderBy('startTime', 'desc'), limit(limitCount));
