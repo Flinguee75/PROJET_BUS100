@@ -57,6 +57,49 @@ export const polylineAt = (polyline: LatLng[], t: number): LatLng => {
 };
 
 /**
+ * Coupe la polyligne en deux segments au point de fraction `t` ∈ [0, 1].
+ * Retourne `traveled` (du début au point de coupure) et `remaining` (du point
+ * de coupure à la fin). Les deux partagent le point de coupure interpolé.
+ */
+export const splitPolylineAt = (
+  polyline: LatLng[],
+  t: number
+): { traveled: LatLng[]; remaining: LatLng[] } => {
+  if (polyline.length < 2) return { traveled: [...polyline], remaining: [...polyline] };
+
+  const clamped = Math.min(1, Math.max(0, t));
+  if (clamped === 0) return { traveled: [polyline[0]], remaining: [...polyline] };
+  if (clamped === 1) return { traveled: [...polyline], remaining: [polyline[polyline.length - 1]] };
+
+  const lengths = cumulativeLengths(polyline);
+  const total = lengths[lengths.length - 1];
+  const target = total * clamped;
+
+  let splitIndex = polyline.length - 1;
+  for (let i = 1; i < polyline.length; i++) {
+    if (lengths[i] >= target) {
+      splitIndex = i;
+      break;
+    }
+  }
+
+  const segStart = lengths[splitIndex - 1];
+  const segLen = lengths[splitIndex] - segStart;
+  const local = segLen > 0 ? (target - segStart) / segLen : 0;
+  const a = polyline[splitIndex - 1];
+  const b = polyline[splitIndex];
+  const splitPoint: LatLng = {
+    lat: a.lat + (b.lat - a.lat) * local,
+    lng: a.lng + (b.lng - a.lng) * local,
+  };
+
+  return {
+    traveled: [...polyline.slice(0, splitIndex), splitPoint],
+    remaining: [splitPoint, ...polyline.slice(splitIndex)],
+  };
+};
+
+/**
  * Cap (orientation) du marqueur à la fraction `t` du parcours, en degrés
  * (0° = Nord, sens horaire — compatible avec CSS `transform: rotate()`).
  */

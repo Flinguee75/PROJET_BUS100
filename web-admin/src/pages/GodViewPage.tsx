@@ -27,6 +27,7 @@ import { GpsKalmanFilter } from '@/utils/gpsKalmanFilter';
 import { computeAnimationPlan } from '@/utils/animationPlan';
 import { IS_DEMO, demoSim } from '@/demo';
 import { DEMO_BUSES } from '@/demo/seed';
+import { splitPolylineAt } from '@/demo/polyline';
 import { DemoControls } from '@/components/godview/DemoControls';
 
 type ClassifiedBus = BusRealtimeData & {
@@ -782,7 +783,7 @@ export const GodViewPage = () => {
         properties: { busId: seed.id },
         geometry: {
           type: 'LineString' as const,
-          coordinates: demoSim.getTrajectory(seed.id).map((p) => [p.lng, p.lat]),
+          coordinates: demoSim.getRoutePolyline(seed.id).map((p) => [p.lng, p.lat]),
         },
       })),
     };
@@ -810,6 +811,120 @@ export const GodViewPage = () => {
       if (mapInstance.getSource(SOURCE_ID)) mapInstance.removeSource(SOURCE_ID);
     };
   }, [mapLoaded]);
+
+  // Afficher la route du bus sélectionné (deux segments : parcouru + restant)
+  // Déclenché par l'ouverture du popup (activePopupBusId).
+  useEffect(() => {
+    const mapInstance = map.current;
+    if (!mapInstance || !mapLoaded || !IS_DEMO) return;
+
+    const TRAVELED_SOURCE = 'demo-route-traveled';
+    const REMAINING_SOURCE = 'demo-route-remaining';
+    const TRAVELED_LAYER = 'demo-route-traveled-layer';
+    const REMAINING_LAYER = 'demo-route-remaining-layer';
+
+    const emptyCollection = () =>
+      ({ type: 'FeatureCollection' as const, features: [] }) as GeoJSON.FeatureCollection;
+
+    // Créer les sources/layers une seule fois et les réutiliser ensuite.
+    if (!mapInstance.getSource(TRAVELED_SOURCE)) {
+      mapInstance.addSource(TRAVELED_SOURCE, { type: 'geojson', data: emptyCollection() });
+      // Portion parcourue : tirets discrets pour signifier "chemin déjà effectué"
+      mapInstance.addLayer({
+        id: TRAVELED_LAYER,
+        type: 'line',
+        source: TRAVELED_SOURCE,
+        layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#94a3b8',
+          'line-width': 2.5,
+          'line-opacity': 0.5,
+          'line-dasharray': [3, 4],
+        },
+      });
+    }
+    if (!mapInstance.getSource(REMAINING_SOURCE)) {
+      mapInstance.addSource(REMAINING_SOURCE, { type: 'geojson', data: emptyCollection() });
+      // Portion restante : ligne pleine épaisse pour "où va le bus"
+      mapInstance.addLayer({
+        id: REMAINING_LAYER,
+        type: 'line',
+        source: REMAINING_SOURCE,
+        layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 5,
+          'line-opacity': 0.92,
+        },
+      });
+    }
+
+    if (!activePopupBusId) {
+      mapInstance.setLayoutProperty(TRAVELED_LAYER, 'visibility', 'none');
+      mapInstance.setLayoutProperty(REMAINING_LAYER, 'visibility', 'none');
+      return;
+    }
+
+    const polyline = demoSim.getRoutePolyline(activePopupBusId);
+    if (polyline.length < 2) return;
+
+    const progress = demoSim.getBusProgress(activePopupBusId);
+    const { traveled, remaining } = splitPolylineAt(polyline, progress);
+
+    (mapInstance.getSource(TRAVELED_SOURCE) as mapboxgl.GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: traveled.map((p) => [p.lng, p.lat]) },
+      }],
+    });
+
+    (mapInstance.getSource(REMAINING_SOURCE) as mapboxgl.GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: remaining.map((p) => [p.lng, p.lat]) },
+      }],
+    });
+
+    // Couleur du segment restant = couleur du marqueur du bus sélectionné.
+    const bus = processedBuses.find((b) => b.id === activePopupBusId);
+    const busColor =
+      bus?.liveStatus === BusLiveStatus.DELAYED
+        ? '#dc2626'
+        : bus?.liveStatus === BusLiveStatus.ARRIVED
+          ? '#22c55e'
+          : '#3b82f6';
+
+    mapInstance.setLayoutProperty(TRAVELED_LAYER, 'visibility', 'visible');
+    mapInstance.setLayoutProperty(REMAINING_LAYER, 'visibility', 'visible');
+    mapInstance.setPaintProperty(REMAINING_LAYER, 'line-color', busColor);
+
+    // Ajuster la vue pour montrer toute la route sans que le popup la cache.
+    // On attend que le flyTo précédent (déclenché par focusBusOnMap) soit terminé.
+    const fitTimer = setTimeout(() => {
+      if (!map.current) return;
+      const lngs = polyline.map((p) => p.lng);
+      const lats = polyline.map((p) => p.lat);
+      const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+      const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+      map.current.fitBounds([sw, ne], {
+        padding: {
+          top: 120,    // laisser de la place au popup (s'ouvre au-dessus du marqueur)
+          bottom: 80,
+          left: 80,
+          right: 80,
+        },
+        maxZoom: 14,
+        duration: 900,
+        essential: true,
+      });
+    }, 700); // après la fin du flyTo (600 ms dans focusBusOnMap)
+
+    return () => clearTimeout(fitTimer);
+  }, [activePopupBusId, mapLoaded, processedBuses]);
 
   // Déterminer la couleur du marqueur selon le statut
   const getMarkerColor = useCallback((bus: ClassifiedBus): string => {

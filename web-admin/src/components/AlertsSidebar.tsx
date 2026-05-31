@@ -1084,9 +1084,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 );
               }
 
-              // Carte complète pour bus avec alerte
-              const borderColor =
-                busAlert.severity === 'HIGH' ? 'border-l-danger-600' : 'border-l-warning-600';
+              // Carte pour bus avec alerte
               const isArrivedAlert = bus.liveStatus === BusLiveStatus.ARRIVED;
               const shouldShowStopsAlert =
                 bus.liveStatus === BusLiveStatus.EN_ROUTE ||
@@ -1098,6 +1096,11 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                 : null;
               const busUpdatedAt = isArrivedAlert ? arrivedTimestampAlert : getBusUpdateTimestamp(bus);
 
+              const alertSpeed = bus.currentPosition?.speed ?? 0;
+              const alertTripDuration = typeof bus.tripStartTime === 'number'
+                ? formatDurationFromMs(Date.now() - bus.tripStartTime)
+                : null;
+
               return (
                 <div
                   key={bus.id}
@@ -1107,7 +1110,7 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       showStops: shouldShowStopsAlert,
                     })
                   }
-                  className={`rounded-xl border-l-4 ${borderColor} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 cursor-pointer ${getStatusBackground(bus.liveStatus)} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                   role="button"
                   tabIndex={0}
                   onKeyPress={(e) => {
@@ -1119,77 +1122,53 @@ const formatDurationFromMs = (durationMs: number | null | undefined): string => 
                       });
                     }
                   }}
-                  aria-label={`Bus ${bus.number} avec alerte, ${counts.scanned} élèves sur ${counts.total}, cliquer pour centrer sur la carte`}
+                  aria-label={`Bus ${bus.number} en retard, ${counts.scanned} élèves sur ${counts.total}, cliquer pour centrer sur la carte`}
                 >
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <h3 className="text-base font-bold text-slate-900">Bus {bus.number}</h3>
-                        <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase flex-shrink-0 ${
-                          busAlert.severity === 'HIGH'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          ⚠ {busAlert.type === 'DELAY' ? 'Retard' : 'Alerte'}
-                        </span>
-                      </div>
-                      <SafetyRatioBadge
-                        scanned={counts.scanned}
-                        total={counts.total}
-                        size="md"
-                        className="ml-2"
-                      />
-                    </div>
+                  {/* Ligne 1 : Numéro + badge élèves */}
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-bold text-slate-900">{bus.number}</h3>
+                    {counts.total > 0 && (
+                      <SafetyRatioBadge scanned={counts.scanned} total={counts.total} size="md" />
+                    )}
+                  </div>
 
-                    {/* Localisation + Durée - même structure que cartes normales */}
-                    <div className="flex items-center justify-between text-sm mt-2 mb-2">
-                      <div className="flex items-center gap-1.5 text-slate-700 flex-1 min-w-0">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
-                        <span className="font-medium truncate">
-                          {bus.currentZone || bus.route?.name || 'En déplacement'}
-                        </span>
-                      </div>
-                      {typeof bus.tripStartTime === 'number' && (
-                        <div className="text-slate-500 text-xs flex-shrink-0 ml-2">
-                          <span>Trajet: {formatDurationFromMs(Date.now() - bus.tripStartTime)}</span>
+                  {/* Ligne 2 : Localisation */}
+                  <div className="flex items-center gap-1.5 text-slate-700 mt-2">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                    <span className="text-sm font-medium truncate">
+                      {bus.currentZone || bus.route?.name || 'En déplacement'}
+                    </span>
+                  </div>
+
+                  {/* Ligne 3 : Vitesse + indicateur retard + durée */}
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        {alertSpeed > 0 && (
+                          <span className="font-semibold text-orange-600">{Math.round(alertSpeed)} km/h</span>
+                        )}
+                        <div className="flex items-center gap-1 text-red-600 font-semibold">
+                          <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
+                          <span>Retard</span>
                         </div>
+                      </div>
+                      {alertTripDuration && (
+                        <span className="text-slate-500">Trajet: {alertTripDuration}</span>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {bus.driver?.phone && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`tel:${bus.driver?.phone}`, '_self');
-                          }}
-                          className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
-                          aria-label={`Appeler ${bus.driver?.name || 'le chauffeur'}`}
-                        >
-                          <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
-                          Chauffeur
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAlertClick(bus.id, {
-                            forceBusPopup: isArrivedAlert,
-                            showStops: shouldShowStopsAlert,
-                          });
-                        }}
-                        className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center justify-center gap-1.5"
-                        aria-label={`Voir le bus ${bus.number} sur la carte`}
-                      >
-                        <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        Carte
-                      </button>
+                  {/* Ligne 4 : Chauffeur */}
+                  {bus.driver && (
+                    <div className="flex items-center gap-2 text-xs text-slate-600 mt-2">
+                      <Users className="w-3 h-3 text-slate-400 flex-shrink-0" strokeWidth={2.5} />
+                      <span className="truncate flex-1">{bus.driver.name}</span>
                     </div>
+                  )}
 
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-3">
-                      <Clock className="w-3 h-3" strokeWidth={2.5} />
-                      <span>Maj: {formatTimestamp(busUpdatedAt)}</span>
-                    </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-2">
+                    <Clock className="w-3 h-3" strokeWidth={2.5} />
+                    <span>Maj: {formatTimestamp(busUpdatedAt)}</span>
                   </div>
                 </div>
               );

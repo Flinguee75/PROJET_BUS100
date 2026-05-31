@@ -297,9 +297,9 @@ class DemoSimulation {
         continue;
       }
 
-      const pos = bezier(bus.seed.start, bus.control, DEMO_SCHOOL_LOCATION, bus.progress);
+      const pos = polylineAt(bus.polyline, bus.progress);
       bus.speed = distanceMeters(prev, pos) / (DEMO_TICK_MS / 1000);
-      bus.heading = bezierHeading(bus.seed.start, bus.control, DEMO_SCHOOL_LOCATION, bus.progress);
+      bus.heading = polylineHeadingAt(bus.polyline, bus.progress);
       bus.position = pos;
     }
 
@@ -386,8 +386,8 @@ class DemoSimulation {
   }
 
   private studentSeedToStudent(bus: DemoBusSeed, seed: DemoStudentSeed): Student {
-    const control = controlPoint(bus.start, DEMO_SCHOOL_LOCATION, bus.curve);
-    const base = bezier(bus.start, control, DEMO_SCHOOL_LOCATION, seed.stopT);
+    const polyline = polylineForSeed(bus);
+    const base = polylineAt(polyline, seed.stopT);
     const location = {
       address: `${bus.route.fromZone} — arrêt ${seed.firstName}`,
       lat: base.lat + seed.sideOffset,
@@ -569,20 +569,34 @@ class DemoSimulation {
   }
 
   /**
-   * Échantillonne la trajectoire prévue (courbe de Bézier) d'un bus de son
-   * point de départ jusqu'à l'école. Sert à dessiner la ligne pointillée
-   * "où va ce bus" sur la carte du mode démo.
+   * Retourne la polyligne routière réelle d'un bus (pré-calculée via Mapbox
+   * Directions). Sert à dessiner la trajectoire sur la carte du mode démo.
    */
-  getTrajectory(busId: string, samples = 32): LatLng[] {
+  getTrajectory(busId: string): LatLng[] {
     const seed = DEMO_BUSES.find((b) => b.id === busId);
     if (!seed) return [];
-    const control = controlPoint(seed.start, DEMO_SCHOOL_LOCATION, seed.curve);
-    const points: LatLng[] = [];
-    for (let i = 0; i <= samples; i++) {
-      const t = i / samples;
-      points.push(bezier(seed.start, control, DEMO_SCHOOL_LOCATION, t));
-    }
-    return points;
+    return polylineForSeed(seed);
+  }
+
+  /**
+   * Retourne la polyligne routière complète d'un bus (de son point de départ
+   * jusqu'à l'école). Utile pour afficher l'itinéraire complet sur la carte.
+   */
+  getRoutePolyline(busId: string): LatLng[] {
+    const seed = DEMO_BUSES.find((b) => b.id === busId);
+    if (!seed) return [];
+    return polylineForSeed(seed);
+  }
+
+  /**
+   * Retourne la progression actuelle (0..1) d'un bus sur son trajet.
+   * 0 = au départ, 1 = à l'école. Utile pour couper la polyligne en
+   * portion parcourue / portion restante.
+   */
+  getBusProgress(busId: string): number {
+    this.ensureStarted();
+    const bus = this.buses.find((b) => b.seed.id === busId);
+    return bus?.progress ?? 0;
   }
 }
 
