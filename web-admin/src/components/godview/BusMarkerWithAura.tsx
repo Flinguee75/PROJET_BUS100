@@ -9,26 +9,61 @@ interface MarkerOptions {
   rotation: number;
   hasAlert: boolean;
   alertSeverity?: 'HIGH' | 'MEDIUM';
+  /** Nombre d'élèves déjà scannés sur la course en cours. */
+  scannedCount?: number;
+  /** Nombre total d'élèves de la tournée. */
+  totalCount?: number;
 }
 
+const escape = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return char;
+    }
+  });
+
 /**
- * Génère le HTML d'un marqueur de bus avec flèche directionnelle
- * @param options Configuration du marqueur
- * @returns HTML string pour le marqueur
+ * Génère le HTML d'un marqueur de bus avec flèche directionnelle et étiquette
+ * flottante (numéro + ratio scannés) au-dessus du marqueur.
  */
 export const generateBusMarkerHTML = ({
-  busNumber: _busNumber, // Reserved for future use (Phase 4 may display on marker)
+  busNumber,
   color,
   rotation,
   hasAlert,
   alertSeverity = 'MEDIUM',
+  scannedCount,
+  totalCount,
 }: MarkerOptions): string => {
-  // Classe d'animation selon la sévérité de l'alerte
   const auraClass = hasAlert
-    ? (alertSeverity === 'HIGH' ? 'animate-pulse-aura-red' : 'animate-pulse-aura-orange')
+    ? alertSeverity === 'HIGH'
+      ? 'animate-pulse-aura-red'
+      : 'animate-pulse-aura-orange'
     : '';
 
-  // SVG flèche type navigation (style Uber)
+  const ratioPart =
+    totalCount != null && totalCount > 0
+      ? `<span class="bus-marker-label__ratio">${scannedCount ?? 0}/${totalCount}</span>`
+      : '';
+
+  const labelHTML = `
+    <div class="bus-marker-label">
+      <span class="bus-marker-label__number">${escape(busNumber)}</span>
+      ${ratioPart}
+    </div>
+  `;
+
   const busSVG = `
     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12 2L3 21l9-4 9 4-9-19z"/>
@@ -37,6 +72,7 @@ export const generateBusMarkerHTML = ({
 
   return `
     <div class="bus-marker-container ${auraClass}">
+      ${labelHTML}
       <div class="bus-marker-arrow" style="transform: rotate(${rotation}deg); background-color: #ffffff; color: ${color}; border-color: ${color};">
         ${busSVG}
       </div>

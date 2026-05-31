@@ -36,8 +36,10 @@ export const IS_DEMO: boolean = !isTestEnv && (demoForced || !firebaseFullyConfi
 /** Helper fonctionnel (évite la capture de la valeur au moment de l'import dans certains cas). */
 export const isDemoMode = (): boolean => IS_DEMO;
 
-/** Cadence de rafraîchissement de la simulation (ms). */
-export const DEMO_TICK_MS = 1500;
+/** Cadence de rafraîchissement de la simulation (ms).
+ *  Choisie courte pour que l'animation des marqueurs paraisse continue
+ *  sans dépendre d'un filtre Kalman côté carte en mode démo. */
+export const DEMO_TICK_MS = 250;
 
 /** Durée approximative d'une tournée complète simulée (ms). */
 export const DEMO_TRIP_DURATION_MS = 90_000;

@@ -1,13 +1,15 @@
 /**
  * Moteur de simulation du MODE DÉMO.
  *
- * Fait progresser chaque bus le long d'une trajectoire courbe (Bézier quadratique)
- * vers l'école, « scanne » les élèves au fur et à mesure des arrêts, génère des
- * alertes, et expose des abonnements qui reproduisent la signature des listeners
- * Firestore réels — de sorte que le reste de l'application ne voit aucune différence.
+ * Fait progresser chaque bus le long d'une trajectoire **routière réelle**
+ * (polyligne pré-calculée via Mapbox Directions, cf. `seed-routes.ts`)
+ * vers l'école, « scanne » les élèves au fur et à mesure des arrêts, génère
+ * des alertes, et expose des abonnements qui reproduisent la signature des
+ * listeners Firestore — de sorte que le reste de l'app ne voit aucune
+ * différence.
  *
- * Le moteur démarre paresseusement au premier abonnement et tourne pour toute la
- * durée de la session (comportement attendu dans une SPA de démonstration).
+ * Le moteur démarre paresseusement au premier abonnement et tourne pour toute
+ * la durée de la session (comportement attendu dans une SPA de démonstration).
  */
 
 import { BusLiveStatus, BusStatus, type BusRealtimeData } from '@/types/realtime';
@@ -23,6 +25,8 @@ import {
   type DemoStudentSeed,
   type LatLng,
 } from './seed';
+import { DEMO_ROUTES } from './seed-routes';
+import { polylineAt, polylineHeadingAt } from './polyline';
 import { DEMO_DWELL_AT_SCHOOL_MS, DEMO_TICK_MS, DEMO_TRIP_DURATION_MS } from './config';
 
 export { DEMO_SCHOOL, DEMO_USER } from './seed';
@@ -31,7 +35,7 @@ type Listener<T> = (value: T) => void;
 
 interface RuntimeBus {
   seed: DemoBusSeed;
-  control: LatLng;
+  polyline: LatLng[];
   position: LatLng;
   heading: number;
   speed: number; // m/s
@@ -49,40 +53,15 @@ interface RuntimeBus {
 }
 
 // ---------------------------------------------------------------------------
-// Géométrie (Bézier quadratique)
+// Géométrie
 // ---------------------------------------------------------------------------
 
-const lerpPoint = (a: LatLng, b: LatLng, t: number): LatLng => ({
-  lat: a.lat + (b.lat - a.lat) * t,
-  lng: a.lng + (b.lng - a.lng) * t,
-});
-
-const controlPoint = (start: LatLng, end: LatLng, curve: number): LatLng => {
-  const mid = lerpPoint(start, end, 0.5);
-  const dx = end.lng - start.lng;
-  const dy = end.lat - start.lat;
-  const len = Math.hypot(dx, dy) || 1;
-  // Vecteur perpendiculaire normalisé (repère x=lng, y=lat).
-  const perpX = -dy / len;
-  const perpY = dx / len;
-  return { lng: mid.lng + perpX * curve, lat: mid.lat + perpY * curve };
-};
-
-const bezier = (p0: LatLng, c: LatLng, p1: LatLng, t: number): LatLng => {
-  const mt = 1 - t;
-  return {
-    lat: mt * mt * p0.lat + 2 * mt * t * c.lat + t * t * p1.lat,
-    lng: mt * mt * p0.lng + 2 * mt * t * c.lng + t * t * p1.lng,
-  };
-};
-
-const bezierHeading = (p0: LatLng, c: LatLng, p1: LatLng, t: number): number => {
-  const mt = 1 - t;
-  const dLat = 2 * mt * (c.lat - p0.lat) + 2 * t * (p1.lat - c.lat);
-  const dLng = 2 * mt * (c.lng - p0.lng) + 2 * t * (p1.lng - c.lng);
-  let deg = (Math.atan2(dLng, dLat) * 180) / Math.PI; // 0 = Nord, sens horaire
-  if (deg < 0) deg += 360;
-  return deg;
+const polylineForSeed = (seed: DemoBusSeed): LatLng[] => {
+  const route = DEMO_ROUTES[seed.id];
+  if (route && route.polyline.length >= 2) return route.polyline;
+  // Fallback minimal si la route n'a pas été pré-générée pour ce bus :
+  // segment direct start → école (suffisant pour ne pas casser la démo).
+  return [seed.start, DEMO_SCHOOL_LOCATION];
 };
 
 const distanceMeters = (a: LatLng, b: LatLng): number => {
@@ -114,6 +93,8 @@ class DemoSimulation {
   private buses: RuntimeBus[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private started = false;
+  private paused = false;
+  private speedMultiplier = 1;
 
   private busListeners = new Set<Listener<BusRealtimeData[]>>();
   private alertListeners = new Set<Listener<Alert[]>>();
@@ -144,11 +125,68 @@ class DemoSimulation {
       this.timer = null;
     }
     this.started = false;
+    this.paused = false;
+  }
+
+  /** Suspend les ticks du moteur sans détruire l'état des bus. */
+  pause(): void {
+    if (this.paused) return;
+    this.paused = true;
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  /** Reprend la simulation à l'endroit où elle a été mise en pause. */
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.started && this.timer == null) {
+      this.timer = setInterval(() => this.tick(), DEMO_TICK_MS);
+    }
+  }
+
+  isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
+   * Multiplie la cadence de progression de tous les bus et raccourcit
+   * proportionnellement les phases de stationnement à l'école. Utile en
+   * démo pour montrer un cycle complet (trip + dwell + restart) sans
+   * attendre les ~2 minutes naturelles.
+   */
+  setSpeed(multiplier: number): void {
+    if (!Number.isFinite(multiplier) || multiplier <= 0) return;
+    this.speedMultiplier = multiplier;
+  }
+
+  getSpeed(): number {
+    return this.speedMultiplier;
+  }
+
+  /**
+   * Restaure tous les bus à leur état seed initial (positions, progression,
+   * statut, scans). Vide aussi l'historique de courses accumulé pendant la
+   * session. Utile pour relancer une démo proprement en cours de session.
+   */
+  reset(): void {
+    this.buses = DEMO_BUSES.map((seed) => this.initBus(seed));
+    this.courseHistory = [];
+    this.lastAlertSignature = '';
+    this.attendanceSubs.forEach((sub) => {
+      sub.lastVersion = -1;
+    });
+    this.emitBuses();
+    this.emitAlerts();
+    this.emitAttendance();
+    this.emitCourses();
   }
 
   private initBus(seed: DemoBusSeed): RuntimeBus {
     const now = Date.now();
-    const control = controlPoint(seed.start, DEMO_SCHOOL_LOCATION, seed.curve);
+    const polyline = polylineForSeed(seed);
     const delayed = seed.speedFactor < 0.7;
     const isArrived = seed.initialState === 'arrived';
     const progress = isArrived ? 1 : seed.initialProgress;
@@ -168,13 +206,15 @@ class DemoSimulation {
       }
     });
 
-    const position = isArrived ? { ...DEMO_SCHOOL_LOCATION } : bezier(seed.start, control, DEMO_SCHOOL_LOCATION, progress);
+    const position = isArrived
+      ? { ...DEMO_SCHOOL_LOCATION }
+      : polylineAt(polyline, progress);
 
     return {
       seed,
-      control,
+      polyline,
       position,
-      heading: bezierHeading(seed.start, control, DEMO_SCHOOL_LOCATION, Math.min(progress, 0.99)),
+      heading: polylineHeadingAt(polyline, Math.min(progress, 0.99)),
       speed: isArrived ? 0 : 12,
       progress,
       phase: isArrived ? 'dwell' : 'driving',
@@ -223,16 +263,19 @@ class DemoSimulation {
   private tick(): void {
     const now = Date.now();
 
+    const speed = this.speedMultiplier;
+    const dwellMs = DEMO_DWELL_AT_SCHOOL_MS / speed;
+
     for (const bus of this.buses) {
       if (bus.phase === 'dwell') {
-        if (bus.dwellStart != null && now - bus.dwellStart >= DEMO_DWELL_AT_SCHOOL_MS) {
+        if (bus.dwellStart != null && now - bus.dwellStart >= dwellMs) {
           this.startNewTrip(bus);
         }
         continue;
       }
 
       const prev = bus.position;
-      const step = (DEMO_TICK_MS / DEMO_TRIP_DURATION_MS) * bus.seed.speedFactor;
+      const step = (DEMO_TICK_MS / DEMO_TRIP_DURATION_MS) * bus.seed.speedFactor * speed;
       bus.progress = Math.min(1, bus.progress + step);
 
       // Scanner les élèves dont l'arrêt vient d'être dépassé.
@@ -523,6 +566,23 @@ class DemoSimulation {
   getCourseHistory(): CourseHistoryEntry[] {
     this.ensureStarted();
     return [...this.courseHistory];
+  }
+
+  /**
+   * Échantillonne la trajectoire prévue (courbe de Bézier) d'un bus de son
+   * point de départ jusqu'à l'école. Sert à dessiner la ligne pointillée
+   * "où va ce bus" sur la carte du mode démo.
+   */
+  getTrajectory(busId: string, samples = 32): LatLng[] {
+    const seed = DEMO_BUSES.find((b) => b.id === busId);
+    if (!seed) return [];
+    const control = controlPoint(seed.start, DEMO_SCHOOL_LOCATION, seed.curve);
+    const points: LatLng[] = [];
+    for (let i = 0; i <= samples; i++) {
+      const t = i / samples;
+      points.push(bezier(seed.start, control, DEMO_SCHOOL_LOCATION, t));
+    }
+    return points;
   }
 }
 

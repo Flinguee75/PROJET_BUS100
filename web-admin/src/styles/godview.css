@@ -67,6 +67,36 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
+/* Étiquette flottante au-dessus du marqueur : numéro + ratio scannés */
+.bus-marker-label {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+}
+
+.bus-marker-label__number {
+  letter-spacing: 0.02em;
+}
+
+.bus-marker-label__ratio {
+  color: #475569;
+  font-weight: 700;
+}
+
 /* Legacy bus-marker for backward compatibility - Phase 5 optimized */
 .bus-marker {
   @apply w-[52px] h-[52px] rounded-[14px] flex items-center justify-center cursor-pointer border-[3px] border-white relative text-white transition-all duration-200;
@@ -353,6 +383,51 @@
 @keyframes demo-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+.godview-demo-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.godview-demo-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.godview-demo-controls__btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.godview-demo-controls__btn:active {
+  transform: scale(0.95);
+}
+
+.godview-demo-controls__btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.godview-demo-controls__btn--speed {
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .godview-stats-bar {

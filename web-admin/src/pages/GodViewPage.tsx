@@ -24,7 +24,10 @@ import { getLatestGpsHistoryTimestamp } from '@/services/gps_history.firestore';
 import { watchRecentCourseHistory } from '@/services/courseHistory.firestore';
  
 import { GpsKalmanFilter } from '@/utils/gpsKalmanFilter';
-import { IS_DEMO } from '@/demo';
+import { computeAnimationPlan } from '@/utils/animationPlan';
+import { IS_DEMO, demoSim } from '@/demo';
+import { DEMO_BUSES } from '@/demo/seed';
+import { DemoControls } from '@/components/godview/DemoControls';
 
 type ClassifiedBus = BusRealtimeData & {
   classification: 'stationed' | 'deployed';
@@ -277,6 +280,11 @@ export const GodViewPage = () => {
   const markerMotionRef = useRef<
     Map<string, { lat: number; lng: number; timestamp: number | null }>
   >(new Map());
+  // Cibles différées : positions reçues pendant un pan/zoom, à traiter à moveend.
+  const pendingTargetsRef = useRef<
+    Map<string, { lat: number; lng: number; timestamp: number | null; bus: ClassifiedBus }>
+  >(new Map());
+  const flushPendingTargetsRef = useRef<(() => void) | null>(null);
   const initialCenterRef = useRef<[number, number]>(
     school?.location ? [school.location.lng, school.location.lat] : ABIDJAN_CENTER
   );
@@ -312,6 +320,37 @@ export const GodViewPage = () => {
 
   // State dummy pour forcer re-render périodique (rafraîchir affichage ARRIVED → STOPPED)
   const [, setForceUpdate] = useState(0);
+
+  // État Pause/Reset/Vitesse du moteur de simulation démo (uniquement IS_DEMO).
+  const [demoPaused, setDemoPaused] = useState<boolean>(false);
+  const DEMO_SPEED_CYCLE = [1, 2, 5] as const;
+  const [demoSpeed, setDemoSpeed] = useState<number>(1);
+
+  const handleTogglePauseDemo = useCallback(() => {
+    if (demoSim.isPaused()) {
+      demoSim.resume();
+      setDemoPaused(false);
+    } else {
+      demoSim.pause();
+      setDemoPaused(true);
+    }
+  }, []);
+
+  const handleResetDemo = useCallback(() => {
+    demoSim.reset();
+    demoSim.setSpeed(1);
+    setDemoSpeed(1);
+    setDemoPaused(demoSim.isPaused());
+  }, []);
+
+  const handleCycleSpeedDemo = useCallback(() => {
+    setDemoSpeed((current) => {
+      const idx = DEMO_SPEED_CYCLE.indexOf(current as typeof DEMO_SPEED_CYCLE[number]);
+      const next = DEMO_SPEED_CYCLE[(idx + 1) % DEMO_SPEED_CYCLE.length];
+      demoSim.setSpeed(next);
+      return next;
+    });
+  }, []);
 
   // Constante de durée pour affichage ARRIVED (15 minutes)
   const ARRIVED_DISPLAY_DURATION_MS = 15 * 60 * 1000;
@@ -628,6 +667,10 @@ export const GodViewPage = () => {
 
     const handleInteractionEnd = () => {
       isMapInteracting.current = false;
+      // Reprendre les animations différées pendant le pan/zoom : chaque bus
+      // anime maintenant depuis sa position visuelle figée vers la cible la
+      // plus récente reçue pendant l'interaction.
+      flushPendingTargetsRef.current?.();
     };
 
     map.current.on('load', () => {
@@ -721,6 +764,53 @@ export const GodViewPage = () => {
     };
   }, [school, mapLoaded]);
 
+  // En mode démo, dessiner les trajectoires Bézier prévues de chaque bus
+  // en pointillé discret. Aide à comprendre d'un coup d'œil "d'où vient ce
+  // bus / où il va". Pas affiché en mode réel (les routes planifiées ne
+  // sont pas stockées sous cette forme).
+  useEffect(() => {
+    const mapInstance = map.current;
+    if (!mapInstance || !mapLoaded || !IS_DEMO) return;
+
+    const SOURCE_ID = 'demo-trajectories';
+    const LAYER_ID = 'demo-trajectories-layer';
+
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: DEMO_BUSES.map((seed) => ({
+        type: 'Feature' as const,
+        properties: { busId: seed.id },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: demoSim.getTrajectory(seed.id).map((p) => [p.lng, p.lat]),
+        },
+      })),
+    };
+
+    const existing = mapInstance.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+    if (existing) {
+      existing.setData(data);
+    } else {
+      mapInstance.addSource(SOURCE_ID, { type: 'geojson', data });
+      mapInstance.addLayer({
+        id: LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        paint: {
+          'line-color': '#94a3b8',
+          'line-width': 1.5,
+          'line-dasharray': [2, 3],
+          'line-opacity': 0.65,
+        },
+      });
+    }
+
+    return () => {
+      if (mapInstance.getLayer(LAYER_ID)) mapInstance.removeLayer(LAYER_ID);
+      if (mapInstance.getSource(SOURCE_ID)) mapInstance.removeSource(SOURCE_ID);
+    };
+  }, [mapLoaded]);
+
   // Déterminer la couleur du marqueur selon le statut
   const getMarkerColor = useCallback((bus: ClassifiedBus): string => {
     if (!bus.isActive) return '#64748b'; // Gris (inactif)
@@ -797,49 +887,6 @@ export const GodViewPage = () => {
     [school]
   );
 
-  /**
-   * Extrapole la position future d'un bus basée sur vitesse et direction
-   * Utilisé pour combler le gap de latence Firestore (5-10s)
-   *
-   * @param current Position actuelle avec vitesse et heading
-   * @param deltaSeconds Nombre de secondes à extrapoler dans le futur
-   * @returns Position extrapolée
-   */
-  const extrapolatePosition = useCallback(
-    (
-      current: { lat: number; lng: number; speed: number; heading: number },
-      deltaSeconds: number
-    ): { lat: number; lng: number } => {
-      // Vitesse déjà en m/s dans les données
-      const speedMs = current.speed;
-
-      // Si vitesse < 1 m/s (3.6 km/h), pas d'extrapolation (bus probablement arrêté)
-      if (speedMs < 1) {
-        return { lat: current.lat, lng: current.lng };
-      }
-
-      // Distance = vitesse × temps
-      const distanceMeters = speedMs * deltaSeconds;
-
-      // Convertir heading en radians (0° = Nord, sens horaire)
-      const headingRad = (current.heading * Math.PI) / 180;
-
-      // Projections géographiques:
-      // - 1° latitude ≈ 111,320 mètres
-      // - 1° longitude ≈ 111,320 × cos(latitude) mètres
-      const deltaLat = (distanceMeters * Math.cos(headingRad)) / 111320;
-      const deltaLng =
-        (distanceMeters * Math.sin(headingRad)) /
-        (111320 * Math.cos((current.lat * Math.PI) / 180));
-
-      return {
-        lat: current.lat + deltaLat,
-        lng: current.lng + deltaLng,
-      };
-    },
-    []
-  );
-
   // Créer le HTML du marqueur de zone de stationnement
   const createParkingZoneMarkerHTML = useCallback((count: number): string => {
     return `
@@ -854,25 +901,27 @@ export const GodViewPage = () => {
     `;
   }, []);
 
-  // Créer le HTML du marqueur avec flèche directionnelle
+  // Créer le HTML du marqueur avec flèche directionnelle + étiquette flottante
   const createMarkerHTML = useCallback((bus: ClassifiedBus): string => {
     const color = getMarkerColor(bus);
     const rotationAngle = getMarkerRotation(bus);
 
-    // Déterminer si le bus a une alerte
     const busAlerts = realtimeAlerts.filter(a => a.busId === bus.id);
     const hasAlert = busAlerts.length > 0;
     const alertSeverity = busAlerts.find(a => a.severity === 'HIGH') ? 'HIGH' : 'MEDIUM';
 
-    // Utiliser le helper pour générer le HTML avec aura
-  return generateBusMarkerHTML({
+    const counts = studentsCounts[bus.id];
+
+    return generateBusMarkerHTML({
       busNumber: bus.number,
       color,
       rotation: rotationAngle,
       hasAlert,
       alertSeverity,
+      scannedCount: counts?.scanned,
+      totalCount: counts?.total,
     });
-  }, [getMarkerColor, getMarkerRotation, realtimeAlerts]);
+  }, [getMarkerColor, getMarkerRotation, realtimeAlerts, studentsCounts]);
 
   // Compteurs de flotte (pour la sidebar)
   // Le badge "En course" affiche uniquement les bus avec statut EN_ROUTE explicite
@@ -1706,6 +1755,24 @@ export const GodViewPage = () => {
     return () => unsubscribe();
   }, []);
 
+  // Activation automatique des arrêts élèves : dès qu'un popup bus est
+  // ouvert, ses arrêts apparaissent sur la carte. Au close, ils disparaissent.
+  // Évite à l'utilisateur de chercher un toggle pour comprendre la tournée.
+  useEffect(() => {
+    if (activePopupBusId) {
+      const bus = processedBusesRef.current.find((b) => b.id === activePopupBusId);
+      const tripType =
+        (bus ? getActiveTripType(bus) : null) ?? courseTripTypeByBus[activePopupBusId] ?? null;
+      singleStudentOnlyRef.current = false;
+      setStopsBusId(activePopupBusId);
+      setStopsTripType(tripType);
+      setStopsSnapshot({ busId: activePopupBusId, tripType });
+      setShowStudentStops(true);
+    } else {
+      setShowStudentStops(false);
+    }
+  }, [activePopupBusId, courseTripTypeByBus]);
+
   // Make focusBusOnMap globally accessible for popup buttons
   useEffect(() => {
     (window as any).focusBusFromParkingZone = (busId: string) => {
@@ -1778,11 +1845,14 @@ export const GodViewPage = () => {
       bus: ClassifiedBus
     ) => {
       if (isMapInteracting.current || map.current?.isMoving() || map.current?.isZooming()) {
-        marker.setLngLat([targetLng, targetLat]);
-        markerMotionRef.current.set(busId, {
+        // Pendant un pan/zoom utilisateur, on fige visuellement le marqueur
+        // (pas de setLngLat brut qui sauterait à la cible) et on mémorise la
+        // cible la plus récente. Elle sera animée proprement à moveend.
+        pendingTargetsRef.current.set(busId, {
           lat: targetLat,
           lng: targetLng,
           timestamp: targetTimestamp,
+          bus,
         });
         return;
       }
@@ -1799,49 +1869,34 @@ export const GodViewPage = () => {
       const previousMotion = markerMotionRef.current.get(busId);
       const previousTimestamp = previousMotion?.timestamp ?? null;
 
-      if (!kalmanFilters.current.has(busId)) {
-        kalmanFilters.current.set(
-          busId,
-          new GpsKalmanFilter(targetLat, targetLng, 0.01, 20)
-        );
+      // En mode démo, le moteur émet des positions propres à cadence rapide :
+      // on évite d'allouer un filtre Kalman (et son état persistant) inutilement.
+      let kalmanFilter: GpsKalmanFilter | null = null;
+      if (!IS_DEMO) {
+        if (!kalmanFilters.current.has(busId)) {
+          kalmanFilters.current.set(
+            busId,
+            new GpsKalmanFilter(targetLat, targetLng, 0.01, 20)
+          );
+        }
+        kalmanFilter = kalmanFilters.current.get(busId)!;
       }
 
-      const kalmanFilter = kalmanFilters.current.get(busId)!;
+      const plan = computeAnimationPlan({
+        raw: { lat: targetLat, lng: targetLng },
+        previousTimestamp,
+        currentTimestamp: targetTimestamp,
+        bus: {
+          currentPosition: bus.currentPosition
+            ? { speed: bus.currentPosition.speed, heading: bus.currentPosition.heading }
+            : null,
+        },
+        kalmanFilter,
+        isDemo: IS_DEMO,
+      });
 
-      let dt = 1;
-      if (previousTimestamp && targetTimestamp && targetTimestamp > previousTimestamp) {
-        dt = (targetTimestamp - previousTimestamp) / 1000;
-      }
-
-      const filtered = kalmanFilter.filter(targetLat, targetLng, dt);
-
-      const FIRESTORE_AVG_LATENCY = 8000;
-      let durationMs = FIRESTORE_AVG_LATENCY;
-      let finalTarget = { lat: filtered.lat, lng: filtered.lng };
-
-      if (
-        bus.currentPosition &&
-        typeof bus.currentPosition.speed === 'number' &&
-        typeof bus.currentPosition.heading === 'number' &&
-        dt > 3 &&
-        bus.currentPosition.speed * 3.6 > 5
-      ) {
-        const extrapolationSeconds = Math.min(dt, 10);
-        const extrapolated = extrapolatePosition(
-          {
-            lat: filtered.lat,
-            lng: filtered.lng,
-            speed: bus.currentPosition.speed,
-            heading: bus.currentPosition.heading,
-          },
-          extrapolationSeconds
-        );
-
-        finalTarget = extrapolated;
-        durationMs = Math.min(Math.max(dt * 1000 * 1.2, 5000), 15000);
-      } else {
-        durationMs = Math.min(Math.max(dt * 1000, 600), 10000);
-      }
+      const finalTarget = plan.target;
+      const durationMs = plan.durationMs;
 
       const startTime = performance.now();
 
@@ -1874,8 +1929,31 @@ export const GodViewPage = () => {
         timestamp: targetTimestamp,
       });
     },
-    [extrapolatePosition]
+    []
   );
+
+  // Hook de "flush" appelé à moveend : reprend les animations différées
+  // pendant l'interaction utilisateur en repartant de la position visuelle.
+  useEffect(() => {
+    flushPendingTargetsRef.current = () => {
+      pendingTargetsRef.current.forEach((pending, busId) => {
+        const marker = markers.current.get(busId);
+        if (!marker) return;
+        animateMarkerToPosition(
+          busId,
+          marker,
+          pending.lat,
+          pending.lng,
+          pending.timestamp,
+          pending.bus
+        );
+      });
+      pendingTargetsRef.current.clear();
+    };
+    return () => {
+      flushPendingTargetsRef.current = null;
+    };
+  }, [animateMarkerToPosition]);
 
   const getBusPositionTimestamp = useCallback((bus: ClassifiedBus): number | null => {
     if (typeof bus.currentPosition?.timestamp === 'number') {
@@ -2001,20 +2079,53 @@ export const GodViewPage = () => {
           });
         }
       } else {
-        // Créer un nouveau marqueur
+        // Créer un nouveau marqueur SYNCHRONEUSEMENT (le popup est attaché
+        // async ensuite). Si on attendait la résolution du popup async pour
+        // enregistrer le marker, un tick suivant arrivant entre temps verrait
+        // markers.current.has(busId) === false et créerait un doublon.
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerHTML = createMarkerHTML(bus);
 
-        // Créer le popup (async)
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .addTo(map.current!);
+
+        markers.current.set(busId, marker);
+        markerMotionRef.current.set(busId, {
+          lat,
+          lng,
+          timestamp: getBusPositionTimestamp(bus),
+        });
+
+        if (
+          trackedBusIdRef.current === busId &&
+          map.current &&
+          !isMapInteracting.current &&
+          !map.current.isMoving() &&
+          !map.current.isZooming()
+        ) {
+          map.current.easeTo({
+            center: [lng, lat],
+            zoom: map.current.getZoom(),
+            duration: 800,
+            easing: (t) => t,
+            essential: true,
+          });
+        }
+
+        // Attacher le popup une fois le HTML résolu.
         createPopupHTML(bus).then(html => {
+          // Garde-fou : si le marker a été nettoyé entre-temps (ex: bus
+          // déclassifié), on n'attache rien.
+          if (!markers.current.has(busId)) return;
+
           const popup = new mapboxgl.Popup({
             offset: 25,
             closeButton: false,
             closeOnClick: false,
           }).setHTML(html);
 
-          // Tracker le popup quand il est ouvert
           popup.on('open', () => {
             setActivePopupBusId(bus.id);
             setSelectedBusId(bus.id);
@@ -2026,44 +2137,15 @@ export const GodViewPage = () => {
             if (parkingZonePopup.current?.isOpen()) {
               parkingZonePopup.current.remove();
             }
-
             attachPopupCloseHandler(popup);
           });
 
-          // Cleanup quand popup fermé
           popup.on('close', () => {
             setActivePopupBusId(null);
           });
 
           popups.current.set(busId, popup);
-
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([lng, lat])
-            .setPopup(popup)
-            .addTo(map.current!);
-
-          markers.current.set(busId, marker);
-          markerMotionRef.current.set(busId, {
-            lat,
-            lng,
-            timestamp: getBusPositionTimestamp(bus),
-          });
-
-          if (
-            trackedBusIdRef.current === busId &&
-            map.current &&
-            !isMapInteracting.current &&
-            !map.current.isMoving() &&
-            !map.current.isZooming()
-          ) {
-            map.current.easeTo({
-              center: [lng, lat],
-              zoom: map.current.getZoom(),
-              duration: 800,
-              easing: (t) => t,
-              essential: true,
-            });
-          }
+          marker.setPopup(popup);
         });
       }
     });
@@ -2175,11 +2257,18 @@ export const GodViewPage = () => {
           ))}
         </div>
 
-        {/* Badge MODE DÉMO (uniquement quand les données sont simulées) */}
+        {/* Badge MODE DÉMO + contrôles présentation (pause/reset) */}
         {IS_DEMO && (
           <div className="godview-demo-badge" style={{ position: 'absolute', top: '46px', left: '10px', zIndex: 2 }}>
             <span className="godview-demo-dot" />
-            MODE DÉMO — données simulées
+            <span>MODE DÉMO — données simulées</span>
+            <DemoControls
+              isPaused={demoPaused}
+              onTogglePause={handleTogglePauseDemo}
+              onReset={handleResetDemo}
+              speed={demoSpeed}
+              onCycleSpeed={handleCycleSpeedDemo}
+            />
           </div>
         )}
 
